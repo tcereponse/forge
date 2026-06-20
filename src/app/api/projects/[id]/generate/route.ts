@@ -10,6 +10,7 @@ import {
 import { buildTemplateFiles, buildIndexCss } from "@/lib/forge-templates";
 import { postProcessProject, type ValidationReport } from "@/lib/forge-postprocess";
 import { unescapeJsonString } from "@/lib/forge-anticorruption";
+import { writeProjectFiles, runInstall } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -328,8 +329,22 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
         filesJson: JSON.stringify(files),
         fileCount: files.length,
         validationJson: JSON.stringify(validationReport),
+        installStatus: "pending",
+        buildStatus: "pending",
       },
     });
+
+    // ───── PHASE 5: Write files to disk + auto-install dependencies ─────
+    // Write the generated project to workspaces/{id}/ and trigger npm install
+    // asynchronously. The user can poll /api/projects/[id]/status for progress.
+    try {
+      await writeProjectFiles(id, files);
+      // Fire-and-forget: npm install runs in the background
+      runInstall(id);
+    } catch (diskErr) {
+      console.error("[generate] writeProjectFiles failed:", diskErr);
+      // Non-fatal: the project is still in the DB, user can retry install
+    }
 
     return NextResponse.json({
       success: true,

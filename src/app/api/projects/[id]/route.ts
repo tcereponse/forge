@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { type GeneratedFile, inferLanguage } from "@/lib/forge-config";
+import { deleteWorkspace, getProcessStatus } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export async function GET(
         validation = null;
       }
     }
+    // Include live install/build status from the workspace manager
+    const processStatus = getProcessStatus(id);
     return NextResponse.json({
       success: true,
       project: {
@@ -64,6 +67,12 @@ export async function GET(
         prd: project.prd,
       },
       validation,
+      process: {
+        install: processStatus.install,
+        build: processStatus.build,
+        installLog: processStatus.installLog,
+        buildLog: processStatus.buildLog,
+      },
     });
   } catch (error) {
     console.error("[/api/projects/[id] GET]", error);
@@ -88,6 +97,12 @@ export async function DELETE(
       );
     }
     await db.project.delete({ where: { id } });
+    // Clean up the workspace on disk + kill any running processes
+    try {
+      await deleteWorkspace(id);
+    } catch {
+      // Non-fatal: workspace may not exist
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[/api/projects/[id] DELETE]", error);

@@ -28,6 +28,8 @@ model Project {
   filesJson   String   @default("[]") // JSON array of { path, content, language }
   fileCount   Int      @default(0)
   validationJson String @default("") // JSON validation report from post-processing
+  installStatus String  @default("pending") // pending | installing | installed | failed
+  buildStatus  String   @default("pending") // pending | building | built | failed
   status      String   @default("draft") // draft | generating | ready | failed
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

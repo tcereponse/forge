@@ -16,11 +16,13 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
+  Play,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Markdown } from "@/components/forge/markdown";
 import { FileExplorer } from "@/components/forge/file-explorer";
 import { ValidationPanel } from "@/components/forge/validation-panel";
+import { PreviewPanel } from "@/components/forge/preview-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,7 +47,7 @@ function MetaPill({ icon: Icon, label, value }: { icon: typeof Hash; label: stri
 export function Workspace() {
   const { currentProject, loadingProject, setShowBuilder, fetchProject, validation } =
     useForgeStore();
-  const [tab, setTab] = useState<"code" | "prd" | "validation">("code");
+  const [tab, setTab] = useState<"code" | "prd" | "validation" | "preview">("code");
 
   if (loadingProject && !currentProject) {
     return (
@@ -271,12 +273,26 @@ export function Workspace() {
                 <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />
               )}
             </button>
+            <button
+              onClick={() => setTab("preview")}
+              className={cn(
+                "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
+                tab === "preview"
+                  ? "border-cyan-500 text-cyan-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              )}
+            >
+              <Play className="h-3.5 w-3.5" />
+              Aperçu
+            </button>
           </div>
 
           {/* Tab content */}
           <div className="min-h-0 flex-1">
             {tab === "code" ? (
               <FileExplorer project={p} />
+            ) : tab === "preview" ? (
+              <PreviewPanel projectId={p.id} />
             ) : tab === "validation" ? (
               <div className="custom-scroll h-full overflow-y-auto p-4 sm:p-6">
                 <div className="mx-auto max-w-3xl">

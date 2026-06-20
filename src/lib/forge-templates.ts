@@ -141,6 +141,10 @@ createRoot(document.getElementById('root')!).render(
   });
 
   // ── vite.config ──────────────────────────────────────────────
+  // base: './' makes built assets use relative paths so the preview
+  // iframe can load them from /api/preview/{id}/
+  // build.crossOriginLoading: false removes the crossorigin attribute
+  // from script/link tags (needed for sandboxed iframe preview)
   if (config.stack === "vite") {
     files.push({
       path: `vite.config.${tsOrJs}`,
@@ -150,6 +154,10 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  base: './',
+  build: {
+    crossOriginLoading: false,
+  },
 })
 `,
     });
