@@ -3,6 +3,38 @@
 import { create } from "zustand";
 import type { ProjectRecord } from "@/lib/forge-config";
 
+// Ensure every project record has safe defaults for array/string fields,
+// regardless of which endpoint it came from (list vs detail).
+function normalizeProject(p: Partial<ProjectRecord> | null | undefined): ProjectRecord | null {
+  if (!p || !p.id) return null;
+  return {
+    id: p.id,
+    name: p.name ?? "Sans nom",
+    slug: p.slug ?? p.id,
+    description: p.description ?? "",
+    stack: (p.stack ?? "vite") as ProjectRecord["stack"],
+    typescript: p.typescript ?? true,
+    styling: (p.styling ?? "tailwind") as ProjectRecord["styling"],
+    routing: (p.routing ?? "router") as ProjectRecord["routing"],
+    stateMgmt: (p.stateMgmt ?? "none") as ProjectRecord["stateMgmt"],
+    uiLib: (p.uiLib ?? "none") as ProjectRecord["uiLib"],
+    features: Array.isArray(p.features) ? p.features : [],
+    prd: p.prd ?? "",
+    files: Array.isArray(p.files) ? p.files : [],
+    fileCount: p.fileCount ?? 0,
+    status: (p.status ?? "draft") as ProjectRecord["status"],
+    createdAt: p.createdAt ?? new Date().toISOString(),
+    updatedAt: p.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+function normalizeProjects(ps: unknown): ProjectRecord[] {
+  if (!Array.isArray(ps)) return [];
+  return ps
+    .map((p) => normalizeProject(p as Partial<ProjectRecord>))
+    .filter((p): p is ProjectRecord => p !== null);
+}
+
 interface ForgeState {
   // Gallery
   projects: ProjectRecord[];
@@ -56,7 +88,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch("/api/projects", { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ projects: data.projects, loadingProjects: false });
+      set({ projects: normalizeProjects(data.projects), loadingProjects: false });
     } catch (e) {
       set({
         loadingProjects: false,
@@ -66,11 +98,11 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   },
 
   selectProject: (p) =>
-    set({ currentProject: p, showBuilder: false, generationPhase: "idle", generationError: null }),
+    set({ currentProject: normalizeProject(p), showBuilder: false, generationPhase: "idle", generationError: null }),
 
   selectProjectById: async (id) => {
-    // Optimistically show the project from the gallery, then fetch fresh data
-    const cached = get().projects.find((p) => p.id === id) ?? null;
+    // Optimistically show the project from the gallery (normalized), then fetch fresh data
+    const cached = normalizeProject(get().projects.find((p) => p.id === id) ?? null);
     set({
       currentProject: cached,
       showBuilder: false,
@@ -82,7 +114,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ currentProject: data.project, loadingProject: false });
+      set({ currentProject: normalizeProject(data.project), loadingProject: false });
       // Also refresh the gallery to keep status in sync
       get().fetchProjects();
     } catch (e) {
@@ -101,7 +133,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch(`/api/projects/${cur.id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ currentProject: data.project, loadingProject: false });
+      set({ currentProject: normalizeProject(data.project), loadingProject: false });
       get().fetchProjects();
     } catch (e) {
       set({ loadingProject: false });
@@ -114,7 +146,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ currentProject: data.project, loadingProject: false, showBuilder: false });
+      set({ currentProject: normalizeProject(data.project), loadingProject: false, showBuilder: false });
     } catch (e) {
       set({
         loadingProject: false,
