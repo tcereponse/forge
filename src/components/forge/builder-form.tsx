@@ -7,6 +7,7 @@ import {
   Loader2,
   Wand2,
   ChevronRight,
+  ChevronDown,
   Layers,
   Palette,
   Route,
@@ -118,6 +119,7 @@ export function BuilderForm() {
   );
   const [extLoading, setExtLoading] = useState(true);
   const [extError, setExtError] = useState(false);
+  const [showExtList, setShowExtList] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -386,22 +388,89 @@ export function BuilderForm() {
             <Check className="mr-1.5 inline h-3.5 w-3.5" />
             Fonctionnalités ({features.length} sélectionnées)
           </p>
-          <span className="flex items-center gap-1 text-[10px]">
-            {extLoading ? (
-              <span className="flex items-center gap-1 text-slate-500">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Chargement des extensions…
-              </span>
-            ) : extError ? (
-              <span className="text-amber-400/70">Extensions indisponibles</span>
-            ) : extPacks.length > 0 ? (
-              <span className="flex items-center gap-1 font-medium text-cyan-400">
-                <Sparkles className="h-3 w-3" />
-                {extPacks.length} packs d'extensions PRD chargés
-              </span>
-            ) : null}
-          </span>
+          {extLoading ? (
+            <span className="flex items-center gap-1 text-[10px] text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Chargement…
+            </span>
+          ) : extError ? (
+            <span className="text-[10px] text-amber-400/70">Extensions indisponibles</span>
+          ) : extPacks.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowExtList((v) => !v)}
+              className="flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-medium text-cyan-300 transition hover:bg-cyan-500/20"
+            >
+              <Sparkles className="h-3 w-3" />
+              {extPacks.length} packs d'extensions PRD
+              {showExtList ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
+          ) : null}
         </div>
+
+        {/* Full list of extension packs (collapsible) */}
+        {showExtList && extPacks.length > 0 && (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Catalogue complet des extensions PRD
+              </p>
+              <span className="text-[10px] text-slate-600">
+                {extPacks.reduce((acc, p) => acc + p.prdCount, 0)} contextes PRD au total
+              </span>
+            </div>
+            <div className="custom-scroll grid max-h-64 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+              {extPacks.map((pack) => {
+                // Find which features use this pack
+                const linkedFeatures = Object.entries(extFeatureMap)
+                  .filter(([, packs]) => packs.includes(pack.id))
+                  .map(([feat]) => feat);
+                return (
+                  <div
+                    key={pack.id}
+                    className={cn(
+                      "rounded-md border px-2.5 py-2 text-left",
+                      linkedFeatures.length > 0
+                        ? "border-cyan-500/30 bg-cyan-500/5"
+                        : "border-slate-800 bg-slate-900/40"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <p className="text-[11px] font-medium text-slate-200">
+                        {pack.name}
+                      </p>
+                      <span className="shrink-0 rounded bg-slate-800 px-1 py-0.5 text-[9px] font-mono text-cyan-300">
+                        {pack.prdCount}
+                      </span>
+                    </div>
+                    {pack.description && (
+                      <p className="mt-0.5 text-[9px] leading-tight text-slate-500">
+                        {pack.description}
+                      </p>
+                    )}
+                    {linkedFeatures.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {linkedFeatures.map((feat) => (
+                          <span
+                            key={feat}
+                            className="rounded bg-cyan-500/15 px-1 py-0.5 text-[8px] text-cyan-300"
+                          >
+                            {feat}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           {FEATURE_OPTIONS.map((f) => {
             const active = features.includes(f.value);
