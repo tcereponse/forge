@@ -1,14 +1,16 @@
 // Post-generation validation and auto-repair for generated React projects.
 // Addresses the standardization plan:
 //   A. Dependency reconciliation (scan imports → ensure all in package.json)
-//   B. Tailwind/CSS config verification
+//   B. Tailwind corruption crash-test + auto-repair
 //   C. Utility files (src/lib/utils.ts + cn()) when needed
 //   D. React architecture checks (no hook-before-provider patterns)
 //   E. Newline corruption crash-test + auto-repair (CODE_GENERATION_CORRUPTION_PRD)
-//   F. Validation report
+//   F. Missing import auto-repair (create stub components for unresolved imports)
+//   G. Validation report
 
 import type { GeneratedFile, ProjectConfig, ValidationIssue, ValidationReport } from "./forge-config";
 import { sanitizeFileContent } from "./forge-anticorruption";
+import path from "path";
 
 // ── Known import-name → npm-package mappings with versions ────────────────
 // When the LLM uses an import like `import { motion } from 'framer-motion'`,
@@ -380,7 +382,113 @@ export function postProcessProject(
     }
   }
 
-  // ── E. Compile report ─────────────────────────────────────────────────
+  // ── F. Missing import auto-repair ─────────────────────────────────────
+  // Scan all .tsx/.ts/.jsx/.js files for relative imports (./ or ../),
+  // check if the target file exists, and create stub components for any
+  // missing ones. This prevents "Cannot find module" build errors.
+  const existingPaths = new Set(result.map((f) => f.path));
+  const createdStubs = new Set<string>();
+
+  for (const f of [...result]) {
+    if (
+      f.language !== "tsx" &&
+      f.language !== "ts" &&
+      f.language !== "jsx" &&
+      f.language !== "javascript"
+    )
+      continue;
+
+    const imports = extractImports(f.content);
+    for (const spec of imports) {
+      // Only handle relative imports
+      if (!spec.startsWith(".")) continue;
+      // Skip CSS/style imports (these are handled by the bundler, not TypeScript)
+      if (spec.endsWith(".css") || spec.endsWith(".scss") || spec.endsWith(".sass") || spec.endsWith(".less")) continue;
+      // Skip JSON imports
+      if (spec.endsWith(".json")) continue;
+      // Skip asset imports
+      if (/\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot|mp4|webm|mp3|wav)$/.test(spec)) continue;
+
+      // Resolve the import path relative to the file's directory
+      const fileDir = path.dirname(f.path);
+      const resolvedBase = path.posix.join(fileDir, spec);
+
+      // Try multiple extensions
+      const exts = config.typescript
+        ? [".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts", "/index.jsx", "/index.js"]
+        : [".jsx", ".js", ".tsx", ".ts", "/index.jsx", "/index.js", "/index.tsx", "/index.ts"];
+
+      let found = false;
+      for (const ext of exts) {
+        const candidate = resolvedBase.endsWith(ext) ? resolvedBase : resolvedBase + ext;
+        if (existingPaths.has(candidate)) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        // Determine the best stub file path and name
+        const stubExt = config.typescript ? ".tsx" : ".jsx";
+        let stubPath = resolvedBase + stubExt;
+        // If the import points to a directory (index), create index file
+        if (resolvedBase.endsWith("/index")) {
+          stubPath = resolvedBase + stubExt;
+        }
+
+        // Skip if already created
+        if (createdStubs.has(stubPath)) continue;
+
+        // Determine component name from the path
+        const baseName = path.posix.basename(stubPath, stubExt);
+        const componentName = baseName
+          .split(/[-_]/)
+          .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+          .join("");
+
+        // Create a stub component
+        const stubContent = config.typescript
+          ? `// Auto-generated stub component (the LLM imported this but didn't create it)
+// Replace with real implementation
+import type { ReactNode } from 'react'
+
+interface ${componentName}Props {
+  children?: ReactNode
+}
+
+export default function ${componentName}({ children }: ${componentName}Props) {
+  return (
+    <div className="${componentName.toLowerCase()}-stub p-4 border border-dashed border-slate-300 rounded-lg text-slate-500 text-sm">
+      {children ?? '${componentName} (stub)'}
+    </div>
+  )
+}
+`
+          : `// Auto-generated stub component
+export default function ${componentName}({ children }) {
+  return (
+    <div className="${componentName.toLowerCase()}-stub p-4 border border-dashed border-slate-300 rounded-lg text-slate-500 text-sm">
+      {children || '${componentName} (stub)'}
+    </div>
+  )
+}
+`;
+
+        result.push({
+          path: stubPath,
+          language: config.typescript ? "tsx" : "jsx",
+          content: stubContent,
+        });
+        existingPaths.add(stubPath);
+        createdStubs.add(stubPath);
+        autoFixed.push(
+          `Composant stub créé : ${stubPath} (import manquant depuis ${f.path})`
+        );
+      }
+    }
+  }
+
+  // ── G. Compile report ─────────────────────────────────────────────────
   const errors = issues.filter((i) => i.severity === "error");
   const report: ValidationReport = {
     issues,
