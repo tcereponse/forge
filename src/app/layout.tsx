@@ -15,36 +15,37 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Extension Lab — Extensions de Navigateur augmentées par l’IA",
+  title: "React Forge — Générateur de projets React par IA",
   description:
-    "Analyse interactive de l’extension Chrome GLOBAL_KIROV3 (Manifest V3) : pont navigateur/IA, navigation augmentée, copilote utilisateur et transformation en application. Démonstrations live avec LLM, recherche web et lecture de pages.",
+    "Décris ton application, configure ta stack (Vite/Next, TypeScript, Tailwind, Router, Zustand, shadcn/ui), et l'IA génère un projet React complet, fonctionnel et téléchargeable en ZIP.",
   keywords: [
-    "extension navigateur",
-    "Manifest V3",
-    "Chrome extension",
+    "React",
+    "générateur",
+    "scaffold",
+    "Vite",
+    "Next.js",
+    "TypeScript",
+    "Tailwind",
     "IA",
-    "copilote",
-    "content script",
-    "bridge",
-    "KIROV3",
+    "boilerplate",
   ],
-  authors: [{ name: "Extension Lab" }],
+  authors: [{ name: "React Forge" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "Extension Lab — Extensions augmentées par l’IA",
+    title: "React Forge — Générateur de projets React par IA",
     description:
-      "Explorez une extension Chrome Manifest V3 réelle et ses 4 piliers : bridge, navigation IA, copilote, transformation en application.",
+      "Forge des applications React complètes avec l'IA : code source, configuration et composants générés automatiquement.",
     url: "https://chat.z.ai",
-    siteName: "Extension Lab",
+    siteName: "React Forge",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Extension Lab — Extensions augmentées par l’IA",
+    title: "React Forge — Générateur de projets React par IA",
     description:
-      "Explorez une extension Chrome Manifest V3 réelle et ses 4 piliers.",
+      "Forge des applications React complètes avec l'IA.",
   },
 };
 
@@ -54,9 +55,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased bg-slate-950 text-slate-100`}
       >
         {children}
         <Toaster />

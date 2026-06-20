@@ -26,7 +26,6 @@ export function Markdown({ content, className }: MarkdownProps) {
         "prose-pre:bg-slate-950 prose-pre:border prose-pre:border-slate-800 prose-pre:rounded-lg prose-pre:p-3 prose-pre:my-3 prose-pre:overflow-x-auto",
         "prose-blockquote:border-l-cyan-500 prose-blockquote:bg-slate-800/40 prose-blockquote:py-1 prose-blockquote:px-3 prose-blockquote:rounded-r prose-blockquote:not-italic prose-blockquote:text-slate-300",
         "prose-a:text-cyan-400 prose-a:underline prose-a:hover:text-cyan-300",
-        "prose-table:text-sm prose-th:text-slate-200 prose-th:bg-slate-800/50 prose-td:text-slate-300",
         className
       )}
     >

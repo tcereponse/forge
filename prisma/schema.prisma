@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,20 +10,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  // Stack config (stored as plain values for easy querying)
+  stack       String   @default("vite") // vite | next | cra
+  typescript  Boolean  @default(true)
+  styling     String   @default("tailwind") // tailwind | css | styled
+  routing     String   @default("router") // router | none
+  stateMgmt   String   @default("none") // zustand | context | redux | none
+  uiLib       String   @default("none") // shadcn | mui | none
+  features    String   @default("[]") // JSON array of strings
+  // AI generation outputs (JSON strings)
+  prd         String   @default("") // Product Requirements Document (markdown)
+  filesJson   String   @default("[]") // JSON array of { path, content, language }
+  fileCount   Int      @default(0)
+  status      String   @default("draft") // draft | generating | ready | failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([createdAt])
 }

@@ -1,0 +1,841 @@
+     1→/**
+     2→ * 💎 ELITE FORGE GLOBAL — KIROV3
+     3→ * Senior Engineering Rewrite (Grade Diamond G50)
+     4→ * Architecture Modulaire, Résiliente & Multi-Plateforme
+     5→ */
+     6→
+     7→// ==========================================
+     8→// 1. CONFIGURATION & CONSTANTES
+     9→// ==========================================
+    10→const CONFIG = {
+    11→    SERVER_URL: "http://127.0.0.1:5005",
+    12→    MAX_PAYLOAD_SIZE: 500 * 1024, // 500KB limite pour éviter les crash réseau
+    13→    POLLING_BASE_INTERVAL: 2500,
+    14→    MAX_RETRIES: 5,
+    15→    VERSION: "G50-Senior",
+    16→    DEBUG_MODE: true
+    17→};
+    18→
+    19→// ==========================================
+    20→// 2. OBSERVABILITÉ (KirovLogger)
+    21→// ==========================================
+    22→class KirovLogger {
+    23→    static levels = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
+    24→    static currentLevel = CONFIG.DEBUG_MODE ? 0 : 1;
+    25→    static metrics = { promptsInjected: 0, captures: 0, bridgeErrors: 0 };
+    26→
+    27→    static _log(levelName, ...args) {
+    28→        if (this.levels[levelName] >= this.currentLevel) {
+    29→            const prefix = `[KIROV3] [${levelName}]`;
+    30→            if (levelName === 'ERROR') console.error(prefix, ...args);
+    31→            else if (levelName === 'WARN') console.warn(prefix, ...args);
+    32→            else console.log(prefix, ...args);
+    33→        }
+    34→    }
+    35→    static debug(...args) { this._log('DEBUG', ...args); }
+    36→    static info(...args) { this._log('INFO', ...args); }
+    37→    static warn(...args) { this._log('WARN', ...args); }
+    38→    static error(...args) { this._log('ERROR', ...args); }
+    39→    
+    40→    static trackMetric(name) {
+    41→        if (this.metrics[name] !== undefined) this.metrics[name]++;
+    42→    }
+    43→}
+    44→
+    45→// ==========================================
+    46→// 3. UTILITAIRES (Crypto, Validation)
+    47→// ==========================================
+    48→const Utils = {
+    49→    async sha256(text) {
+    50→        if (!text) return "";
+    51→        const msgBuffer = new TextEncoder().encode(text);
+    52→        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    53→        const hashArray = Array.from(new Uint8Array(hashBuffer));
+    54→        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    55→    },
+    56→    validateBridgeResponse(data) {
+    57→        if (!data || typeof data !== 'object') return false;
+    58→        if (!('status' in data)) return false; // Validation de schéma minimaliste
+    59→        return true;
+    60→    }
+    61→};
+    62→
+    63→// ==========================================
+    64→// 4. EVENT BUS (Pattern Observer)
+    65→// ==========================================
+    66→class EventBus {
+    67→    constructor() { this.listeners = {}; }
+    68→    on(event, callback) {
+    69→        if (!this.listeners[event]) this.listeners[event] = [];
+    70→        this.listeners[event].push(callback);
+    71→    }
+    72→    emit(event, data) {
+    73→        if (this.listeners[event]) {
+    74→            this.listeners[event].forEach(cb => {
+    75→                try { cb(data); } catch(e) { KirovLogger.error(`EventBus Error on ${event}:`, e); }
+    76→            });
+    77→        }
+    78→    }
+    79→}
+    80→const bus = new EventBus();
+    81→
+    82→// ==========================================
+    83→// 5. STATE MANAGER (Immutable & Persistant)
+    84→// ==========================================
+    85→class StateManager {
+    86→    constructor() {
+    87→        this._state = {
+    88→            isActivated: false,
+    89→            currentPhase: 0,
+    90→            projectId: "UNKNOWN",
+    91→            lastPromptHash: null,
+    92→            lastOutputHash: null,
+    93→            isOffline: false,
+    94→            queue: [] // File d'attente pour le mode hors-ligne
+    95→        };
+    96→    }
+    97→    
+    98→    get(key) { return this._state[key]; }
+    99→    
+   100→    set(key, value) {
+   101→        this._state[key] = value;
+   102→        // Persistance des données critiques via l'API Chrome locale
+   103→        if (['queue', 'projectId', 'currentPhase'].includes(key)) {
+   104→            try { chrome.storage.local.set({ [key]: value }); } catch(e){}
+   105→        }
+   106→    }
+   107→
+   108→    async load() {
+   109→        try {
+   110→            const data = await chrome.storage.local.get(['queue', 'projectId', 'currentPhase']);
+   111→            if (data.queue) this._state.queue = data.queue;
+   112→            if (data.projectId) this._state.projectId = data.projectId;
+   113→            if (data.currentPhase) this._state.currentPhase = data.currentPhase;
+   114→        } catch (e) { KirovLogger.warn("Cannot load storage", e); }
+   115→    }
+   116→}
+   117→const state = new StateManager();
+   118→
+   119→// ==========================================
+   120→// 6. BRIDGE CLIENT (Resilience Network)
+   121→// ==========================================
+   122→class BridgeClient {
+   123→    constructor() {
+   124→        this.consecutiveFailures = 0;
+   125→        this.circuitOpen = false;
+   126→        this.currentAbortController = null;
+   127→        this.pollingIntervalId = null;
+   128→        this.currentInterval = CONFIG.POLLING_BASE_INTERVAL;
+   129→    }
+   130→
+   131→    startPolling() {
+   132→        if (this.pollingIntervalId) clearTimeout(this.pollingIntervalId);
+   133→        this._pollCycle();
+   134→    }
+   135→
+   136→    async _pollCycle() {
+   137→        if (!this.circuitOpen) await this.poll();
+   138→        
+   139→        // Adaptive polling : ralentit si hors-ligne pour économiser CPU/Réseau
+   140→        this.currentInterval = state.get('isOffline') ? 10000 : CONFIG.POLLING_BASE_INTERVAL;
+   141→        this.pollingIntervalId = setTimeout(() => this._pollCycle(), this.currentInterval);
+   142→    }
+   143→
+   144→    async poll() {
+   145→        // Annulation de la requête précédente si elle pend (Conflits Promises)
+   146→        if (this.currentAbortController) this.currentAbortController.abort();
+   147→        this.currentAbortController = new AbortController();
+   148→
+   149→        try {
+   150→            const platformName = platform.config.host || 'fallback';
+   151→            const res = await fetch(`${CONFIG.SERVER_URL}/v1/bridge/poll?platform=${platformName}`, {
+   152→                signal: this.currentAbortController.signal
+   153→            });
+   154→            
+   155→            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   156→            const data = await res.json();
+   157→            
+   158→            if (!Utils.validateBridgeResponse(data)) throw new Error("Invalid schema");
+   159→
+   160→            this._handleSuccess();
+   161→            bus.emit('BRIDGE_SYNC', data);
+   162→            
+   163→            if (data.phase_num === 4) this.pollLogs();
+   164→
+   165→        } catch (e) {
+   166→            if (e.name !== 'AbortError') this._handleFailure(e);
+   167→        }
+   168→    }
+   169→
+   170→    async sendCapture(payload) {
+   171→        const strPayload = JSON.stringify(payload);
+   172→        if (strPayload.length > CONFIG.MAX_PAYLOAD_SIZE) {
+   173→            KirovLogger.warn("Payload over 500KB, truncating or dropping.");
+   174→            return;
+   175→        }
+   176→
+   177→        if (state.get('isOffline')) {
+   178→            KirovLogger.info("Offline: Queueing payload.");
+   179→            const q = state.get('queue');
+   180→            q.push(payload);
+   181→            state.set('queue', q);
+   182→            return;
+   183→        }
+   184→
+   185→        try {
+   186→            const res = await fetch(`${CONFIG.SERVER_URL}/v1/bridge/callback`, {
+   187→                method: 'POST',
+   188→                headers: { 'Content-Type': 'application/json' },
+   189→                body: strPayload
+   190→            });
+   191→            if (res.ok) {
+   192→                KirovLogger.trackMetric('captures');
+   193→                bus.emit('CAPTURE_SENT', payload);
+   194→            }
+   195→        } catch (e) {
+   196→            KirovLogger.error("Failed to send capture, queueing.", e);
+   197→            const q = state.get('queue');
+   198→            q.push(payload);
+   199→            state.set('queue', q);
+   200→            this._handleFailure(e);
+   201→        }
+   202→    }
+   203→
+   204→    async flushQueue() {
+   205→        const q = state.get('queue');
+   206→        if (q.length === 0) return;
+   207→        KirovLogger.info(`Flushing queue: ${q.length} items`);
+   208→        
+   209→        const items = [...q];
+   210→        state.set('queue', []);
+   211→        for (const item of items) await this.sendCapture(item);
+   212→    }
+   213→
+   214→    async pollLogs() {
+   215→        try {
+   216→            const res = await fetch(`${CONFIG.SERVER_URL}/v1/logs`);
+   217→            if (!res.ok) return;
+   218→            const data = await res.json();
+   219→            bus.emit('LOGS_SYNC', data.logs || []);
+   220→        } catch (e) { KirovLogger.warn("Log polling failed", e); }
+   221→    }
+   222→
+   223→    _handleSuccess() {
+   224→        this.consecutiveFailures = 0;
+   225→        if (state.get('isOffline')) {
+   226→            KirovLogger.info("Bridge reconnected.");
+   227→            state.set('isOffline', false);
+   228→            bus.emit('BRIDGE_ONLINE');
+   229→            this.flushQueue();
+   230→        }
+   231→    }
+   232→
+   233→    _handleFailure(err) {
+   234→        this.consecutiveFailures++;
+   235→        KirovLogger.trackMetric('bridgeErrors');
+   236→        KirovLogger.warn(`Bridge error (${this.consecutiveFailures}):`, err);
+   237→
+   238→        // Circuit Breaker : Stop au bout de 5 échecs
+   239→        if (this.consecutiveFailures >= CONFIG.MAX_RETRIES && !state.get('isOffline')) {
+   240→            KirovLogger.error("Circuit breaker triggered! Bridge is OFFLINE.");
+   241→            state.set('isOffline', true);
+   242→            bus.emit('BRIDGE_OFFLINE');
+   243→        }
+   244→    }
+   245→}
+   246→const bridge = new BridgeClient();
+   247→
+   248→// ==========================================
+   249→// 7. PLATFORM DETECTOR (Cross-Plateforme)
+   250→// ==========================================
+   251→const PLATFORMS = {
+   252→    DEEPSEEK: {
+   253→        host: "deepseek",
+   254→        textarea: ['textarea#chat-input', '.ds-textarea', 'textarea[placeholder*="message" i]'],
+   255→        sendBtn: ['.ds-input-send-button', '[aria-label*="send" i]', '[aria-label*="envoy" i]', '[data-testid="send-button"]', 'div[role="button"][aria-label*="send" i]', 'div[role="button"][aria-label*="envoy" i]', 'div[role="button"][title*="send" i]', 'div[role="button"][title*="envoy" i]'],
+   256→        messageContainer: '.ds-chat-list, .ds-message-list, main',
+   257→        messageBlock: '.ds-markdown, .prose, .ds-message-content'
+   258→    },
+   259→    CHATGPT: {
+   260→        host: "chatgpt",
+   261→        textarea: ['textarea#prompt-textarea'],
+   262→        sendBtn: ['button[data-testid="send-button"]', 'button[aria-label*="Send" i]', 'button[aria-label*="Envoy" i]'],
+   263→        messageContainer: 'main',
+   264→        messageBlock: '.markdown'
+   265→    },
+   266→    GEMINI: {
+   267→        host: "gemini",
+   268→        textarea: ['rich-textarea', '.textarea', 'div[contenteditable="true"]'],
+   269→        sendBtn: ['button[aria-label*="Send" i]', 'button[aria-label*="Envoy" i]', 'button[aria-label*="Envoi" i]', '.send-button', 'button.send-button'],
+   270→        messageContainer: 'chat-window, main',
+   271→        messageBlock: 'message-content, .model-response-text'
+   272→    },
+   273→    FALLBACK: {
+   274→        textarea: ['[role="textbox"]', '[contenteditable="true"]', 'textarea'],
+   275→        sendBtn: ['button[type="submit"]', 'button[aria-label*="send" i]', 'button[aria-label*="envoy" i]', 'button[aria-label*="envo" i]'],
+   276→        messageContainer: 'main, body',
+   277→        messageBlock: '.prose, .markdown-body, article'
+   278→    }
+   279→};
+   280→
+   281→class PlatformDetector {
+   282→    constructor() {
+   283→        this.config = PLATFORMS.FALLBACK;
+   284→        this.detect();
+   285→    }
+   286→    
+   287→    detect() {
+   288→        const host = window.location.hostname;
+   289→        if (host.includes('deepseek.com')) this.config = PLATFORMS.DEEPSEEK;
+   290→        else if (host.includes('chatgpt.com')) this.config = PLATFORMS.CHATGPT;
+   291→        else if (host.includes('gemini.google.com')) this.config = PLATFORMS.GEMINI;
+   292→        KirovLogger.info(`Platform detected: ${this.config.host || 'Fallback'}`);
+   293→    }
+   294→
+   295→    getElement(selectors, parent = document) {
+   296→        const arr = Array.isArray(selectors) ? selectors : [selectors];
+   297→        for (const sel of arr) {
+   298→            const el = parent.querySelector(sel);
+   299→            if (el) return el;
+   300→        }
+   301→        return null;
+   302→    }
+   303→    
+   304→    getElements(selectors, parent = document) {
+   305→        const arr = Array.isArray(selectors) ? selectors : [selectors];
+   306→        for (const sel of arr) {
+   307→            const els = parent.querySelectorAll(sel);
+   308→            if (els.length > 0) return Array.from(els);
+   309→        }
+   310→        return [];
+   311→    }
+   312→}
+   313→const platform = new PlatformDetector();
+   314→
+   315→// ==========================================
+   316→// 8. PROMPT ENGINE (Injection Intelligente)
+   317→// ==========================================
+   318→class PromptEngine {
+   319→    constructor() { bus.on('BRIDGE_SYNC', this.handleSync.bind(this)); }
+   320→
+   321→    async handleSync(data) {
+   322→        const phase = data.phase_num || 1;
+   323→        state.set('currentPhase', phase);
+   324→        if (data.project_id) state.set('projectId', data.project_id);
+   325→
+   326→        if (!state.get('isActivated')) {
+   327→            state.set('isActivated', true);
+   328→            bus.emit('UI_TOAST', `Elite Forge : Phase ${phase} Active`);
+   329→        }
+   330→
+   331→        if (data.status === "prompt" && data.prompt) {
+   332→            const promptHash = await Utils.sha256(data.prompt);
+   333→            // Déduplication avec SHA-256 pour éviter les boucles
+   334→            if (promptHash !== state.get('lastPromptHash')) {
+   335→                state.set('lastPromptHash', promptHash);
+   336→                KirovLogger.info(`New prompt detected (Phase ${phase})`);
+   337→                this.inject(data.prompt, phase, state.get('projectId'));
+   338→            }
+   339→        }
+   340→    }
+   341→
+   342→    buildTemplate(rawPrompt, phase, projectId) {
+   343→        let text = rawPrompt;
+   344→        const pid = (projectId || "KIROV_PROJECT").toUpperCase();
+   345→
+   346→        // ══════════════════════════════════════════════════════════
+   347→        // STRUCTURE DE RÉFÉRENCE ABSOLUE (modèle GAME2 / TETRISV3)
+   348→        // ══════════════════════════════════════════════════════════
+   349→        const REFERENCE_STRUCTURE = `
+   350→STRUCTURE CIBLE INVIOLABLE (modèle GAME2/TETRISV3 — seuls projets validés en production) :
+   351→  ├── index.html            ← RACINE (id="root", src="./src/app/main.tsx")
+   352→  ├── vite.config.ts        ← base:'./', plugins:[react()], alias @→src, @app→src/app, @features→src/features, @shared→src/shared
+   353→  ├── tsconfig.json         ← include:["src","vite-env.d.ts"], paths:{@/*,@app/*,@features/*,@shared/*}
+   354→  ├── package.json          ← "type":"module", build:"vite build" UNIQUEMENT (JAMAIS tsc &&)
+   355→  ├── postcss.config.js     ← export default { plugins: { tailwindcss:{}, autoprefixer:{} } }
+   356→  ├── tailwind.config.ts    ← content:["./index.html","./src/**/*.{ts,tsx}"]
+   357→  ├── .npmrc                ← legacy-peer-deps=true
+   358→  ├── launcher.bat          ← Lancement dev local rapide
+   359→  ├── FIX_AND_BUILD.bat     ← Force le nettoyage de cache + build dist/
+   360→  └── src/
+   361→       ├── index.css        ← @tailwind base/components/utilities
+   362→       ├── vite-env.d.ts    ← /// <reference types="vite/client" />
+   363→       └── app/
+   364→            ├── main.tsx    ← ReactDOM.createRoot(document.getElementById('root')!).render(<App/>)
+   365→            ├── App.tsx     ← Providers + <HashRouter> (OBLIGATOIRE pour APK Android)
+   366→            ├── router.tsx  ← Routes React Router DOM
+   367→            ├── contexts/   ← Contexts React (State global)
+   368→            └── layouts/    ← Layouts partagés
+   369→       └── features/        ← Un dossier par feature (ex: features/games/)
+   370→            └── [feature]/
+   371→                 ├── components/
+   372→                 ├── hooks/
+   373→                 ├── pages/
+   374→                 └── index.ts
+   375→       └── shared/          ← UI partagée (types, utils, lib, services, constants)
+   376→            ├── components/
+   377→            ├── hooks/
+   378→            ├── lib/
+   379→            ├── services/
+   380→            ├── types/
+   381→            ├── constants/
+   382→            └── utils/
+   383→`;
+   384→
+   385→        if (phase === 1) {
+   386→            text = `[⚡ INGENIERIE SENIOR G50+ (Méthode Matt Pocock) — PHASE 1 : PRD & ARCHITECTURE]\n`;
+   387→            text += `Projet : ${pid}\nVision : "${rawPrompt}"\n\n`;
+   388→            text += `Tu es un Ingénieur Senior (Méthodologie Matt Pocock). Ta mission : concevoir un PRD technique parfait, axé sur les comportements et l'encapsulation (Deep Modules).\n\n`;
+   389→            text += `🧠 COMPÉTENCES REQUISES :\n`;
+   390→            text += `[SKILL: ZOOM-OUT] Interdiction de te focaliser sur un détail. Pense toujours à l'architecture globale AVANT de concevoir un module.\n`;
+   391→            text += `[SKILL: DIAGNOSE] Utilise la méthode scientifique (Hypothèse -> Vérification) pour justifier tes choix techniques.\n`;
+   392→            text += `[SKILL: CREATIVE GENIUS] Tu dois faire preuve d'une originalité et d'une créativité absolues pour répondre à la vision de l'utilisateur. L'architecture est stricte (modèle GAME2 pour la complexité et la stabilité), mais le concept, le design (UI/UX) et les fonctionnalités métiers doivent être 100% uniques, libres et sur-mesure pour CE projet spécifique.\n\n`;
+   393→            text += REFERENCE_STRUCTURE;
+   394→            text += `\n📋 FORMAT DU PRD (Document Unique et Exhaustif) :\n`;
+   395→            text += `## Problem Statement & Solution\nDécris le problème du point de vue utilisateur et la solution technique globale.\n\n`;
+   396→            text += `## User Stories\nUne liste NUMÉROTÉE EXHAUSTIVE (ex: "1. En tant que [acteur], je veux [feature], afin de [bénéfice]").\n\n`;
+   397→            text += `## Implementation Decisions (Deep Modules)\n`;
+   398→            text += `- Identifie explicitement les "Deep Modules" (modules encapsulant beaucoup de logique derrière une interface publique très simple).\n`;
+   399→            text += `- Architecture (React+Vite+TS), routeur (HashRouter impératif).\n`;
+   400→            text += `- Schémas Zod, APIs, états globaux.\n\n`;
+   401→            text += `## Testing Decisions\n- Décris les tests d'intégration qui valident le COMPORTEMENT via les interfaces publiques (ne JAMAIS tester les détails d'implémentation interne).\n\n`;
+   402→            text += `## Out of Scope\nCe qui ne sera PAS fait.\n\n`;
+   403→            text += `⚠️ RÈGLES ABSOLUES PHASE 1 :\n`;
+   404→            text += `❌ ZÉRO blabla. AUCUN texte d'introduction ("Voici le code", "Bien sûr").\n`;
+   405→            text += `❌ ZÉRO code source. Uniquement de la spécification technique (Markdown).\n`;
+   406→            text += `❌ ZÉRO Expo, ZÉRO React Native, ZÉRO Vue.js.\n`;
+   407→            text += `✅ Stack unique : React 18 + Vite 5 + TypeScript 5 + Tailwind 3.\n`;
+   408→            text += `✅ Router : UNIQUEMENT HashRouter (incompatible APK sinon).\n`;
+   409→            text += `✅ Point d'entrée : src/app/main.tsx (JAMAIS src/main.tsx à la racine).\n`;
+   410→
+   411→        } else if (phase === 2) {
+   412→            text += `\n\n🛡️ PROTOCOLE SOUVERAIN DIAMOND G50+ — PROJET : ${pid} — PHASE 2 (GÉNÉRATION) 🛡️\n`;
+   413→            text += REFERENCE_STRUCTURE;
+   414→            text += `\n━━━ RÈGLES ABSOLUES DE GÉNÉRATION DE CODE & TDD (Méthode Matt Pocock) ━━━\n\n`;
+   415→
+   416→            text += `🧪 PHILOSOPHIE TEST-DRIVEN DEVELOPMENT (OBLIGATOIRE) :\n`;
+   417→            text += `T1. VERTICAL SLICING (Tracer Bullets) : Implémente UN seul test pour UN comportement, puis le code minimal pour le faire passer, PUIS refactorise. (Red -> Green -> Refactor).\n`;
+   418→            text += `T2. HORIZONTAL SLICING INTERDIT : Ne JAMAIS écrire tous les tests d'abord, puis toute l'implémentation.\n`;
+   419→            text += `T3. DEEP MODULES : Le code doit être encapsulé derrière des interfaces publiques simples et immuables.\n`;
+   420→            text += `T4. TESTS DE COMPORTEMENT : Les tests vérifient l'interface publique. Ils doivent survivre aux refactorisations internes.\n\n`;
+   421→
+   422→            text += `🧠 COMPÉTENCES D'INGÉNIERIE AVANCÉE :\n`;
+   423→            text += `[SKILL: CAVEMAN DEBUGGING] Obligation d'injecter des logs structurés (console.log ou Logger) dans les modules complexes pour tracer le flux de données de manière agressive.\n`;
+   424→            text += `[SKILL: GIT-GUARDRAILS (ATOMIC CHANGES)] Interdiction de coder 5 fonctionnalités en même temps. Tu ne modifies qu'une seule feature logique de manière atomique.\n`;
+   425→            text += `[SKILL: CREATIVE EXECUTION] L'architecture est verrouillée (comme GAME2), mais l'implémentation doit être audacieuse et unique. Sois libre et original sur le design (Tailwind), les animations, et l'expérience utilisateur ! Chaque projet doit avoir sa propre âme.\n\n`;
+   426→
+   427→            text += `📁 STRUCTURE (INVIOLABLE) :\n`;
+   428→            text += `R1. Fichiers racine OBLIGATOIRES : index.html, vite.config.ts, tsconfig.json, package.json, postcss.config.js, tailwind.config.ts, .npmrc, launcher.bat, FIX_AND_BUILD.bat\n`;
+   429→            text += `R2. Point d'entrée script dans index.html : <script type="module" src="./src/app/main.tsx"></script>\n`;
+   430→            text += `R3. id="root" dans le <div> de index.html. JAMAIS id="app".\n`;
+   431→            text += `R4. Tous les composants dans src/features/[feature]/components/ ou src/shared/components/\n`;
+   432→            text += `R5. JAMAIS de sous-dossiers client/, frontend/, web/, app/ à la RACINE (seulement dans src/)\n\n`;
+   433→
+   434→            text += `🚫 INTERDICTIONS ABSOLUES (ces erreurs détruisent la forge) :\n`;
+   435→            text += `X1. JAMAIS générer package.js — UNIQUEMENT package.json\n`;
+   436→            text += `X2. JAMAIS générer tsconfig.js ou tsconfig.node.js — UNIQUEMENT tsconfig.json\n`;
+   437→            text += `X3. JAMAIS générer App.ts — UNIQUEMENT App.tsx\n`;
+   438→            text += `X4. JAMAIS utiliser @vitejs/plugin-vue, .vue, ou Vue.js\n`;
+   439→            text += `X5. JAMAIS utiliser expo-router, react-native, @expo/\n`;
+   440→            text += `X6. JAMAIS préfixer le code avec 'html<!DOCTYPE', 'javascript', 'typescript', 'tsx'\n`;
+   441→            text += `X7. JAMAIS écrire du code sur une seule ligne\n`;
+   442→            text += `X8. JAMAIS utiliser BrowserRouter — UNIQUEMENT HashRouter (obligatoire pour Android APK)\n`;
+   443→            text += `X9. JAMAIS 'module.exports' dans postcss.config.js — Uniquement 'export default'\n`;
+   444→            text += `X10. JAMAIS écrire tous les tests d'un coup (Anti-Pattern: Horizontal Slicing).\n`;
+   445→            text += `X11. JAMAIS omettre la fermeture d'une balise JSX. TOUTES les balises JSX (HTML ou Composants) DOIVENT être correctement fermées ! (Exemple d'ERREUR : <FilterContext.Provider value={{}} {children} </FilterContext.Provider> -> CORRECTION : <FilterContext.Provider value={{}} > {children} </FilterContext.Provider>)\n`;
+   446→            text += `X12. JAMAIS omettre les backticks autour des chaînes interpolées (ex: console.warn(Error \${key}:) ou className={inline-block \${class}} est STRICTEMENT INTERDIT). Exemple : console.warn(\`Error reading key "\${key}":\`, error) ou className={\`inline-block \${className}\`}.\n\n`;
+   447→
+   448→            text += `✅ OBLIGATIONS :\n`;
+   449→            text += `O1. CHAQUE fichier sur PLUSIEURS lignes (retours à la ligne obligatoires après chaque instruction)\n`;
+   450→            text += `O2. tsconfig.json DOIT avoir : "include": ["src", "vite-env.d.ts"] et "paths": {"@/*":["./src/*"],"@app/*":["./src/app/*"],"@features/*":["./src/features/*"],"@shared/*":["./src/shared/*"]}\n`;
+   451→            text += `O3. vite.config.ts DOIT avoir : resolve.alias @→src, @app→src/app, @features→src/features, @shared→src/shared\n`;
+   452→            text += `O4. Tous les imports React utilisent l'alias @ : import X from '@/shared/...' ou '@/features/...'\n`;
+   453→            text += `O5. package.json "type":"module", "build":"vite build", ZÉRO dépendance Expo/RN\n`;
+   454→            text += `O6. Zod pour CHAQUE type de données externe. Zero 'any' TypeScript.\n`;
+   455→            text += `O7. Mobile-first Tailwind. Palette : slate/gray/zinc/neutral uniquement (JAMAIS purple/indigo/violet).\n`;
+   456→            text += `O8. Lucide-react pour les icônes (jamais heroicons, react-icons).\n\n`;
+   457→
+   458→            text += `📦 PACKAGE.JSON MODÈLE EXACT :\n`;
+   459→            text += `{\n  "name": "${pid.toLowerCase()}",\n  "private": true,\n  "version": "1.0.0",\n  "type": "module",\n`;
+   460→            text += `  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },\n`;
+   461→            text += `  "dependencies": { "react": "^18.3.1", "react-dom": "^18.3.1", "react-router-dom": "^6.26.0", "lucide-react": "^0.378.0", "zod": "^3.23.8" },\n`;
+   462→            text += `  "devDependencies": { "vite": "^5.4.0", "@vitejs/plugin-react": "^4.3.1", "typescript": "^5.5.3", "@types/react": "^18.3.3", "@types/react-dom": "^18.3.0", "tailwindcss": "^3.4.1", "autoprefixer": "^10.4.19", "postcss": "^8.4.39" }\n}\n\n`;
+   463→
+   464→            text += `📦 LAUNCHER.BAT MODÈLE EXACT :\n`;
+   465→            text += `@echo off\ntitle FORGE LAUNCHER - ${pid}\ncd /d "%~dp0"\necho [FORGE] Lancement de ${pid}...\nif exist package.json (\n    if not exist node_modules\\.bin (\n        echo [FORGE] Dependances absentes. Installation...\n        npm install --legacy-peer-deps\n    )\n)\necho [FORGE] Demarrage dev server...\nnpm run dev -- --host --port 5173\npause\n\n`;
+   466→
+   467→            text += `📦 FIX_AND_BUILD.BAT MODÈLE EXACT :\n`;
+   468→            text += `@echo off\ncd /d "%~dp0"\necho === NETTOYAGE ===\ndel /f /q package.js tsconfig.js tsconfig.node.js app.js App.ts pnpm-lock.yaml 2>nul\nif exist src (\n    cd src\n    del /f /s /q *.vue >nul 2>&1\n    cd ..\n)\nif exist node_modules (\n    echo Suppression du dossier node_modules en cours - cela peut prendre 1 a 2 minutes...\n    rmdir /s /q node_modules\n)\nif exist package-lock.json del /f /q package-lock.json\necho === INSTALLATION ===\necho Installation des dependances...\ncall npm install --legacy-peer-deps\nif errorlevel 1 (\n    echo ERREUR INSTALLATION\n    pause\n    exit /b 1\n)\necho === BUILD ===\ncall npm run build\nif errorlevel 1 (\n    echo ERREUR BUILD\n    pause\n    exit /b 1\n)\npause\n\n`;
+   469→
+   470→            text += `🔇 SILENCE ABSOLU : ZÉRO texte explicatif, ZÉRO introduction, ZÉRO conclusion. UNIQUEMENT des blocs code au format :\n`;
+   471→            text += `Fichier: chemin/relatif/depuis/racine.ext\n[contenu complet du fichier avec retours à la ligne]\n\n`;
+   472→            text += `❌ Toute violation (Blabla, Vue, package.js, code sur 1 ligne, BrowserRouter, Expo) bloquera définitivement la forge.`;
+   473→        } else if (phase === 3) {
+   474→            text += `\n\n🛡️ PROTOCOLE SOUVERAIN DIAMOND G50+ — PROJET : ${pid} — PHASE 3 (AUDIT & REFACTORING) 🛡️\n`;
+   475→            text += REFERENCE_STRUCTURE;
+   476→            text += `\n━━━ 🧠 [SKILL: GRILL-ME] MODE TECH LEAD ACTIF ━━━\n\n`;
+   477→            text += `Dans cette phase, tu n'es plus un simple développeur, tu es le TECH LEAD le plus exigeant au monde.\n`;
+   478→            text += `Ta mission n'est PAS d'écrire de nouvelles features, mais d'AUDITER le code généré en Phase 2.\n\n`;
+   479→            text += `🔍 OBJECTIFS D'AUDIT :\n`;
+   480→            text += `1. Analyse agressive des failles de sécurité, des fuites de mémoire (useEffect non nettoyés) et des goulets d'étranglement de performance.\n`;
+   481→            text += `2. Critique impitoyable de l'architecture : Y a-t-il trop de couplage ? Les composants sont-ils de vrais "Deep Modules" ?\n`;
+   482→            text += `3. Pose des questions pointues ("Pourquoi as-tu choisi ce state global au lieu d'un context local ?").\n`;
+   483→            text += `4. Propose des REFACTORISATIONS massives pour simplifier la base de code.\n\n`;
+   484→            text += `🔮 AUDIT SYNTAXE JSX (OBLIGATOIRE) :\n`;
+   485→            text += `S1. Vérifie que TOUTES les balises JSX sont fermées (chevron '>' après les attributs). Un '>' manquant = erreur esbuild fatale.\n`;
+   486→            text += `S2. Vérifie que les template strings en JSX utilisent des backticks : {\`\${val}\`} et non \${val} brut.\n`;
+   487→            text += `S3. Vérifie que les fichiers avec du JSX ont l'extension .tsx et les fichiers TypeScript pur .ts.\n`;
+   488→            text += `S4. Vérifie qu'aucun BrowserRouter n'a été utilisé (HashRouter UNIQUEMENT pour APK Android).\n\n`;
+   489→            text += `🔇 Format de réponse attendu : Zéro blabla, uniquement des blocs de code corrigés (Fichier: chemin/relatif.ext) et tes critiques cinglantes en commentaires dans le code.\n`;
+   490→        }
+   491→        return text;
+   492→    }
+   493→
+   494→    async inject(rawPrompt, phase, projectId) {
+   495→        const text = this.buildTemplate(rawPrompt, phase, projectId);
+   496→        KirovLogger.trackMetric('promptsInjected');
+   497→
+   498→        const tryInject = () => {
+   499→            const input = platform.getElement(platform.config.textarea);
+   500→            if (!input) return false;
+   501→
+   502→            try {
+   503→                input.focus();
+   504→                if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' || input.getAttribute('contenteditable') === 'true') {
+   505→                    // 1. Définition de la valeur native
+   506→                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set || 
+   507→                                         Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set ||
+   508→                                         Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, "innerText")?.set;
+   509→                    
+   510→                    if (nativeSetter && input.tagName !== 'DIV') {
+   511→                        nativeSetter.call(input, text);
+   512→                    } else {
+   513→                        if (input.tagName === 'DIV') {
+   514→                            input.innerText = text;
+   515→                            input.innerHTML = text;
+   516→                        } else {
+   517→                            input.value = text;
+   518→                        }
+   519→                    }
+   520→
+   521→                    // 2. Déclenchement du tracker de valeur React (si présent)
+   522→                    try {
+   523→                        const tracker = input._valueTracker;
+   524→                        if (tracker) tracker.setValue(""); 
+   525→                    } catch(e){}
+   526→                } else {
+   527→                    input.innerText = text;
+   528→                    input.textContent = text;
+   529→                }
+   530→                
+   531→                // 3. Dispatch des événements système standardisés (Bubbles pour React/Vue)
+   532→                ['input', 'change', 'keyup'].forEach(name => {
+   533→                    input.dispatchEvent(new Event(name, { bubbles: true, cancelable: true }));
+   534→                });
+   535→                
+   536→                // 4. Simulation de saisie clavier pour réveiller les bindings
+   537→                ['keydown', 'keypress', 'keyup'].forEach(name => {
+   538→                    input.dispatchEvent(new KeyboardEvent(name, {
+   539→                        key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true, cancelable: true
+   540→                    }));
+   541→                });
+   542→
+   543→                this.retrySend(); // Smart retry logic
+   544→                return true;
+   545→            } catch (err) {
+   546→                KirovLogger.error("Injection failed", err);
+   547→                return false;
+   548→            }
+   549→        };
+   550→
+   551→        // MutationObserver si le DOM est lent
+   552→        if (!tryInject()) {
+   553→            KirovLogger.info("Textarea not ready, starting DOM Observer...");
+   554→            const observer = new MutationObserver((mutations, obs) => {
+   555→                if (tryInject()) obs.disconnect();
+   556→            });
+   557→            observer.observe(document.body, { childList: true, subtree: true });
+   558→            setTimeout(() => observer.disconnect(), 10000);
+   559→        }
+   560→    }
+   561→
+   562→    retrySend(attempts = 0) {
+   563→        if (attempts > 15) { // Stop après 4.5s
+   564→            KirovLogger.error("Failed to click send button automatically. Forcing Enter key.");
+   565→            const input = platform.getElement(platform.config.textarea);
+   566→            if (input) {
+   567→                // Simulation agressive de la touche Entrée (avec et sans Ctrl pour bypasser les nouveaux UI)
+   568→                ['Enter', 'NumpadEnter'].forEach(key => {
+   569→                    input.dispatchEvent(new KeyboardEvent('keydown', { key, code: key, keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+   570→                    input.dispatchEvent(new KeyboardEvent('keydown', { key, code: key, keyCode: 13, which: 13, ctrlKey: true, bubbles: true, cancelable: true }));
+   571→                    input.dispatchEvent(new KeyboardEvent('keypress', { key, code: key, keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+   572→                    input.dispatchEvent(new KeyboardEvent('keyup', { key, code: key, keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+   573→                });
+   574→                
+   575→                // Fallback ultime : chercher un bouton à droite de l'input et le cliquer
+   576→                const anyBtns = document.querySelectorAll('div[role="button"], button, .ds-button, .send-button');
+   577→                anyBtns.forEach(b => {
+   578→                    // On clique sur tout ce qui ressemble à un bouton d'envoi non désactivé
+   579→                    if (!b.disabled && b.getAttribute('aria-disabled') !== 'true' && (b.innerHTML.includes('svg') || b.className.includes('send'))) {
+   580→                        b.click();
+   581→                    }
+   582→                });
+   583→            }
+   584→            return;
+   585→        }
+   586→
+   587→        const btn = platform.getElement(platform.config.sendBtn);
+   588→        if (btn) {
+   589→            const isDisabled = btn.disabled || btn.getAttribute('aria-disabled') === 'true' || btn.classList.contains('disabled');
+   590→            // Si on a attendu assez longtemps (attempt > 5), on force le clic même si ça a l'air disabled
+   591→            if (!isDisabled || attempts > 5) {
+   592→                btn.click();
+   593→                KirovLogger.info("Send button triggered.");
+   594→                return;
+   595→            }
+   596→        } else {
+   597→            // Nouvelle recherche de bouton d'envoi (Deepseek v2/v3 UI)
+   598→            const fallbackBtn = document.querySelector('div[role="button"] svg, span.ds-icon-button, .ds-input-send-button, [aria-label*="Send" i], [aria-label*="envo" i]');
+   599→            if (fallbackBtn) {
+   600→                const parentBtn = fallbackBtn.closest('div[role="button"], button') || fallbackBtn;
+   601→                const isDisabled = parentBtn.disabled || parentBtn.getAttribute('aria-disabled') === 'true';
+   602→                if (!isDisabled || attempts > 5) {
+   603→                    parentBtn.click();
+   604→                    KirovLogger.info("Send button (fallback) triggered.");
+   605→                    return;
+   606→                }
+   607→            }
+   608→        }
+   609→        setTimeout(() => this.retrySend(attempts + 1), 300);
+   610→    }
+   611→}
+   612→const promptEngine = new PromptEngine();
+   613→
+   614→// ==========================================
+   615→// 9. OUTPUT SCANNER (Capture & Parse)
+   616→// ==========================================
+   617→class ValidationOrchestrator {
+   618→    static validateScaffold(content) {
+   619→        // Vérification des fichiers obligatoires À LA RACINE
+   620→        const requiredFiles = ['index.html', 'main.tsx', 'App.tsx', 'vite.config.ts', 'postcss.config.js', 'package.json', 'tsconfig.json'];
+   621→        const missing = [];
+   622→        requiredFiles.forEach(f => { if (!content.includes(f)) missing.push(f); });
+   623→        return missing;
+   624→    }
+   625→    static validateDesign(content) {
+   626→        const forbiddenColors = ['purple-', 'indigo-', 'violet-'];
+   627→        const violations = [];
+   628→        forbiddenColors.forEach(c => { if (content.includes(c)) violations.push(`Couleur bannie: ${c}`); });
+   629→        return violations;
+   630→    }
+   631→    static validateImports(content) {
+   632→        const violations = [];
+   633→        if (content.includes('.jsx')) violations.push('Extension .jsx détectée au lieu de .tsx (Règle 8).');
+   634→        // Détection structure sous-dossier parasite
+   635→        if (content.match(/client\/index\.html|frontend\/index\.html|web\/index\.html/)) {
+   636→            violations.push('⚠️ STRUCTURE INVALIDE : index.html dans un sous-dossier (client/frontend/web). Doit être à la racine ! (Règle 11)');
+   637→        }
+   638→        // Détection PostCSS CJS dans ESM
+   639→        if (content.includes('module.exports =') && content.includes('"type": "module"')) {
+   640→            violations.push('⚠️ POSTCSS ESM CONFLICT : module.exports détecté dans un projet ESM. Utilise export default (Règle 12).');
+   641→        }
+   642→        // Détection vite.config.ts sans import - affinée pour éviter les faux-positifs hors-code
+   643→        if (content.match(/^[^i\s\/\*].*\{.*defineConfig.*\}.*from.*['"]vite['"]/m)) {
+   644→            violations.push('⚠️ VITE CONFIG : Le mot "import" est manquant en début de ligne (Règle 13).');
+   645→        }
+   646→        // NOTE : Détection pnpm désactivée car pnpm est le gestionnaire de dépendances standard et approuvé de la Forge globale !
+   647→        return violations;
+   648→    }
+   649→}
+   650→
+   651→
+   652→class OutputScanner {
+   653→    constructor() {
+   654→        this.observer = null;
+   655→        this.startObserving();
+   656→    }
+   657→
+   658→    startObserving() {
+   659→        const container = platform.getElement([platform.config.messageContainer, 'body']);
+   660→        if (!container) return setTimeout(() => this.startObserving(), 1000);
+   661→
+   662→        KirovLogger.info("Starting Output Scanner Observer.");
+   663→        this.observer = new MutationObserver(() => {
+   664→            if (this.timeout) clearTimeout(this.timeout);
+   665→            // Debounce de 500ms pour ne pas saturer le CPU pendant que l'IA tape
+   666→            this.timeout = setTimeout(() => this.parseLatestMessage(), 500);
+   667→        });
+   668→        this.observer.observe(container, { childList: true, characterData: true, subtree: true });
+   669→    }
+   670→
+   671→    isStreamingComplete(msgElement) {
+   672→        // Multi-critères pour définir si l'IA a fini de générer
+   673→        const hasSpinner = !!document.querySelector('.ds-spinner, .generating, button[aria-label*="Stop" i]');
+   674→        return !hasSpinner;
+   675→    }
+   676→
+   677→    async parseLatestMessage() {
+   678→        const messages = platform.getElements(platform.config.messageBlock);
+   679→        if (messages.length === 0) return;
+   680→        
+   681→        const lastMsg = messages[messages.length - 1];
+   682→        if (!this.isStreamingComplete(lastMsg)) return;
+   683→
+   684→        // Clone du message pour le nettoyer sans modifier le DOM visible
+   685→        const clone = lastMsg.cloneNode(true);
+   686→        // Supprimer les boutons de l'interface qui génèrent "Copier", "Télécharger"
+   687→        const uiElements = clone.querySelectorAll('button, svg, [role="button"], [class*="action"], [class*="copy"]');
+   688→        uiElements.forEach(el => el.remove());
+   689→
+   690→        // FIX SOUVERAIN : Préserver les sauts de ligne car textContent les écrase sur les noeuds détachés
+   691→        clone.querySelectorAll('p, div, li').forEach(el => el.appendChild(document.createTextNode('\n')));
+   692→        clone.querySelectorAll('br').forEach(el => el.replaceWith('\n'));
+   693→
+   694→        let content = clone.innerText || clone.textContent || "";
+   695→        // Filtrage Regex agressif pour les restes de l'UI DeepSeek (ignorer la casse, sur chaque ligne)
+   696→        content = content.replace(/^(text|copier|télécharger|copy|download|exécuter)$/gmi, '').trim();
+   697→
+   698→        if (content.length < 50) return;
+   699→
+   700→        const contentHash = await Utils.sha256(content);
+   701→        if (contentHash === state.get('lastOutputHash')) return; // Déduplication
+   702→
+   703→        if (content.match(/Fichier\s*:/i) || content.includes("FILE:") || content.includes("\`\`\`") || content.includes("PRD")) {
+   704→            
+   705→            // VALIDATION G50+
+   706→            const phase = state.get('currentPhase');
+   707→            const validationResult = { isValid: true };
+   708→            
+   709→            // On désactive la validation du Scaffold pour P5 et P6 (Refactoring Chirurgical)
+   710→            if (phase >= 2 && phase < 5) {
+   711→                const missing = ValidationOrchestrator.validateScaffold(content);
+   712→                const designViolations = ValidationOrchestrator.validateDesign(content);
+   713→                const importViolations = ValidationOrchestrator.validateImports(content);
+   714→                
+   715→                if (missing.length > 0) {
+   716→                    KirovLogger.warn(`Scaffold incomplet: ${missing.join(', ')}`);
+   717→                    bus.emit('UI_TOAST', `⚠️ Scaffold incomplet: ${missing.length} fichiers absents`);
+   718→                    validationResult.isValid = false;
+   719→                }
+   720→                if (designViolations.length > 0) {
+   721→                    KirovLogger.warn(`Violation Design: ${designViolations.join(', ')}`);
+   722→                    bus.emit('UI_TOAST', `🎨 Violation Design: Couleur interdite détectée`);
+   723→                }
+   724→                if (importViolations.length > 0) {
+   725→                    KirovLogger.warn(`Violation Imports: ${importViolations.join(', ')}`);
+   726→                    bus.emit('UI_TOAST', `⚠️ Violation Import: Extension invalide (.jsx)`);
+   727→                }
+   728→            }
+   729→
+   730→            state.set('lastOutputHash', contentHash);
+   731→            KirovLogger.info("New valid code block captured.");
+   732→            bridge.sendCapture({ 
+   733→                content: content,
+   734→                validation: validationResult
+   735→            });
+   736→        }
+   737→    }
+   738→}
+   739→const outputScanner = new OutputScanner();
+   740→
+   741→// ==========================================
+   742→// 10. UI RENDERER (Overlays & Securité)
+   743→// ==========================================
+   744→class UIRenderer {
+   745→    constructor() {
+   746→        this.overlay = null;
+   747→        this.overlayContent = null;
+   748→        
+   749→        bus.on('UI_TOAST', msg => this.showToast(msg));
+   750→        bus.on('BRIDGE_OFFLINE', () => this.showToast('⚠️ Bridge Timeout/Offline', 'error'));
+   751→        bus.on('BRIDGE_ONLINE', () => this.showToast('✅ Bridge Reconnected', 'success'));
+   752→        bus.on('CAPTURE_SENT', () => this.showToast('📥 Capture Diamond Réussie', 'success'));
+   753→        bus.on('LOGS_SYNC', logs => this.updateLogsOverlay(logs));
+   754→    }
+   755→
+   756→    showToast(msg, type = 'info') {
+   757→        const toast = document.createElement('div');
+   758→        let bg = 'rgba(0,0,0,0.8)';
+   759→        let color = '#00f2ff';
+   760→        if (type === 'error') { bg = '#ff0055'; color = 'white'; }
+   761→        if (type === 'success') { bg = '#00f2ff'; color = 'black'; }
+   762→
+   763→        toast.style.cssText = `position:fixed;bottom:20px;left:20px;z-index:10000;background:${bg};border:1px solid ${color};color:${color};padding:10px 20px;border-radius:8px;font-family:sans-serif;font-size:12px;box-shadow:0 0 20px rgba(0,242,255,0.2);transition:opacity 0.3s;`;
+   764→        // Sécurité : textContent prévient les injections XSS
+   765→        toast.textContent = msg; 
+   766→        document.body.appendChild(toast);
+   767→        
+   768→        setTimeout(() => {
+   769→            toast.style.opacity = '0';
+   770→            setTimeout(() => toast.remove(), 300);
+   771→        }, 3000);
+   772→    }
+   773→
+   774→    createLogsOverlay() {
+   775→        if (this.overlay) return;
+   776→        
+   777→        this.overlay = document.createElement('div');
+   778→        this.overlay.style.cssText = `position:fixed;top:20px;right:20px;width:380px;height:450px;background:rgba(15,23,42,0.95);border:1px solid #334155;border-radius:12px;z-index:9999;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.5);font-family:'Courier New', monospace;font-size:11px;color:#cbd5e1;overflow:hidden;`;
+   779→        
+   780→        const header = document.createElement('div');
+   781→        header.style.cssText = `padding:10px;background:#1e293b;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;font-weight:bold;color:#38bdf8;`;
+   782→        header.textContent = `🚀 BUILD MONITOR (Phase 4)`;
+   783→        
+   784→        const closeBtn = document.createElement('button');
+   785→        closeBtn.textContent = '✕';
+   786→        closeBtn.style.cssText = `background:none;border:none;color:#94a3b8;cursor:pointer;`;
+   787→        closeBtn.onclick = () => { this.overlay.style.display = 'none'; };
+   788→        header.appendChild(closeBtn);
+   789→
+   790→        this.overlayContent = document.createElement('div');
+   791→        this.overlayContent.style.cssText = `flex:1;padding:10px;overflow-y:auto;white-space:pre-wrap;word-wrap:break-word;`;
+   792→
+   793→        this.overlay.appendChild(header);
+   794→        this.overlay.appendChild(this.overlayContent);
+   795→        document.body.appendChild(this.overlay);
+   796→    }
+   797→
+   798→    updateLogsOverlay(logs) {
+   799→        if (!logs || logs.length === 0 || state.get('currentPhase') !== 4) return;
+   800→        
+   801→        if (!this.overlay) this.createLogsOverlay();
+   802→        this.overlay.style.display = 'flex';
+   803→
+   804→        const currentLogCount = this.overlayContent.childElementCount;
+   805→        if (logs.length > currentLogCount) {
+   806→            const newLogs = logs.slice(currentLogCount);
+   807→            
+   808→            newLogs.forEach(logText => {
+   809→                const line = document.createElement('div');
+   810→                line.style.marginBottom = '4px';
+   811→                line.textContent = logText;
+   812→                
+   813→                if (logText.includes('❌') || logText.includes('ERR')) line.style.color = '#f87171';
+   814→                else if (logText.includes('✅') || logText.includes('SUCCESS')) line.style.color = '#4ade80';
+   815→                else if (logText.includes('⚠️') || logText.includes('WARN')) line.style.color = '#facc15';
+   816→                
+   817→                this.overlayContent.appendChild(line);
+   818→                
+   819→                // Legacy Toasts pour les évènements critiques
+   820→                if (logText.includes("MISSION RÉUSSIE")) this.showToast(`📦 MATÉRIALISÉ`, 'success');
+   821→                if (logText.includes("❌ Échec build")) this.showToast(`⚠️ ÉCHEC BUILD`, 'error');
+   822→            });
+   823→            
+   824→            // Auto-scroll vers le bas
+   825→            this.overlayContent.scrollTop = this.overlayContent.scrollHeight;
+   826→        }
+   827→    }
+   828→}
+   829→const ui = new UIRenderer();
+   830→
+   831→// ==========================================
+   832→// 11. INITIALISATION
+   833→// ==========================================
+   834→async function init() {
+   835→    KirovLogger.info(`Starting Elite Forge Global v${CONFIG.VERSION}`);
+   836→    await state.load();
+   837→    bridge.startPolling();
+   838→}
+   839→
+   840→init();
+   841→
