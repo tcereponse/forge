@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
       stateMgmt: body.stateMgmt ?? "none",
       uiLib: body.uiLib ?? "none",
       features: Array.isArray(body.features) ? body.features : [],
+      selectedPacks: Array.isArray(body.selectedPacks) ? body.selectedPacks : [],
     };
 
     const slug = slugify(name);
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
         stateMgmt: config.stateMgmt,
         uiLib: config.uiLib,
         features: JSON.stringify(config.features),
+        selectedPacks: JSON.stringify(config.selectedPacks ?? []),
         status: "draft",
       },
     });

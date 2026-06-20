@@ -16,6 +16,7 @@ export interface ProjectConfig {
   stateMgmt: StateOption;
   uiLib: UiLibOption;
   features: string[];
+  selectedPacks?: string[]; // manually selected extension pack IDs
 }
 
 export interface GeneratedFile {

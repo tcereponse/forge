@@ -23,6 +23,7 @@ model Project {
   stateMgmt   String   @default("none") // zustand | context | redux | none
   uiLib       String   @default("none") // shadcn | mui | none
   features    String   @default("[]") // JSON array of strings
+  selectedPacks String @default("[]") // JSON array of manually selected extension pack IDs
   // AI generation outputs (JSON strings)
   prd         String   @default("") // Product Requirements Document (markdown)
   filesJson   String   @default("[]") // JSON array of { path, content, language }

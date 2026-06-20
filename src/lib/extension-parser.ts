@@ -154,23 +154,68 @@ export async function getPRDContextsForFeatures(
   return result;
 }
 
+// ── Get PRD contexts for manually selected packs ───────────────────────────
+export async function getPRDContextsForPacks(
+  packIds: string[]
+): Promise<{ packId: string; packName: string; contexts: PRDContext[] }[]> {
+  const packs = await getExtensionPacks();
+  const packMap = new Map(packs.map((p) => [p.id, p]));
+
+  const result: { packId: string; packName: string; contexts: PRDContext[] }[] = [];
+
+  for (const packId of packIds) {
+    const pack = packMap.get(packId);
+    if (pack) {
+      // Take up to 5 PRD contexts per pack
+      result.push({
+        packId,
+        packName: pack.name,
+        contexts: pack.prdContexts.slice(0, 5),
+      });
+    }
+  }
+
+  return result;
+}
+
 // ── Build the extension directive for the LLM prompt ───────────────────────
+// Combines feature-mapped packs AND manually selected packs.
 export async function buildExtensionDirective(
-  features: string[]
+  features: string[],
+  selectedPacks: string[] = []
 ): Promise<string> {
-  if (features.length === 0) return "";
-
   const featureContexts = await getPRDContextsForFeatures(features);
-  if (featureContexts.length === 0) return "";
+  const manualPacks = await getPRDContextsForPacks(selectedPacks);
 
-  const sections = featureContexts.map(({ feature, contexts }) => {
+  if (featureContexts.length === 0 && manualPacks.length === 0) return "";
+
+  const sections: string[] = [];
+
+  // Feature-mapped contexts
+  for (const { feature, contexts } of featureContexts) {
     const contextTexts = contexts
       .map((c) => `  ── ${c.id} ──\n  ${c.text.replace(/\n/g, "\n  ")}`)
       .join("\n\n");
-    return `### Feature: ${feature}\n${contextTexts}`;
-  });
+    sections.push(`### Feature: ${feature}\n${contextTexts}`);
+  }
 
-  return `\n\n## CONTEXTES PRD SPÉCIALISÉS (Extensions)\nUtilise ces contextes PRD pour guider la génération du code pour chaque feature. Le code doit respecter l'architecture et les composants décrits.\n\n${sections.join("\n\n")}\n`;
+  // Manually selected pack contexts (deduplicate against feature-mapped)
+  const usedContextIds = new Set(
+    featureContexts.flatMap((fc) => fc.contexts.map((c) => c.id))
+  );
+  for (const { packId, packName, contexts } of manualPacks) {
+    const newContexts = contexts.filter((c) => !usedContextIds.has(c.id));
+    if (newContexts.length === 0) continue;
+    for (const c of newContexts) usedContextIds.add(c.id);
+    const contextTexts = newContexts
+      .map((c) => `  ── ${c.id} ──\n  ${c.text.replace(/\n/g, "\n  ")}`)
+      .join("\n\n");
+    sections.push(`### Pack sélectionné: ${packName} (${packId})\n${contextTexts}`);
+  }
+
+  if (sections.length === 0) return "";
+
+  return `\n\n## CONTEXTES PRD SPÉCIALISÉS (Extensions)\nUtilise ces contextes PRD pour guider la génération du code. Le code doit respecter l'architecture et les composants décrits.\n\n${sections.join("\n\n")}\n`;
 }
 
 // ── Get summary of available packs (for UI) ────────────────────────────────

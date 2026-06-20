@@ -171,6 +171,7 @@ export async function POST(
       stateMgmt: project.stateMgmt as ProjectConfig["stateMgmt"],
       uiLib: project.uiLib as ProjectConfig["uiLib"],
       features: JSON.parse(project.features || "[]"),
+      selectedPacks: JSON.parse(project.selectedPacks || "[]"),
     };
 
     const stackDirective = buildStackDirective(config);
@@ -226,8 +227,11 @@ Sois factuel et concis.`;
         ? "Intègre react-router-dom v6 : utilise HashRouter dans App.tsx avec 2 routes (la route '/' affiche MainComponent, une seconde route '/about' ou similaire)."
         : "Pas de routing. App.tsx affiche directement MainComponent.";
 
-    // Build extension directive (injects specialized PRD contexts for selected features)
-    const extensionDirective = await buildExtensionDirective(config.features);
+    // Build extension directive (injects specialized PRD contexts for selected features AND manually selected packs)
+    const extensionDirective = await buildExtensionDirective(
+      config.features,
+      config.selectedPacks ?? []
+    );
 
     // Build feature-specific instructions
     const featureInstructions = buildFeatureInstructions(config.features, tsExt);
