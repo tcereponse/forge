@@ -27,6 +27,7 @@ model Project {
   prd         String   @default("") // Product Requirements Document (markdown)
   filesJson   String   @default("[]") // JSON array of { path, content, language }
   fileCount   Int      @default(0)
+  validationJson String @default("") // JSON validation report from post-processing
   status      String   @default("draft") // draft | generating | ready | failed
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

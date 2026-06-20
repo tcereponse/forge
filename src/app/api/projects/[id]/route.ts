@@ -45,14 +45,25 @@ export async function GET(
         { status: 404 }
       );
     }
+    const files = parseFiles(project.filesJson);
+    // Return the persisted validation report (from generation time)
+    let validation = null;
+    if (project.validationJson) {
+      try {
+        validation = JSON.parse(project.validationJson);
+      } catch {
+        validation = null;
+      }
+    }
     return NextResponse.json({
       success: true,
       project: {
         ...project,
         features: parseFeatures(project.features),
-        files: parseFiles(project.filesJson),
+        files,
         prd: project.prd,
       },
+      validation,
     });
   } catch (error) {
     console.error("[/api/projects/[id] GET]", error);

@@ -44,6 +44,25 @@ export interface ProjectRecord {
   updatedAt: string;
 }
 
+export interface ValidationIssue {
+  severity: "error" | "warning" | "info";
+  category: "dependencies" | "config" | "utils" | "architecture" | "css";
+  message: string;
+  file?: string;
+  fix?: string;
+}
+
+export interface ValidationReport {
+  issues: ValidationIssue[];
+  ok: boolean;
+  autoFixed: string[];
+  stats: {
+    filesScanned: number;
+    importsFound: number;
+    packagesAdded: number;
+  };
+}
+
 export const STACK_OPTIONS: {
   value: StackOption;
   label: string;

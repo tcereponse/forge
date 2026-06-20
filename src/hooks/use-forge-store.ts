@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ProjectRecord } from "@/lib/forge-config";
+import type { ProjectRecord, ValidationReport } from "@/lib/forge-config";
 
 // Ensure every project record has safe defaults for array/string fields,
 // regardless of which endpoint it came from (list vs detail).
@@ -44,6 +44,7 @@ interface ForgeState {
   // Current workspace
   currentProject: ProjectRecord | null;
   loadingProject: boolean;
+  validation: ValidationReport | null;
 
   // Builder
   showBuilder: boolean;
@@ -71,6 +72,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   projectsError: null,
   currentProject: null,
   loadingProject: false,
+  validation: null,
   showBuilder: true,
   generating: false,
   generationPhase: "idle",
@@ -105,6 +107,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     const cached = normalizeProject(get().projects.find((p) => p.id === id) ?? null);
     set({
       currentProject: cached,
+      validation: null,
       showBuilder: false,
       generationPhase: "idle",
       generationError: null,
@@ -114,7 +117,11 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ currentProject: normalizeProject(data.project), loadingProject: false });
+      set({
+        currentProject: normalizeProject(data.project),
+        validation: data.validation ?? null,
+        loadingProject: false,
+      });
       // Also refresh the gallery to keep status in sync
       get().fetchProjects();
     } catch (e) {
@@ -133,7 +140,11 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch(`/api/projects/${cur.id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ currentProject: normalizeProject(data.project), loadingProject: false });
+      set({
+        currentProject: normalizeProject(data.project),
+        validation: data.validation ?? null,
+        loadingProject: false,
+      });
       get().fetchProjects();
     } catch (e) {
       set({ loadingProject: false });
@@ -146,7 +157,12 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      set({ currentProject: normalizeProject(data.project), loadingProject: false, showBuilder: false });
+      set({
+        currentProject: normalizeProject(data.project),
+        validation: data.validation ?? null,
+        loadingProject: false,
+        showBuilder: false,
+      });
     } catch (e) {
       set({
         loadingProject: false,

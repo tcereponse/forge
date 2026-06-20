@@ -8,6 +8,7 @@ import {
   inferLanguage,
 } from "@/lib/forge-config";
 import { buildTemplateFiles, buildIndexCss } from "@/lib/forge-templates";
+import { postProcessProject, type ValidationReport } from "@/lib/forge-postprocess";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -304,12 +305,19 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
 
     // Merge: start with templates, then add LLM files (skipping any LLM file
     // whose path collides with a template config file — templates win on config).
-    const files: GeneratedFile[] = [...templateFiles];
+    let files: GeneratedFile[] = [...templateFiles];
     for (const f of llmFiles) {
       if (!templatePaths.has(f.path)) {
         files.push(f);
       }
     }
+
+    // ───── PHASE 4: Post-generation validation & auto-repair ─────
+    // Scans imports, reconciles package.json, ensures utils.ts exists,
+    // verifies Tailwind config, checks React architecture.
+    const { files: finalFiles, report: validationReport } =
+      postProcessProject(files, config);
+    files = finalFiles;
 
     await db.project.update({
       where: { id },
@@ -318,6 +326,7 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
         prd,
         filesJson: JSON.stringify(files),
         fileCount: files.length,
+        validationJson: JSON.stringify(validationReport),
       },
     });
 
@@ -331,6 +340,7 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
         fileCount: files.length,
         status: "ready" as const,
       },
+      validation: validationReport,
     });
   } catch (error) {
     console.error("[/api/projects/[id]/generate]", error);
