@@ -63,8 +63,25 @@ export function buildTemplateFiles(config: ProjectConfig): GeneratedFile[] {
     version: "0.1.0",
     type: "module",
     scripts: {
-      dev: config.stack === "vite" ? "vite" : "next dev",
-      build: config.stack === "vite" ? "vite build" : "next build",
+      // verify-syntax runs BEFORE dev/build: TypeScript compilation check.
+      // If a file has corrupted newlines (\n → n), tsc will fail with a
+      // syntax error and Vite won't even start — preventing broken UIs.
+      verifySyntax:
+        config.typescript && config.stack === "vite"
+          ? "tsc --noEmit"
+          : "echo \"verify-syntax: skipped (no TypeScript)\"",
+      dev:
+        config.typescript && config.stack === "vite"
+          ? "npm run verifySyntax && vite"
+          : config.stack === "vite"
+            ? "vite"
+            : "next dev",
+      build:
+        config.typescript && config.stack === "vite"
+          ? "npm run verifySyntax && vite build"
+          : config.stack === "vite"
+            ? "vite build"
+            : "next build",
       preview: config.stack === "vite" ? "vite preview" : "next start",
     },
     dependencies: deps,

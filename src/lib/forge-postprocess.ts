@@ -4,9 +4,11 @@
 //   B. Tailwind/CSS config verification
 //   C. Utility files (src/lib/utils.ts + cn()) when needed
 //   D. React architecture checks (no hook-before-provider patterns)
-//   E. Validation report
+//   E. Newline corruption crash-test + auto-repair (CODE_GENERATION_CORRUPTION_PRD)
+//   F. Validation report
 
 import type { GeneratedFile, ProjectConfig, ValidationIssue, ValidationReport } from "./forge-config";
+import { sanitizeFileContent } from "./forge-anticorruption";
 
 // ── Known import-name → npm-package mappings with versions ────────────────
 // When the LLM uses an import like `import { motion } from 'framer-motion'`,
@@ -162,6 +164,45 @@ export function postProcessProject(
 
   // Work on a mutable copy
   const result = files.map((f) => ({ ...f }));
+
+  // ── E. Newline corruption crash-test + auto-repair (FIRST, before anything else) ──
+  // Detects \n → n corruption and attempts to repair. This must run before
+  // dependency scanning so imports are parsed correctly.
+  for (let i = 0; i < result.length; i++) {
+    const f = result[i];
+    // Only check code files, not binary/config
+    if (
+      f.language === "tsx" ||
+      f.language === "ts" ||
+      f.language === "jsx" ||
+      f.language === "javascript" ||
+      f.language === "css" ||
+      f.language === "json" ||
+      f.language === "html" ||
+      f.language === "markdown"
+    ) {
+      const { content: repaired, wasRepaired, findings } = sanitizeFileContent(
+        f.content,
+        f.path
+      );
+      if (wasRepaired) {
+        result[i] = { ...f, content: repaired };
+        autoFixed.push(
+          `Sauts de ligne corrompus réparés dans ${f.path} (${findings.length === 0 ? "entièrement" : "partiellement"})`
+        );
+      }
+      // Report remaining (unrepairable) corruption as errors
+      for (const finding of findings) {
+        issues.push({
+          severity: "error",
+          category: "css", // reuse category; the message is explicit
+          message: `Corruption de syntaxe détectée dans ${f.path}: ${finding.detail}`,
+          file: f.path,
+          fix: "Le fichier peut nécessiter une régénération. Vérifie manuellement les sauts de ligne.",
+        });
+      }
+    }
+  }
 
   // ── A. Dependency reconciliation ──────────────────────────────────────
   const pkgJsonInfo = findPackageJson(result);

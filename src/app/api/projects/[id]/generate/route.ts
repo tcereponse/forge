@@ -9,6 +9,7 @@ import {
 } from "@/lib/forge-config";
 import { buildTemplateFiles, buildIndexCss } from "@/lib/forge-templates";
 import { postProcessProject, type ValidationReport } from "@/lib/forge-postprocess";
+import { unescapeJsonString } from "@/lib/forge-anticorruption";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -66,9 +67,9 @@ function extractJson(text: string): unknown | null {
       let match: RegExpExecArray | null;
       while ((match = fileRegex.exec(cleaned)) !== null) {
         files.push({
-          path: match[1].replace(/\\(.)/g, "$1"),
-          content: match[2].replace(/\\(.)/g, "$1"),
-          language: match[3] ? match[3].replace(/\\(.)/g, "$1") : undefined,
+          path: unescapeJsonString(match[1]),
+          content: unescapeJsonString(match[2]),
+          language: match[3] ? unescapeJsonString(match[3]) : undefined,
         });
       }
       if (files.length > 0) {
