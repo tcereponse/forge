@@ -49,7 +49,7 @@ export function Sidebar() {
     currentProject,
     showBuilder,
     fetchProjects,
-    selectProject,
+    selectProjectById,
     setShowBuilder,
     removeProject,
   } = useForgeStore();
@@ -153,11 +153,11 @@ export function Sidebar() {
                     <div
                       role="button"
                       tabIndex={0}
-                      onClick={() => selectProject(p)}
+                      onClick={() => selectProjectById(p.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          selectProject(p);
+                          selectProjectById(p.id);
                         }
                       }}
                       className={cn(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -13,6 +13,8 @@ import {
   Hash,
   Sparkles,
   AlertTriangle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Markdown } from "@/components/forge/markdown";
@@ -274,19 +276,72 @@ export function Workspace() {
 
       {/* Draft/generating state */}
       {!isReady && !isFailed && (
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-cyan-500/10 ring-1 ring-cyan-500/30">
-              <Sparkles className="h-6 w-6 text-cyan-300" />
-            </div>
-            <p className="text-sm text-slate-400">
-              {p.status === "generating"
-                ? "Génération en cours…"
-                : "Projet en attente de génération."}
-            </p>
-          </div>
-        </div>
+        <DraftGeneratingView projectId={p.id} />
       )}
+    </div>
+  );
+}
+
+function DraftGeneratingView({ projectId }: { projectId: string }) {
+  const refreshCurrentProject = useForgeStore((s) => s.refreshCurrentProject);
+  const [polling, setPolling] = useState(false);
+
+  // Auto-poll every 4s while the project is in draft/generating state,
+  // in case the generation completed on the backend but the client lost the response.
+  useEffect(() => {
+    let active = true;
+    async function poll() {
+      setPolling(true);
+      await refreshCurrentProject();
+      if (active) setPolling(false);
+    }
+    const interval = setInterval(poll, 4000);
+    // Also poll immediately after a short delay
+    const initial = setTimeout(poll, 1500);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      clearTimeout(initial);
+    };
+  }, [projectId, refreshCurrentProject]);
+
+  const cur = useForgeStore((s) => s.currentProject);
+  const isGenerating = cur?.status === "generating";
+
+  return (
+    <div className="flex flex-1 items-center justify-center p-6">
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-cyan-500/10 ring-1 ring-cyan-500/30">
+          {polling || isGenerating ? (
+            <Loader2 className="h-6 w-6 animate-spin text-cyan-300" />
+          ) : (
+            <Sparkles className="h-6 w-6 text-cyan-300" />
+          )}
+        </div>
+        <p className="text-sm font-medium text-slate-200">
+          {isGenerating
+            ? "Génération en cours sur le serveur…"
+            : "Projet en attente de génération."}
+        </p>
+        <p className="mx-auto mt-1 max-w-sm text-xs text-slate-500">
+          Vérification automatique du statut toutes les 4 secondes. Si la
+          génération a déjà terminé côté serveur, les fichiers apparaîtront
+          automatiquement.
+        </p>
+        <Button
+          onClick={() => refreshCurrentProject()}
+          disabled={polling}
+          variant="outline"
+          className="mt-4 border-slate-700 bg-slate-900/60 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
+        >
+          {polling ? (
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-3.5 w-3.5" />
+          )}
+          Actualiser maintenant
+        </Button>
+      </div>
     </div>
   );
 }
