@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Copy,
   Check,
-  Download,
   FileQuestion,
   Braces,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import type { ProjectRecord, GeneratedFile } from "@/lib/forge-config";
 import { buildTree, getSortedChildren, type TreeNode } from "@/lib/file-tree";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DownloadButton } from "@/components/forge/download-button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -210,10 +210,6 @@ export function FileExplorer({ project }: { project: ProjectRecord }) {
     }
   }
 
-  function downloadZip() {
-    window.open(`/api/projects/${project.id}/download`, "_blank");
-  }
-
   const lineCount = currentFile?.content.split("\n").length ?? 0;
 
   return (
@@ -280,14 +276,7 @@ export function FileExplorer({ project }: { project: ProjectRecord }) {
                 {copied ? "Copié" : "Copier"}
               </span>
             </Button>
-            <Button
-              onClick={downloadZip}
-              size="sm"
-              className="h-8 bg-gradient-to-r from-cyan-500 to-teal-500 text-xs text-slate-950 hover:from-cyan-400 hover:to-teal-400"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span className="ml-1.5">Télécharger ZIP</span>
-            </Button>
+            <DownloadButton projectId={project.id} />
           </div>
         </div>
         <div className="custom-scroll min-h-0 flex-1 overflow-auto bg-slate-950/60">

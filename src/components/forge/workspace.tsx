@@ -23,6 +23,7 @@ import { Markdown } from "@/components/forge/markdown";
 import { FileExplorer } from "@/components/forge/file-explorer";
 import { ValidationPanel } from "@/components/forge/validation-panel";
 import { PreviewPanel } from "@/components/forge/preview-panel";
+import { DownloadButton } from "@/components/forge/download-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -150,14 +151,7 @@ export function Workspace() {
             )}
           </div>
 
-          {isReady && (
-            <a href={`/api/projects/${p.id}/download`} target="_blank" rel="noopener noreferrer">
-              <Button className="bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 hover:from-cyan-400 hover:to-teal-400">
-                <Download className="mr-1.5 h-4 w-4" />
-                ZIP
-              </Button>
-            </a>
-          )}
+          {isReady && <DownloadButton projectId={p.id} />}
         </div>
       </div>
 

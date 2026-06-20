@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
 import { db } from "@/lib/db";
 import { type GeneratedFile, inferLanguage } from "@/lib/forge-config";
+import {
+  createFullZipFromDisk,
+  workspaceExists,
+  nodeModulesExists,
+} from "@/lib/workspace";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 function parseFiles(s: string): GeneratedFile[] {
   try {
@@ -26,7 +31,7 @@ function parseFiles(s: string): GeneratedFile[] {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -39,6 +44,35 @@ export async function GET(
       );
     }
 
+    const url = new URL(request.url);
+    const forceSourceOnly = url.searchParams.get("source") === "true";
+
+    // Check if the workspace exists on disk with node_modules installed
+    const wsExists = await workspaceExists(id);
+    const hasNodeModules = await nodeModulesExists(id);
+    // Full ZIP is available if node_modules exists on disk, regardless of
+    // in-memory status (which resets on server restart).
+    const canDownloadFull = !forceSourceOnly && wsExists && hasNodeModules;
+
+    // ── Full ZIP (source + node_modules + dist) ──
+    if (canDownloadFull) {
+      const fullBuffer = await createFullZipFromDisk(id);
+      if (fullBuffer) {
+        const sizeMb = (fullBuffer.length / (1024 * 1024)).toFixed(1);
+        return new NextResponse(fullBuffer as unknown as BodyInit, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": `attachment; filename="${project.slug}-full.zip"`,
+            "Content-Length": String(fullBuffer.length),
+            "X-Zip-Type": "full",
+            "X-Zip-Size-Mb": sizeMb,
+          },
+        });
+      }
+    }
+
+    // ── Source-only ZIP (fallback) ──
     const files = parseFiles(project.filesJson);
     if (files.length === 0) {
       return NextResponse.json(
@@ -68,6 +102,7 @@ export async function GET(
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${project.slug}.zip"`,
         "Content-Length": String(buffer.length),
+        "X-Zip-Type": "source",
       },
     });
   } catch (error) {

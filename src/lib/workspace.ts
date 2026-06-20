@@ -287,3 +287,116 @@ export async function deleteWorkspace(projectId: string): Promise<void> {
   const dir = getProjectDir(projectId);
   await fs.rm(dir, { recursive: true, force: true });
 }
+
+// ── Full ZIP from disk (includes node_modules + dist) ───────────────────────
+
+// Directories/files to skip when zipping the workspace
+const SKIP_ENTRIES = new Set([
+  ".cache",
+  ".vite",
+  "dist-stats.json",
+]);
+
+// Check if the workspace directory exists on disk
+export async function workspaceExists(projectId: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(getProjectDir(projectId));
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Check if node_modules exists in the workspace
+export async function nodeModulesExists(projectId: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(path.join(getProjectDir(projectId), "node_modules"));
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Read a directory recursively and return all file paths (relative to root)
+async function readDirRecursive(
+  rootDir: string,
+  currentDir: string,
+  files: { relPath: string; absPath: string }[]
+): Promise<void> {
+  const entries = await fs.readdir(currentDir, { withFileTypes: true });
+  for (const entry of entries) {
+    // Skip blacklisted entries
+    if (SKIP_ENTRIES.has(entry.name)) continue;
+
+    const absPath = path.join(currentDir, entry.name);
+    const relPath = path.relative(rootDir, absPath);
+
+    if (entry.isDirectory()) {
+      await readDirRecursive(rootDir, absPath, files);
+    } else if (entry.isFile()) {
+      files.push({ relPath, absPath });
+    }
+    // Skip symlinks to avoid infinite loops
+  }
+}
+
+// Create a full ZIP from the workspace directory on disk.
+// Includes source files, node_modules, dist, config — everything.
+export async function createFullZipFromDisk(
+  projectId: string
+): Promise<Buffer | null> {
+  const dir = getProjectDir(projectId);
+  const exists = await workspaceExists(projectId);
+  if (!exists) return null;
+
+  // Dynamically import JSZip to keep the module lighter when not used
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+
+  const files: { relPath: string; absPath: string }[] = [];
+  await readDirRecursive(dir, dir, files);
+
+  // Add all files to the zip
+  for (const file of files) {
+    try {
+      const content = await fs.readFile(file.absPath);
+      zip.file(file.relPath, content);
+    } catch {
+      // Skip unreadable files (permissions, broken symlinks, etc.)
+    }
+  }
+
+  const buffer = await zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    compressionOptions: { level: 1 }, // fast compression for large node_modules
+  });
+
+  return Buffer.from(buffer);
+}
+
+// Get the count of files in node_modules (for UI info)
+export async function getNodeModulesFileCount(
+  projectId: string
+): Promise<number> {
+  const nmPath = path.join(getProjectDir(projectId), "node_modules");
+  try {
+    let count = 0;
+    async function countDir(dir: string): Promise<void> {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith(".npm") || entry.name === ".package-lock.json") continue;
+        const abs = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await countDir(abs);
+        } else if (entry.isFile()) {
+          count++;
+        }
+      }
+    }
+    await countDir(nmPath);
+    return count;
+  } catch {
+    return 0;
+  }
+}
