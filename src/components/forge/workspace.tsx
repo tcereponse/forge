@@ -24,6 +24,7 @@ import { FileExplorer } from "@/components/forge/file-explorer";
 import { ValidationPanel } from "@/components/forge/validation-panel";
 import { PreviewPanel } from "@/components/forge/preview-panel";
 import { DownloadButton } from "@/components/forge/download-button";
+import { FeatureSummary } from "@/components/forge/feature-summary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -154,6 +155,13 @@ export function Workspace() {
           {isReady && <DownloadButton projectId={p.id} />}
         </div>
       </div>
+
+      {/* Feature implementation summary (shows what features are detected in the code) */}
+      {isReady && p.features.length > 0 && (
+        <div className="border-b border-slate-800 bg-slate-950/40 px-4 py-3 sm:px-6">
+          <FeatureSummary files={p.files} features={p.features} />
+        </div>
+      )}
 
       {/* Failed state */}
       {isFailed && (

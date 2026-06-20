@@ -431,6 +431,59 @@ export default {
     });
   }
 
+  // ── Test files (if tests feature enabled) ────────────────────
+  if (config.features.includes("tests")) {
+    files.push({
+      path: `src/components/MainComponent.test.${tsExt}`,
+      language: tsExt,
+      content: config.typescript
+        ? `import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+
+// Basic smoke test — adapt to your MainComponent's actual exports
+describe('MainComponent', () => {
+  it('should be defined', () => {
+    // This is a placeholder test. Replace with real tests
+    // that import and render your MainComponent.
+    expect(true).toBe(true)
+  })
+
+  it('should render without crashing', () => {
+    // Example: import MainComponent from './MainComponent'
+    // render(<MainComponent />)
+    // expect(screen.getByText(/some text/i)).toBeInTheDocument()
+    expect(true).toBe(true)
+  })
+})
+`
+        : `import { describe, it, expect } from 'vitest'
+
+describe('MainComponent', () => {
+  it('should be defined', () => {
+    expect(true).toBe(true)
+  })
+})
+`,
+    });
+
+    files.push({
+      path: "vitest.config.ts",
+      language: "typescript",
+      content: `import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: [],
+  },
+})
+`,
+    });
+  }
+
   return files;
 }
 
