@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: Markdown Pack",
+  "version": "1.0.0",
+  "description": "Pack d'extensions PRD pour la catégorie Markdown.",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_markdown.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

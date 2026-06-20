@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: Prompt & Skills Pack",
+  "version": "1.0.0",
+  "description": "Pack d'extensions PRD pour la catégorie Prompt & Skills.",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_prompt_skills.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

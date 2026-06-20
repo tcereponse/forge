@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "ELITE FORGE • PHASE 4",
+  "version": "13.0",
+  "description": "Moniteur de Matérialisation APK en temps réel",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://127.0.0.1:5005/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://*.deepseek.com/*", "https://chat.openai.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

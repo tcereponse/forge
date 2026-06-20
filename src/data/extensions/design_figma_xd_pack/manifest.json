@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: Design (Figma/XD) Pack",
+  "version": "1.0.0",
+  "description": "Pack d'extensions PRD pour la catégorie Design (Figma/XD).",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_design_figma_xd.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

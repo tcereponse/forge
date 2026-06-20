@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "AUTO-WIRE ENGINE — Moteur d'Intégration Universelle",
+  "version": "1.2.0",
+  "description": "Moteur d'auto-câblage universel : scanne l'architecture du projet et connecte automatiquement tous les composants dans App.tsx, LandingPage, Router. Compatible avec tout projet React/TS.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "*://*.deepseek.com/*",
+    "*://chatgpt.com/*",
+    "*://gemini.google.com/*",
+    "http://localhost:5005/*",
+    "http://127.0.0.1:5005/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": ["inject_autowire.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

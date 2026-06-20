@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -108,6 +108,26 @@ export function BuilderForm() {
   const [uiLib, setUiLib] = useState<ProjectConfig["uiLib"]>("none");
   const [features, setFeatures] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+
+  // Extension packs state
+  const [extPacks, setExtPacks] = useState<
+    { id: string; name: string; prdCount: number }[]
+  >([]);
+  const [extFeatureMap, setExtFeatureMap] = useState<Record<string, string[]>>(
+    {}
+  );
+
+  useEffect(() => {
+    fetch("/api/extensions")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          setExtPacks(data.packs);
+          setExtFeatureMap(data.featureMap);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   function toggleFeature(f: string) {
     setFeatures((prev) =>
@@ -341,20 +361,29 @@ export function BuilderForm() {
 
       {/* Features */}
       <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          <Check className="mr-1.5 inline h-3.5 w-3.5" />
-          Fonctionnalités ({features.length} sélectionnées)
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <Check className="mr-1.5 inline h-3.5 w-3.5" />
+            Fonctionnalités ({features.length} sélectionnées)
+          </p>
+          {extPacks.length > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-cyan-400/70">
+              <Sparkles className="h-3 w-3" />
+              {extPacks.length} packs d'extensions PRD chargés
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {FEATURE_OPTIONS.map((f) => {
             const active = features.includes(f.value);
+            const hasExtension = extFeatureMap[f.value]?.length > 0;
             return (
               <button
                 key={f.value}
                 type="button"
                 onClick={() => toggleFeature(f.value)}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs transition",
+                  "group relative rounded-full border px-3 py-1.5 text-xs transition",
                   active
                     ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-200"
                     : "border-slate-700 bg-slate-950/40 text-slate-400 hover:border-slate-600 hover:text-slate-200"
@@ -362,10 +391,36 @@ export function BuilderForm() {
               >
                 {active && <Check className="mr-1 inline h-3 w-3" />}
                 {f.label}
+                {hasExtension && (
+                  <span
+                    className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-cyan-400"
+                    title={`${extFeatureMap[f.value].length} pack(s) d'extension PRD`}
+                  />
+                )}
               </button>
             );
           })}
         </div>
+        {features.length > 0 && (
+          <div className="border-t border-slate-800 pt-3">
+            <p className="mb-2 text-[10px] uppercase tracking-wider text-slate-500">
+              Extensions PRD actives pour cette génération :
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {features.map((feat) => {
+                const packs = extFeatureMap[feat] ?? [];
+                return packs.length > 0 ? (
+                  <span
+                    key={feat}
+                    className="rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 text-[10px] text-cyan-300/80"
+                  >
+                    {feat} ← {packs.join(", ")}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Submit */}

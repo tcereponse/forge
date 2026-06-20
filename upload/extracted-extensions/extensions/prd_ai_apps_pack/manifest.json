@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: AI Apps Pack",
+  "version": "1.0.0",
+  "description": "Injecte les architectures d'applications propulsées par l'IA.",
+  "permissions": ["activeTab"],
+  "content_scripts": [{
+    "matches": ["*://*.deepseek.com/*", "*://chat.deepseek.com/*"],
+    "js": ["inject_ai.js"],
+    "run_at": "document_idle"
+  }]
+}

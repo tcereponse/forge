@@ -11,6 +11,7 @@ import { buildTemplateFiles, buildIndexCss } from "@/lib/forge-templates";
 import { postProcessProject, type ValidationReport } from "@/lib/forge-postprocess";
 import { unescapeJsonString } from "@/lib/forge-anticorruption";
 import { writeProjectFiles, runInstall } from "@/lib/workspace";
+import { buildExtensionDirective } from "@/lib/extension-parser";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -101,6 +102,45 @@ function parseFiles(raw: unknown): GeneratedFile[] {
   return files;
 }
 
+// Build feature-specific instructions that tell the LLM HOW to implement each feature
+function buildFeatureInstructions(features: string[], tsExt: string): string {
+  if (features.length === 0) return "";
+
+  const instructions: string[] = ["", "## FEATURES À IMPLÉMENTER (VRAIMENT FONCTIONNELLES)"];
+
+  for (const feature of features) {
+    const instruction = FEATURE_INSTRUCTIONS[feature];
+    if (instruction) {
+      instructions.push(`### ${feature}\n${instruction(tsExt)}`);
+    }
+  }
+
+  return instructions.join("\n\n");
+}
+
+const FEATURE_INSTRUCTIONS: Record<string, (tsExt: string) => string> = {
+  darkmode: () =>
+    "IMPLÉMENTE un vrai toggle dark mode : useState pour le thème, bouton qui bascule la classe 'dark' sur document.documentElement, et utilise les classes 'dark:' de Tailwind. Le toggle doit être visible dans le header.",
+  auth: () =>
+    "IMPLÉMENTE une fausse authentification : un formulaire de login (email/password) avec useState pour l'utilisateur connecté. Affiche 'Connecté en tant que {email}' quand authentifié, sinon affiche le formulaire. Bouton de déconnexion.",
+  api: () =>
+    "IMPLÉMENTE une couche API : crée une fonction fetchProducts() qui simule un appel API avec setTimeout/Promise (données mockées). Affiche un état de chargement (loading) puis les données. Gère les erreurs.",
+  forms: () =>
+    "IMPLÉMENTE un formulaire avec react-hook-form : un formulaire d'ajout (nom, description) avec validation (champs requis), onSubmit qui ajoute à une liste. Affiche les erreurs de validation sous chaque champ.",
+  charts: () =>
+    "IMPLÉMENTE un graphique avec recharts : un BarChart ou LineChart avec données mockées (ex: ventes par mois). Importe BarChart/LineChart de recharts. ResponsiveContainer pour le redimensionnement.",
+  tables: () =>
+    "IMPLÉMENTE un tableau de données : affiche une liste de données dans un tableau HTML avec en-têtes triables (clique sur l'en-tête pour trier). Pagination simple (précédent/suivant) si plus de 10 lignes.",
+  pwa: () =>
+    "IMPLÉMENTE le support PWA : le manifest est géré par vite-plugin-pwa (déjà dans package.json). Ajoute un bouton 'Installer l'app' qui appelle le beforeinstallprompt event si disponible.",
+  i18n: () =>
+    "IMPLÉMENTE l'internationalisation : un sélecteur de langue (FR/EN) dans le header avec useState. Les textes principaux de l'app (titre, boutons) doivent changer de langue au clic. Utilise un objet de traduction simple.",
+  tests: () =>
+    "Les tests Vitest sont gérés séparément. Assure-toi que les fonctions principales (ajout, suppression, tri) sont exportables et testables. Évite la logique inline dans le JSX.",
+  animations: () =>
+    "IMPLÉMENTE des animations avec framer-motion : anime l'apparition des éléments (motion.div avec initial/animate), transitions au hover des boutons (whileHover), et animation de la liste (AnimatePresence pour les ajouts/suppressions).",
+};
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -186,12 +226,19 @@ Sois factuel et concis.`;
         ? "Intègre react-router-dom v6 : utilise HashRouter dans App.tsx avec 2 routes (la route '/' affiche MainComponent, une seconde route '/about' ou similaire)."
         : "Pas de routing. App.tsx affiche directement MainComponent.";
 
+    // Build extension directive (injects specialized PRD contexts for selected features)
+    const extensionDirective = await buildExtensionDirective(config.features);
+
+    // Build feature-specific instructions
+    const featureInstructions = buildFeatureInstructions(config.features, tsExt);
+
     const codePrompt = `Génère UNIQUEMENT 3 fichiers React pour l'application décrite. Réponds UNIQUEMENT avec du JSON valide, AUCUN texte autour, AUCUN markdown.
 
 Application : "${config.name}"
 Description : "${config.description}"
 ${stackDirective}
-
+${featureInstructions}
+${extensionDirective}
 Génère EXACTEMENT ces 3 fichiers :
 1. "src/App.${tsExt}" — composant racine. ${routingRule} Peut contenir un header/navbar avec le nom de l'app. Importe MainComponent.
 2. "src/components/MainComponent.${tsExt}" — le composant MÉTIER principal avec VRAIE logique liée à l'app (todo→ajout/suppression/bascule de tâches, recipes→liste+recherche, chat→messages+input, etc.). Doit avoir un état React (useState) et des interactions fonctionnelles. Pas juste un affichage statique.
@@ -209,6 +256,7 @@ RÈGLES CRITIQUES :
 - NE crée PAS de Context/Provider dans App.tsx (gardes App simple — pas de hook de contexte avant le provider).
 - Échappe les guillemets dans le JSON (utilise \\" pour les guillemets dans le code).
 - Code COMPLET et fonctionnel, concis.
+- Si des features sont sélectionnées (darkmode, auth, forms, charts, etc.), IMPLÉMENTE-LES VRAIMENT dans le code — pas juste un commentaire.
 
 Format JSON EXACT :
 {"files":[{"path":"src/App.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/components/MainComponent.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/index.css","content":"...","language":"css"}]}

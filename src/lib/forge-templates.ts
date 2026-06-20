@@ -30,6 +30,39 @@ export function buildTemplateFiles(config: ProjectConfig): GeneratedFile[] {
   if (config.stateMgmt === "zustand") {
     deps.zustand = "^4.5.4";
   }
+
+  // ── Feature-based dependencies ───────────────────────────────
+  if (config.features.includes("forms")) {
+    deps["react-hook-form"] = "^7.53.0";
+    deps["@hookform/resolvers"] = "^3.9.0";
+    deps.zod = "^3.23.8";
+  }
+  if (config.features.includes("charts")) {
+    deps.recharts = "^2.12.7";
+  }
+  if (config.features.includes("animations")) {
+    deps["framer-motion"] = "^11.3.24";
+  }
+  if (config.features.includes("i18n")) {
+    deps["react-i18next"] = "^15.0.1";
+    deps.i18next = "^23.14.0";
+  }
+  if (config.features.includes("api")) {
+    deps.axios = "^1.7.5";
+  }
+  if (config.features.includes("tests")) {
+    devDeps.vitest = "^2.0.5";
+    devDeps["@testing-library/react"] = "^16.0.1";
+    devDeps["@testing-library/jest-dom"] = "^6.4.8";
+    devDeps["jsdom"] = "^25.0.0";
+  }
+  if (config.features.includes("pwa")) {
+    devDeps["vite-plugin-pwa"] = "^0.20.5";
+  }
+  if (config.features.includes("auth")) {
+    deps["lucide-react"] = "^0.439.0";
+  }
+
   if (config.stateMgmt === "redux") {
     deps["@reduxjs/toolkit"] = "^2.2.7";
     deps["react-redux"] = "^9.1.2";
@@ -57,33 +90,39 @@ export function buildTemplateFiles(config: ProjectConfig): GeneratedFile[] {
     devDeps["@types/react-dom"] = "^18.3.0";
   }
 
+  const scripts: Record<string, string> = {
+    // verify-syntax runs BEFORE dev/build: TypeScript compilation check.
+    verifySyntax:
+      config.typescript && config.stack === "vite"
+        ? "tsc --noEmit"
+        : "echo \"verify-syntax: skipped\"",
+    dev:
+      config.typescript && config.stack === "vite"
+        ? "npm run verifySyntax && vite"
+        : config.stack === "vite"
+          ? "vite"
+          : "next dev",
+    build:
+      config.typescript && config.stack === "vite"
+        ? "npm run verifySyntax && vite build"
+        : config.stack === "vite"
+          ? "vite build"
+          : "next build",
+    preview: config.stack === "vite" ? "vite preview" : "next start",
+  };
+
+  // Add test script if tests feature is enabled
+  if (config.features.includes("tests")) {
+    scripts.test = "vitest";
+    scripts["test:run"] = "vitest run";
+  }
+
   const packageJson = {
     name: config.name.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
     private: true,
     version: "0.1.0",
     type: "module",
-    scripts: {
-      // verify-syntax runs BEFORE dev/build: TypeScript compilation check.
-      // If a file has corrupted newlines (\n → n), tsc will fail with a
-      // syntax error and Vite won't even start — preventing broken UIs.
-      verifySyntax:
-        config.typescript && config.stack === "vite"
-          ? "tsc --noEmit"
-          : "echo \"verify-syntax: skipped (no TypeScript)\"",
-      dev:
-        config.typescript && config.stack === "vite"
-          ? "npm run verifySyntax && vite"
-          : config.stack === "vite"
-            ? "vite"
-            : "next dev",
-      build:
-        config.typescript && config.stack === "vite"
-          ? "npm run verifySyntax && vite build"
-          : config.stack === "vite"
-            ? "vite build"
-            : "next build",
-      preview: config.stack === "vite" ? "vite preview" : "next start",
-    },
+    scripts,
     dependencies: deps,
     devDependencies: devDeps,
   };
@@ -92,6 +131,117 @@ export function buildTemplateFiles(config: ProjectConfig): GeneratedFile[] {
     path: "package.json",
     language: "json",
     content: JSON.stringify(packageJson, null, 2) + "\n",
+  });
+
+  // ── .gitignore ───────────────────────────────────────────────
+  files.push({
+    path: ".gitignore",
+    language: "text",
+    content: `# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build output
+dist
+dist-ssr
+*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor directories
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage
+
+# Misc
+.cache
+.temp
+`,
+  });
+
+  // ── README.md ────────────────────────────────────────────────
+  const featuresList = config.features.length > 0
+    ? config.features.map((f) => `- ✅ ${f}`).join("\n")
+    : "- (aucune feature supplémentaire)";
+  files.push({
+    path: "README.md",
+    language: "markdown",
+    content: `# ${config.name}
+
+${config.description}
+
+## 🚀 Démarrage rapide
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+Le serveur de développement démarre sur http://localhost:5173
+
+## 📜 Scripts disponibles
+
+| Script | Description |
+|--------|-------------|
+| \`npm run dev\` | Démarre le serveur de développement (avec vérification TS) |
+| \`npm run build\` | Build de production |
+| \`npm run preview\` | Prévisualise le build de production |
+| \`npm run verifySyntax\` | Vérification TypeScript (tsc --noEmit) |
+${config.features.includes("tests") ? "| `npm test` | Lance les tests (Vitest) |\n" : ""}
+
+## 🛠️ Stack technique
+
+- **React** 18
+- **Build tool**: ${config.stack}
+${config.typescript ? "- **TypeScript** 5\n" : ""}- **Styling**: ${config.styling}
+${config.routing === "router" ? "- **Routing**: React Router DOM v6 (HashRouter)\n" : ""}${config.stateMgmt !== "none" ? `- **State**: ${config.stateMgmt}\n` : ""}${config.uiLib !== "none" ? `- **UI Library**: ${config.uiLib}\n` : ""}
+## ✨ Fonctionnalités
+
+${featuresList}
+
+## 📁 Structure du projet
+
+\`\`\`
+${config.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}/
+├── index.html
+├── package.json
+├── vite.config.${tsOrJs}
+├── tsconfig.json
+├── tailwind.config.${tsOrJs}
+├── postcss.config.js
+└── src/
+    ├── main.${tsExt}
+    ├── App.${tsExt}
+    ├── index.css
+    └── components/
+        └── MainComponent.${tsExt}
+\`\`\`
+
+---
+
+Généré par **React Forge** le ${new Date().toLocaleDateString("fr-FR")}
+`,
   });
 
   // ── index.html (Vite only) ───────────────────────────────────

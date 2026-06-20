@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: E‑commerce Pack",
+  "version": "1.0.0",
+  "description": "Pack d'extensions PRD pour la catégorie E‑commerce.",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_ecommerce.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

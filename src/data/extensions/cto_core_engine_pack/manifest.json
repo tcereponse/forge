@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: CTO Core Engine",
+  "version": "12.0.0",
+  "description": "Oblige DeepSeek à agir comme un Senior CTO pour la création des 10 PRD.",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_cto_core.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

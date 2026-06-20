@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: Mobile Pack",
+  "version": "1.0.0",
+  "description": "Injecte les architectures d'applications Mobiles (Navigation, Tabs).",
+  "permissions": ["activeTab"],
+  "content_scripts": [{
+    "matches": ["*://*.deepseek.com/*", "*://chat.deepseek.com/*"],
+    "js": ["inject_mobile.js"],
+    "run_at": "document_idle"
+  }]
+}

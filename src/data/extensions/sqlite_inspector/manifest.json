@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Inspecteur SQLite (DB Viewer)",
+  "version": "1.0.0",
+  "description": "Panneau de contrôle pour lire directement la base de données SQLite du projet en cours.",
+  "permissions": ["activeTab"],
+  "host_permissions": ["http://127.0.0.1:8088/*"],
+  "content_scripts": [{
+    "matches": ["*://localhost:*/*", "http://127.0.0.1:*/*"],
+    "js": ["inspector.js"]
+  }]
+}

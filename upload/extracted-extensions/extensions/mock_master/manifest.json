@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Générateur de Mock (Mock Master)",
+  "version": "1.0.0",
+  "description": "Génère des fausses données aléatoires pour tester le Frontend sans base de données.",
+  "permissions": ["activeTab"],
+  "content_scripts": [{
+    "matches": ["*://localhost:*/*", "http://127.0.0.1:*/*"],
+    "js": ["mock.js"]
+  }]
+}

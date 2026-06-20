@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Diamond Bridge v14.37 (Forge Edition)",
+  "version": "14.37",
+  "description": "Core Bridge for Diamond Forge v14.37",
+  "permissions": ["activeTab", "scripting"],
+  "content_scripts": [
+    {
+      "matches": ["*://chat.deepseek.com/*", "*://z.ai/*", "*://aistudio.google.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

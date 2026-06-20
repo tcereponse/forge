@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Extracteur Universel (Scraper)",
+  "version": "1.0.0",
+  "description": "Fouille la page web actuelle pour extraire les flux RSS et les envoyer au backend local (Port 8088).",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["<all_urls>", "http://127.0.0.1:8088/*"],
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["scraper.js"]
+  }]
+}
