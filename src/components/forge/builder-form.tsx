@@ -116,17 +116,37 @@ export function BuilderForm() {
   const [extFeatureMap, setExtFeatureMap] = useState<Record<string, string[]>>(
     {}
   );
+  const [extLoading, setExtLoading] = useState(true);
+  const [extError, setExtError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/extensions")
-      .then((r) => r.json())
+    let cancelled = false;
+    setExtLoading(true);
+    fetch("/api/extensions", { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
-        if (data.success) {
+        if (cancelled) return;
+        if (data.success && data.packs) {
           setExtPacks(data.packs);
-          setExtFeatureMap(data.featureMap);
+          setExtFeatureMap(data.featureMap || {});
+        } else {
+          setExtError(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[extensions] fetch failed:", err);
+        setExtError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setExtLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function toggleFeature(f: string) {
@@ -366,12 +386,21 @@ export function BuilderForm() {
             <Check className="mr-1.5 inline h-3.5 w-3.5" />
             Fonctionnalités ({features.length} sélectionnées)
           </p>
-          {extPacks.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-cyan-400/70">
-              <Sparkles className="h-3 w-3" />
-              {extPacks.length} packs d'extensions PRD chargés
-            </span>
-          )}
+          <span className="flex items-center gap-1 text-[10px]">
+            {extLoading ? (
+              <span className="flex items-center gap-1 text-slate-500">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Chargement des extensions…
+              </span>
+            ) : extError ? (
+              <span className="text-amber-400/70">Extensions indisponibles</span>
+            ) : extPacks.length > 0 ? (
+              <span className="flex items-center gap-1 font-medium text-cyan-400">
+                <Sparkles className="h-3 w-3" />
+                {extPacks.length} packs d'extensions PRD chargés
+              </span>
+            ) : null}
+          </span>
         </div>
         <div className="flex flex-wrap gap-2">
           {FEATURE_OPTIONS.map((f) => {
