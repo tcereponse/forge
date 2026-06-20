@@ -1,12 +1,20 @@
 // Workspace manager: writes generated files to disk, runs npm install/build,
 // and tracks status in memory. Each project gets a folder under workspaces/{id}/.
+//
+// IMPORTANT: Workspaces are stored OUTSIDE the project directory (in /tmp)
+// to avoid breaking the platform's file browser (ls-tree) which tries to
+// index every file in the project folder. node_modules with 4000+ files
+// would cause 503 timeouts in the platform's file listing service.
 
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 import { spawn, type ChildProcess } from "child_process";
 import type { GeneratedFile } from "./forge-config";
 
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+// Use /tmp/react-forge-workspaces (or OS temp dir) — outside the project
+// so the platform file browser won't try to index 10k+ node_modules files.
+const WORKSPACES_DIR = path.join(os.tmpdir(), "react-forge-workspaces");
 
 // In-memory status tracking (persists for the dev server's lifetime)
 interface ProcessStatus {
