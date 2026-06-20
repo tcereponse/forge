@@ -7,6 +7,7 @@ import {
   buildStackDirective,
   inferLanguage,
 } from "@/lib/forge-config";
+import { buildTemplateFiles, buildIndexCss } from "@/lib/forge-templates";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -165,47 +166,49 @@ Sois factuel et concis.`;
     });
     const prd = prdCompletion.choices[0]?.message?.content ?? "";
 
-    // ───── PHASE 2: Code generation (structured JSON) ─────
-    const fileStructureHint =
-      config.stack === "next"
-        ? `Structure Next.js (app router): app/layout.tsx, app/page.tsx, app/globals.css, components/, lib/, package.json, next.config.js, tsconfig.json${
-            config.styling === "tailwind" ? ", tailwind.config.ts, postcss.config.js" : ""
-          }`
-        : `Structure Vite (FLAT, fichiers de config à la racine, code dans src/): index.html, vite.config.${tsOrJs}, tsconfig.json${
-            config.typescript ? ", tsconfig.node.json" : ""
-          }, package.json${
-            config.styling === "tailwind"
-              ? `, tailwind.config.${tsOrJs}, postcss.config.js`
-              : ""
-          }, src/main.${tsExt}, src/App.${tsExt}, src/index.css, src/components/, src/pages/${
-            config.routing === "router" ? ", src/router.tsx" : ""
-          }${config.stateMgmt === "zustand" ? ", src/store/" : ""}`;
+    // ───── PHASE 2: Code generation (LLM generates ONLY creative files) ─────
+    // The LLM generates only App.tsx, MainComponent.tsx, and (optionally) index.css.
+    // All config files (package.json, vite.config, tsconfig, tailwind.config,
+    // postcss.config, index.html, main.tsx) are injected deterministically
+    // via buildTemplateFiles() to guarantee the project is always runnable.
+    const stylingRule =
+      config.styling === "tailwind"
+        ? "Utilise des classes Tailwind pour TOUT le style. N'utilise PAS @apply avec des classes personnalisées comme border-border — utilise directement les classes Tailwind standards (border, border-slate-200, etc.) ou des couleurs rgb(var(--primary))."
+        : config.styling === "css"
+          ? "Utilise des classes CSS normales (pas de Tailwind)."
+          : "Utilise styled-components.";
 
-    const codePrompt = `Génère un projet React COMPLET et FONCTIONNEL pour l'application décrite. Réponds UNIQUEMENT avec du JSON valide, AUCUN texte autour, AUCUN markdown.
+    const routingRule =
+      config.routing === "router"
+        ? "Intègre react-router-dom v6 : utilise HashRouter dans App.tsx avec 2 routes (la route '/' affiche MainComponent, une seconde route '/about' ou similaire)."
+        : "Pas de routing. App.tsx affiche directement MainComponent.";
+
+    const codePrompt = `Génère UNIQUEMENT 3 fichiers React pour l'application décrite. Réponds UNIQUEMENT avec du JSON valide, AUCUN texte autour, AUCUN markdown.
 
 Application : "${config.name}"
 Description : "${config.description}"
 ${stackDirective}
 
-Génère EXACTEMENT ces 6 fichiers (ni plus, ni moins) :
-1. "package.json" — dépendances complètes avec versions
-2. "index.html" — point d'entrée HTML avec <div id="root">
-3. "src/main.${tsExt}" — rendu React (createRoot)
-4. "src/App.${tsExt}" — composant principal AVEC LOGIQUE MÉTIER liée à l'app (pas juste Hello World)
-5. "src/components/MainComponent.${tsExt}" — un composant métier clé (ex: TaskList, RecipeCard, ChatWindow selon l'app)
-6. "src/index.css" — styles (${config.styling === "tailwind" ? "directives Tailwind @tailwind base/components/utilities + styles globaux" : "CSS global"})
+Génère EXACTEMENT ces 3 fichiers :
+1. "src/App.${tsExt}" — composant racine. ${routingRule} Peut contenir un header/navbar avec le nom de l'app. Importe MainComponent.
+2. "src/components/MainComponent.${tsExt}" — le composant MÉTIER principal avec VRAIE logique liée à l'app (todo→ajout/suppression/bascule de tâches, recipes→liste+recherche, chat→messages+input, etc.). Doit avoir un état React (useState) et des interactions fonctionnelles. Pas juste un affichage statique.
+3. "src/index.css" — styles globaux. ${
+          config.styling === "tailwind"
+            ? "Commence par les 3 directives @tailwind (base, components, utilities). Ajoute ensuite quelques styles globaux simples (body, fonts). NE définis PAS de @apply avec des classes personnalisées."
+            : "CSS global simple (reset, body, fonts)."
+        }
 
-RÈGLES :
-- Code COMPLET, fonctionnel, prêt à npm install && npm run dev.
-- Composants PascalCase, liés à l'app décrite (todo→TaskList, recipes→RecipeCard, etc.).
-- ${config.typescript ? "TypeScript : interfaces pour les props, typage explicite." : "JavaScript ES6+."}
-- ${config.styling === "tailwind" ? "Utilise des classes Tailwind pour TOUT le style." : config.styling === "css" ? "CSS Modules pour le style." : "Styled Components."}
-- ${config.routing === "router" ? "Intègre react-router-dom v6 (HashRouter) dans App avec 2 routes." : "Pas de routing, single page."}
+RÈGLES CRITIQUES :
+- ${config.typescript ? "TypeScript : interfaces pour les props et le state, typage explicite." : "JavaScript ES6+."}
+- ${stylingRule}
+- Composants PascalCase. Imports relatifs sans extension (import MainComponent from './components/MainComponent').
+- NE génère PAS package.json, index.html, main.tsx, vite.config, tsconfig, tailwind.config, postcss.config — ils sont fournis automatiquement.
+- NE crée PAS de Context/Provider dans App.tsx (gardes App simple — pas de hook de contexte avant le provider).
 - Échappe les guillemets dans le JSON (utilise \\" pour les guillemets dans le code).
-- Garde chaque fichier CONCIS mais complet (évite le code inutilement long).
+- Code COMPLET et fonctionnel, concis.
 
-Format JSON EXACT (commence par { et finis par }) :
-{"files":[{"path":"package.json","content":"...","language":"json"},{"path":"index.html","content":"...","language":"html"},{"path":"src/main.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/App.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/components/MainComponent.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/index.css","content":"...","language":"css"}]}
+Format JSON EXACT :
+{"files":[{"path":"src/App.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/components/MainComponent.${tsExt}","content":"...","language":"${tsExt}"},{"path":"src/index.css","content":"...","language":"css"}]}
 
 Réponds MAINTENANT avec uniquement l'objet JSON.`;
 
@@ -214,7 +217,7 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
         {
           role: "assistant",
           content:
-            "Tu es un générateur de code React expert. Tu réponds UNIQUEMENT par du JSON valide, jamais de texte autour, jamais de markdown.",
+            "Tu es un générateur de composants React expert. Tu réponds UNIQUEMENT par du JSON valide, jamais de texte autour, jamais de markdown. Tu ne génères que du code de composants, jamais de fichiers de configuration.",
         },
         { role: "user", content: codePrompt },
       ],
@@ -244,9 +247,9 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
       );
     }
 
-    const files = parseFiles(parsed.files);
+    const llmFiles = parseFiles(parsed.files);
 
-    if (files.length === 0) {
+    if (llmFiles.length === 0) {
       await db.project.update({
         where: { id },
         data: { status: "failed", prd },
@@ -255,6 +258,57 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
         { success: false, error: "Aucun fichier valide généré.", prd },
         { status: 422 }
       );
+    }
+
+    // ───── PHASE 3: Merge LLM files with deterministic template files ─────
+    // Template files (config, boilerplate) take precedence for config paths;
+    // LLM files take precedence for src/ component files.
+    const templateFiles = buildTemplateFiles(config);
+    const templatePaths = new Set(templateFiles.map((f) => f.path));
+
+    // Ensure index.css always has @tailwind directives AND CSS variables.
+    // If the LLM produced an index.css, merge our safe CSS-variable base
+    // with the LLM's custom styles (animations, etc.).
+    if (config.styling === "tailwind") {
+      const llmCssIdx = llmFiles.findIndex((f) => f.path === "src/index.css");
+      const safeBase = buildIndexCss(config);
+      if (llmCssIdx === -1) {
+        // No LLM CSS — use our safe base
+        llmFiles.push({ path: "src/index.css", content: safeBase, language: "css" });
+      } else {
+        const llmCss = llmFiles[llmCssIdx].content;
+        // If the LLM CSS already defines --border, it's complete enough.
+        // Otherwise, prepend our safe base (with CSS vars) and append LLM custom styles.
+        if (llmCss.includes("--border:")) {
+          // Already has CSS variables — keep as is
+        } else {
+          // Strip any @tailwind directives from LLM CSS (our base already has them)
+          // and append the LLM's custom styles after the base
+          const llmCustom = llmCss
+            .replace(/@tailwind\s+(base|components|utilities);?\s*/g, "")
+            .trim();
+          llmFiles[llmCssIdx].content = safeBase + "\n" + llmCustom + "\n";
+        }
+      }
+    } else {
+      // Non-tailwind: ensure index.css exists
+      const hasLlmCss = llmFiles.some((f) => f.path === "src/index.css");
+      if (!hasLlmCss) {
+        llmFiles.push({
+          path: "src/index.css",
+          content: buildIndexCss(config),
+          language: "css",
+        });
+      }
+    }
+
+    // Merge: start with templates, then add LLM files (skipping any LLM file
+    // whose path collides with a template config file — templates win on config).
+    const files: GeneratedFile[] = [...templateFiles];
+    for (const f of llmFiles) {
+      if (!templatePaths.has(f.path)) {
+        files.push(f);
+      }
     }
 
     await db.project.update({
