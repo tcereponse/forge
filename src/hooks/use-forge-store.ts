@@ -115,6 +115,16 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     });
     try {
       const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
+      // Handle 404 (project was deleted) gracefully
+      if (res.status === 404) {
+        set({
+          currentProject: null,
+          loadingProject: false,
+          showBuilder: true,
+        });
+        get().fetchProjects();
+        return;
+      }
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       set({
@@ -127,6 +137,8 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     } catch (e) {
       set({
         loadingProject: false,
+        currentProject: null,
+        showBuilder: true,
         generationError: e instanceof Error ? e.message : "Erreur",
       });
     }

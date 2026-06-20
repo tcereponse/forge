@@ -45,17 +45,17 @@ export function DownloadButton({ projectId }: { projectId: string }) {
       }
     }
     check();
-    // Poll every 3s while install is in progress
-    const interval = setInterval(() => {
-      if (info && (info.installStatus === "installing" || info.installStatus === "pending")) {
-        check();
-      }
-    }, 3000);
+    // Only poll while install is in progress. Stop once node_modules is ready
+    // or install failed — no need to keep hammering the server.
+    const needsPolling =
+      info && !info.fullAvailable && info.installStatus !== "installed" && info.installStatus !== "failed";
+    if (!needsPolling) return;
+    const interval = setInterval(check, 5000);
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [projectId, info?.installStatus]);
+  }, [projectId, info?.installStatus, info?.fullAvailable]);
 
   const fullAvailable = info?.fullAvailable ?? false;
 

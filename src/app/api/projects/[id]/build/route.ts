@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runBuild, getProcessStatus } from "@/lib/workspace";
+import { runBuild, nodeModulesExists } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,9 +10,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const status = getProcessStatus(id);
 
-    if (status.install !== "installed") {
+    // Check disk reality: node_modules must exist to build
+    const hasNm = await nodeModulesExists(id);
+    if (!hasNm) {
       return NextResponse.json(
         {
           success: false,
@@ -23,7 +24,7 @@ export async function POST(
       );
     }
 
-    runBuild(id);
+    await runBuild(id);
     return NextResponse.json({
       success: true,
       message: "Build démarré",

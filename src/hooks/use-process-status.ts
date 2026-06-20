@@ -52,14 +52,25 @@ export function useProcessStatus(
       await refresh();
     }
 
+    // Initial fetch
     poll();
+
+    // Only keep polling while install or build is ACTIVELY running.
+    // "pending" means not started yet (could be waiting for disk check),
+    // "installing"/"building" means in progress. Stop on terminal states.
+    const installActive = status?.install === "installing";
+    const buildActive = status?.build === "building";
+    const needsPolling = !status || installActive || buildActive;
+
+    if (!needsPolling) return;
+
     const interval = setInterval(poll, POLL_INTERVAL);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [projectId, enabled, refresh]);
+  }, [projectId, enabled, refresh, status?.install, status?.build]);
 
   const triggerBuild = useCallback(async () => {
     if (!projectId) return;

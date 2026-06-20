@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProcessStatus } from "@/lib/workspace";
+import { getReconciledStatus } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const status = getProcessStatus(id);
+    const status = await getReconciledStatus(id);
     return NextResponse.json({
       success: true,
       install: {

@@ -43,7 +43,7 @@ function getProjectDir(projectId: string): string {
   return path.join(WORKSPACES_DIR, projectId);
 }
 
-function getDistDir(projectId: string): string {
+export function getDistDir(projectId: string): string {
   return path.join(getProjectDir(projectId), "dist");
 }
 
@@ -122,11 +122,23 @@ export function runInstall(projectId: string): void {
 }
 
 // ── Run npm run build (async) ──────────────────────────────────────────────
-export function runBuild(projectId: string): void {
+export async function runBuild(projectId: string): Promise<void> {
   const s = getStatus(projectId);
   if (s.build === "building") return;
+
+  // Check disk reality: if node_modules exists, treat as installed
+  // (handles server restart where in-memory status was lost)
+  let installOk = s.install === "installed";
+  if (!installOk) {
+    const hasNm = await nodeModulesExists(projectId);
+    if (hasNm) {
+      installOk = true;
+      setStatus(projectId, { install: "installed" });
+    }
+  }
+
   // Can't build if not installed
-  if (s.install !== "installed") {
+  if (!installOk) {
     setStatus(projectId, {
       build: "failed",
       buildLog: "❌ Les dépendances doivent être installées d'abord.\n",
@@ -187,6 +199,34 @@ export function runBuild(projectId: string): void {
 // ── Get current status (for polling) ────────────────────────────────────────
 export function getProcessStatus(projectId: string): ProcessStatus {
   return getStatus(projectId);
+}
+
+// Get reconciled status — checks disk reality (node_modules, dist) and
+// corrects in-memory status if the server restarted.
+export async function getReconciledStatus(
+  projectId: string
+): Promise<ProcessStatus> {
+  const status = { ...getStatus(projectId) };
+  const wsExists = await workspaceExists(projectId);
+
+  if (wsExists) {
+    const hasNm = await nodeModulesExists(projectId);
+    if (hasNm && status.install === "pending") {
+      status.install = "installed";
+    }
+    if (status.install === "installed" && status.build === "pending") {
+      try {
+        const distStat = await fs.stat(getDistDir(projectId));
+        if (distStat.isDirectory()) {
+          status.build = "built";
+        }
+      } catch {
+        // dist doesn't exist, keep pending
+      }
+    }
+  }
+
+  return status;
 }
 
 // ── Preview file serving ────────────────────────────────────────────────────
@@ -290,12 +330,29 @@ export async function deleteWorkspace(projectId: string): Promise<void> {
 
 // ── Full ZIP from disk (includes node_modules + dist) ───────────────────────
 
-// Directories/files to skip when zipping the workspace
+// Directories/files to skip when zipping the workspace (to keep ZIP lean
+// and avoid memory issues with heavy binary/optional packages)
 const SKIP_ENTRIES = new Set([
   ".cache",
   ".vite",
   "dist-stats.json",
+  ".bin", // node_modules/.bin — symlinks that break zipping
+  ".package-lock.json",
 ]);
+
+// File extensions to skip (heavy native binaries not needed for the ZIP)
+const SKIP_EXTENSIONS = new Set([
+  ".node", // native addons (platform-specific)
+  ".wasm",
+  ".pdb",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".exe",
+]);
+
+// Max individual file size to include (5 MB — skip huge source maps, etc.)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 // Check if the workspace directory exists on disk
 export async function workspaceExists(projectId: string): Promise<boolean> {
@@ -318,12 +375,18 @@ export async function nodeModulesExists(projectId: string): Promise<boolean> {
 }
 
 // Read a directory recursively and return all file paths (relative to root)
+// Skips blacklisted entries, heavy binaries, and symlinks.
 async function readDirRecursive(
   rootDir: string,
   currentDir: string,
-  files: { relPath: string; absPath: string }[]
+  files: { relPath: string; absPath: string; size: number }[]
 ): Promise<void> {
-  const entries = await fs.readdir(currentDir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await fs.readdir(currentDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
   for (const entry of entries) {
     // Skip blacklisted entries
     if (SKIP_ENTRIES.has(entry.name)) continue;
@@ -334,14 +397,25 @@ async function readDirRecursive(
     if (entry.isDirectory()) {
       await readDirRecursive(rootDir, absPath, files);
     } else if (entry.isFile()) {
-      files.push({ relPath, absPath });
+      // Skip heavy binary extensions
+      const ext = path.extname(entry.name).toLowerCase();
+      if (SKIP_EXTENSIONS.has(ext)) continue;
+
+      try {
+        const stat = await fs.stat(absPath);
+        // Skip files larger than MAX_FILE_SIZE
+        if (stat.size > MAX_FILE_SIZE) continue;
+        files.push({ relPath, absPath, size: stat.size });
+      } catch {
+        // Skip unreadable files
+      }
     }
-    // Skip symlinks to avoid infinite loops
+    // Skip symlinks to avoid infinite loops and broken zips
   }
 }
 
 // Create a full ZIP from the workspace directory on disk.
-// Includes source files, node_modules, dist, config — everything.
+// Includes source files, node_modules, dist, config — everything (minus heavy binaries).
 export async function createFullZipFromDisk(
   projectId: string
 ): Promise<Buffer | null> {
@@ -353,10 +427,10 @@ export async function createFullZipFromDisk(
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
 
-  const files: { relPath: string; absPath: string }[] = [];
+  const files: { relPath: string; absPath: string; size: number }[] = [];
   await readDirRecursive(dir, dir, files);
 
-  // Add all files to the zip
+  // Add all files to the zip, using streamFiles to reduce memory pressure
   for (const file of files) {
     try {
       const content = await fs.readFile(file.absPath);
@@ -370,6 +444,7 @@ export async function createFullZipFromDisk(
     type: "nodebuffer",
     compression: "DEFLATE",
     compressionOptions: { level: 1 }, // fast compression for large node_modules
+    streamFiles: true, // stream files to reduce peak memory
   });
 
   return Buffer.from(buffer);

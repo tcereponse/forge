@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { type GeneratedFile, inferLanguage } from "@/lib/forge-config";
-import { deleteWorkspace, getProcessStatus } from "@/lib/workspace";
+import { deleteWorkspace, getReconciledStatus } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,8 +56,8 @@ export async function GET(
         validation = null;
       }
     }
-    // Include live install/build status from the workspace manager
-    const processStatus = getProcessStatus(id);
+    // Include reconciled install/build status (checks disk reality)
+    const processStatus = await getReconciledStatus(id);
     return NextResponse.json({
       success: true,
       project: {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPreviewFile, getPreviewIndex, getProcessStatus } from "@/lib/workspace";
+import { getPreviewFile, getPreviewIndex, getReconciledStatus } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,8 +13,8 @@ export async function GET(
   try {
     const { id, path: pathSegments } = await params;
 
-    // Check build status — must be "built"
-    const status = getProcessStatus(id);
+    // Check reconciled build status — must be "built" (checks disk for dist/)
+    const status = await getReconciledStatus(id);
     if (status.build !== "built") {
       return new NextResponse(
         `<html><body style="font-family:system-ui;background:#0f172a;color:#94a3b8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center"><div><p style="font-size:14px;margin-bottom:8px">⏳ Aperçu non disponible</p><p style="font-size:12px;color:#64748b">${
@@ -48,13 +48,22 @@ export async function GET(
 
     const relativePath = pathSegments.join("/");
     let result = await getPreviewFile(id, relativePath);
-    if (
-      !result &&
-      !relativePath.endsWith(".js") &&
-      !relativePath.endsWith(".css") &&
-      !relativePath.endsWith(".map")
-    ) {
-      // SPA fallback for non-asset paths
+
+    // If the file doesn't exist AND it's not a static asset (js/css/map/png/svg/etc),
+    // fall back to index.html for SPA client-side routing (e.g. /about, /dashboard).
+    const assetExtensions = [
+      ".js", ".mjs", ".css", ".map", ".json", ".png", ".jpg", ".jpeg",
+      ".gif", ".webp", ".svg", ".ico", ".woff", ".woff2", ".ttf", ".eot",
+    ];
+    const isAsset = assetExtensions.some((ext) => relativePath.endsWith(ext));
+
+    if (!result && !isAsset) {
+      // SPA fallback: serve index.html for any non-asset path
+      result = await getPreviewIndex(id);
+    }
+
+    if (!result) {
+      // Final fallback: try index.html anyway
       result = await getPreviewIndex(id);
     }
 
