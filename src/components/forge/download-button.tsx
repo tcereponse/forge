@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
@@ -26,8 +26,13 @@ interface DownloadInfo {
 
 export function DownloadButton({ projectId }: { projectId: string }) {
   const [info, setInfo] = useState<DownloadInfo | null>(null);
-  const [loading, setLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Use a ref to track latest info for the interval callback, avoiding
+  // the tight loop of: poll → setState → effect re-run → poll.
+  const infoRef = useRef<DownloadInfo | null>(null);
+  useEffect(() => {
+    infoRef.current = info;
+  }, [info]);
 
   useEffect(() => {
     let active = true;
@@ -44,18 +49,25 @@ export function DownloadButton({ projectId }: { projectId: string }) {
         // ignore
       }
     }
+    // Initial fetch
     check();
-    // Only poll while install is in progress. Stop once node_modules is ready
-    // or install failed — no need to keep hammering the server.
-    const needsPolling =
-      info && !info.fullAvailable && info.installStatus !== "installed" && info.installStatus !== "failed";
-    if (!needsPolling) return;
-    const interval = setInterval(check, 5000);
+
+    // Single interval that checks the ref — stops automatically once
+    // node_modules is ready or install failed.
+    const interval = setInterval(async () => {
+      const current = infoRef.current;
+      if (!current || current.fullAvailable || current.installStatus === "installed" || current.installStatus === "failed") {
+        clearInterval(interval);
+        return;
+      }
+      await check();
+    }, 5000);
+
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [projectId, info?.installStatus, info?.fullAvailable]);
+  }, [projectId]);
 
   const fullAvailable = info?.fullAvailable ?? false;
 
