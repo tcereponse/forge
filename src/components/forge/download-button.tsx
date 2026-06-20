@@ -4,9 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
-  Package,
   FileCode2,
-  Loader2,
   CheckCircle2,
   ChevronDown,
   PackageCheck,
@@ -196,14 +194,6 @@ export function DownloadButton({ projectId }: { projectId: string }) {
           </>
         )}
       </AnimatePresence>
-
-      {/* Loading indicator while checking */}
-      {loading && (
-        <div className="absolute -bottom-5 right-0 flex items-center gap-1 text-[10px] text-slate-500">
-          <Loader2 className="h-2.5 w-2.5 animate-spin" />
-          Vérification…
-        </div>
-      )}
     </div>
   );
 }
