@@ -340,29 +340,35 @@ export function Workspace() {
 
 function DraftGeneratingView({ projectId }: { projectId: string }) {
   const refreshCurrentProject = useForgeStore((s) => s.refreshCurrentProject);
+  const currentProject = useForgeStore((s) => s.currentProject);
   const [polling, setPolling] = useState(false);
 
-  // Auto-poll every 4s while the project is in draft/generating state,
-  // in case the generation completed on the backend but the client lost the response.
+  // Check if project became ready (has files) — stop polling in that case
+  const projectReady =
+    currentProject?.status === "ready" &&
+    (currentProject?.files?.length ?? 0) > 0;
+
   useEffect(() => {
+    if (projectReady) return; // Stop polling once ready
+
     let active = true;
     async function poll() {
+      if (!active) return;
       setPolling(true);
       await refreshCurrentProject();
       if (active) setPolling(false);
     }
-    const interval = setInterval(poll, 4000);
-    // Also poll immediately after a short delay
-    const initial = setTimeout(poll, 1500);
+    // Initial poll after 2s, then every 5s (slower to reduce server load)
+    const initial = setTimeout(poll, 2000);
+    const interval = setInterval(poll, 5000);
     return () => {
       active = false;
       clearInterval(interval);
       clearTimeout(initial);
     };
-  }, [projectId, refreshCurrentProject]);
+  }, [projectId, refreshCurrentProject, projectReady]);
 
-  const cur = useForgeStore((s) => s.currentProject);
-  const isGenerating = cur?.status === "generating";
+  const isGenerating = currentProject?.status === "generating";
 
   return (
     <div className="flex flex-1 items-center justify-center p-6">

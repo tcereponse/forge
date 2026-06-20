@@ -211,9 +211,19 @@ export function getProcessStatus(projectId: string): ProcessStatus {
 
 // Get reconciled status — checks disk reality (node_modules, dist) and
 // corrects in-memory status if the server restarted.
+// Results are cached for 3 seconds to avoid excessive disk I/O.
+const statusCache = new Map<string, { status: ProcessStatus; ts: number }>();
+const STATUS_CACHE_TTL = 3000; // 3s
+
 export async function getReconciledStatus(
   projectId: string
 ): Promise<ProcessStatus> {
+  // Check cache first
+  const cached = statusCache.get(projectId);
+  if (cached && Date.now() - cached.ts < STATUS_CACHE_TTL) {
+    return cached.status;
+  }
+
   const status = { ...getStatus(projectId) };
   const wsExists = await workspaceExists(projectId);
 
@@ -234,6 +244,8 @@ export async function getReconciledStatus(
     }
   }
 
+  // Cache the result
+  statusCache.set(projectId, { status, ts: Date.now() });
   return status;
 }
 
