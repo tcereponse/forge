@@ -56,6 +56,15 @@ export async function GET(
         validation = null;
       }
     }
+    // Return the Arsenal PRD documents
+    let arsenal = null;
+    if (project.arsenalJson) {
+      try {
+        arsenal = JSON.parse(project.arsenalJson);
+      } catch {
+        arsenal = null;
+      }
+    }
     // Include reconciled install/build status (checks disk reality)
     const processStatus = await getReconciledStatus(id);
     return NextResponse.json({
@@ -65,6 +74,7 @@ export async function GET(
         features: parseFeatures(project.features),
         files,
         prd: project.prd,
+        arsenal,
       },
       validation,
       process: {

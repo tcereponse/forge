@@ -26,6 +26,7 @@ model Project {
   selectedPacks String @default("[]") // JSON array of manually selected extension pack IDs
   // AI generation outputs (JSON strings)
   prd         String   @default("") // Product Requirements Document (markdown)
+  arsenalJson String   @default("") // JSON: 10 structured PRD documents (Arsenal Grade Diamond)
   filesJson   String   @default("[]") // JSON array of { path, content, language }
   fileCount   Int      @default(0)
   validationJson String @default("") // JSON validation report from post-processing

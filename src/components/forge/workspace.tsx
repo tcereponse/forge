@@ -25,6 +25,7 @@ import { ValidationPanel } from "@/components/forge/validation-panel";
 import { PreviewPanel } from "@/components/forge/preview-panel";
 import { DownloadButton } from "@/components/forge/download-button";
 import { FeatureSummary } from "@/components/forge/feature-summary";
+import { ArsenalPanel } from "@/components/forge/arsenal-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -49,7 +50,7 @@ function MetaPill({ icon: Icon, label, value }: { icon: typeof Hash; label: stri
 export function Workspace() {
   const { currentProject, loadingProject, setShowBuilder, fetchProject, validation } =
     useForgeStore();
-  const [tab, setTab] = useState<"code" | "prd" | "validation" | "preview">("code");
+  const [tab, setTab] = useState<"code" | "prd" | "arsenal" | "validation" | "preview">("code");
 
   if (loadingProject && !currentProject) {
     return (
@@ -256,6 +257,23 @@ export function Workspace() {
               PRD
             </button>
             <button
+              onClick={() => setTab("arsenal")}
+              className={cn(
+                "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
+                tab === "arsenal"
+                  ? "border-cyan-500 text-cyan-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              )}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              Arsenal PRD
+              {p.arsenal?.documents?.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-mono text-cyan-300">
+                  {p.arsenal.documents.length}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setTab("validation")}
               className={cn(
                 "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
@@ -293,6 +311,8 @@ export function Workspace() {
           <div className="min-h-0 flex-1">
             {tab === "code" ? (
               <FileExplorer project={p} />
+            ) : tab === "arsenal" ? (
+              <ArsenalPanel arsenal={p.arsenal} />
             ) : tab === "preview" ? (
               <PreviewPanel projectId={p.id} />
             ) : tab === "validation" ? (

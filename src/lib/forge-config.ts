@@ -25,6 +25,18 @@ export interface GeneratedFile {
   language: string;
 }
 
+export interface ArsenalDocument {
+  id: string;
+  name: string;
+  filename: string;
+  role: string;
+  content: string;
+}
+
+export interface Arsenal {
+  documents: ArsenalDocument[];
+}
+
 export interface ProjectRecord {
   id: string;
   name: string;
@@ -38,6 +50,7 @@ export interface ProjectRecord {
   uiLib: UiLibOption;
   features: string[];
   prd: string;
+  arsenal: Arsenal | null;
   files: GeneratedFile[];
   fileCount: number;
   status: "draft" | "generating" | "ready" | "failed";

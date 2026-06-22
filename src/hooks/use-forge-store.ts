@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ProjectRecord, ValidationReport } from "@/lib/forge-config";
+import type { ProjectRecord, ValidationReport, Arsenal } from "@/lib/forge-config";
 
 // Ensure every project record has safe defaults for array/string fields,
 // regardless of which endpoint it came from (list vs detail).
@@ -20,6 +20,7 @@ function normalizeProject(p: Partial<ProjectRecord> | null | undefined): Project
     uiLib: (p.uiLib ?? "none") as ProjectRecord["uiLib"],
     features: Array.isArray(p.features) ? p.features : [],
     prd: p.prd ?? "",
+    arsenal: (p.arsenal ?? null) as Arsenal | null,
     files: Array.isArray(p.files) ? p.files : [],
     fileCount: p.fileCount ?? 0,
     status: (p.status ?? "draft") as ProjectRecord["status"],

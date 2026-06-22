@@ -12,6 +12,7 @@ import { postProcessProject, type ValidationReport } from "@/lib/forge-postproce
 import { unescapeJsonString } from "@/lib/forge-anticorruption";
 import { writeProjectFiles, runInstall } from "@/lib/workspace";
 import { buildExtensionDirective } from "@/lib/extension-parser";
+import { generateArsenal } from "@/lib/forge-arsenal";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -178,37 +179,32 @@ export async function POST(
     const tsExt = config.typescript ? "tsx" : "jsx";
     const tsOrJs = config.typescript ? "ts" : "js";
 
-    // ───── PHASE 1: PRD (Product Requirements Document) ─────
-    const prdSystem =
-      "Tu es un Ingénieur Senior React. Tu rédiges des PRD techniques concis en Markdown français. Tu réponds sans introduction ni conclusion, directement avec le contenu demandé.";
-    const prdUser = `Rédige un PRD technique concis en Markdown français pour l'application suivante.
+    // Build extension directive first (needed for Arsenal + code generation)
+    const extensionDirective = await buildExtensionDirective(
+      config.features,
+      config.selectedPacks ?? []
+    );
 
-Application : "${config.name}"
-Vision : "${config.description}"
-${stackDirective}
+    // ───── PHASE 1: Arsenal PRD Grade Diamond (10 structured documents) ─────
+    // Generates 10 PRD documents that guide code generation with surgical precision.
+    // Wrapped in try-catch: if Arsenal fails, we still generate the code.
+    let arsenal;
+    let prd = "";
+    try {
+      arsenal = await generateArsenal(config, extensionDirective);
+      prd =
+        arsenal.documents.find((d) => d.id === "vision")?.content ??
+        arsenal.documents[0]?.content ??
+        "";
+    } catch (arsenalErr) {
+      console.error("[generate] Arsenal failed, falling back:", arsenalErr);
+      arsenal = { documents: [] };
+    }
 
-Format Markdown (max 250 mots) :
-## Objectif
-(1-2 phrases)
-## Fonctionnalités clés
-(liste à puces, 4-6 points)
-## Architecture
-(2-3 phrases sur la structure des dossiers et modules clés)
-## Pages/Composants principaux
-(liste)
-
-Sois factuel et concis.`;
-
-    const zai = await ZAI.create();
-
-    const prdCompletion = await zai.chat.completions.create({
-      messages: [
-        { role: "assistant", content: prdSystem },
-        { role: "user", content: prdUser },
-      ],
-      thinking: { type: "disabled" },
-    });
-    const prd = prdCompletion.choices[0]?.message?.content ?? "";
+    // Build a condensed arsenal directive for Phase 2 (code generation)
+    const arsenalDirective = arsenal.documents
+      .map((d) => `### ${d.name}\n${d.content}`)
+      .join("\n\n");
 
     // ───── PHASE 2: Code generation (LLM generates ONLY creative files) ─────
     // The LLM generates only App.tsx, MainComponent.tsx, and (optionally) index.css.
@@ -228,11 +224,6 @@ Sois factuel et concis.`;
         : "Pas de routing. App.tsx affiche directement MainComponent.";
 
     // Build extension directive (injects specialized PRD contexts for selected features AND manually selected packs)
-    const extensionDirective = await buildExtensionDirective(
-      config.features,
-      config.selectedPacks ?? []
-    );
-
     // Build feature-specific instructions
     const featureInstructions = buildFeatureInstructions(config.features, tsExt);
 
@@ -243,9 +234,14 @@ Description : "${config.description}"
 ${stackDirective}
 ${featureInstructions}
 ${extensionDirective}
+
+## ARSENAL PRD GRADE DIAMOND (Documents de référence)
+Suis les directives de ces 10 documents PRD pour générer un code de qualité industrielle.
+${arsenalDirective}
+
 Génère EXACTEMENT ces 3 fichiers :
 1. "src/App.${tsExt}" — composant racine. ${routingRule} Peut contenir un header/navbar avec le nom de l'app. Importe MainComponent.
-2. "src/components/MainComponent.${tsExt}" — le composant MÉTIER principal avec VRAIE logique liée à l'app (todo→ajout/suppression/bascule de tâches, recipes→liste+recherche, chat→messages+input, etc.). Doit avoir un état React (useState) et des interactions fonctionnelles. Pas juste un affichage statique.
+2. "src/components/MainComponent.${tsExt}" — le composant MÉTIER principal avec VRAIE logique liée à l'app (todo→ajout/suppression/bascule de tâches, recipes→liste+recherche, chat→messages+input, etc.). Doit avoir un état React (useState) et des interactions fonctionnelles. Pas juste un affichage statique. Suis l'Interface Utilisateur et l'Architecture Système de l'Arsenal.
 3. "src/index.css" — styles globaux. ${
           config.styling === "tailwind"
             ? "Commence par les 3 directives @tailwind (base, components, utilities). Ajoute ensuite quelques styles globaux simples (body, fonts). NE définis PAS de @apply avec des classes personnalisées."
@@ -267,6 +263,7 @@ Format JSON EXACT :
 
 Réponds MAINTENANT avec uniquement l'objet JSON.`;
 
+    const zai = await ZAI.create();
     const codeCompletion = await zai.chat.completions.create({
       messages: [
         {
@@ -378,6 +375,7 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
       data: {
         status: "ready",
         prd,
+        arsenalJson: JSON.stringify(arsenal),
         filesJson: JSON.stringify(files),
         fileCount: files.length,
         validationJson: JSON.stringify(validationReport),

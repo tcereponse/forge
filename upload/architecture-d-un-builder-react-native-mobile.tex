@@ -1,0 +1,2395 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{enumitem}
+\usepackage{geometry}
+\geometry{a4paper, margin=22mm}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+\title{Architecture d'un builder React Native mobile}
+\date{}
+
+\begin{document}
+\maketitle
+
+\subsection*{You}
+
+voici un plan concret de la coquille vide APK pour ton idée de “builder React Native dans le mobile”, avec une architecture réaliste et directement exploitable.
+
+But du produit
+L’idée n’est pas de compiler React Native “comme sur PC” dans le sens classique, mais de créer une APK hôte qui contient le runtime, charge un bundle JS local, et exécute le projet choisi dans son propre conteneur. React Native embarque déjà un bundle JavaScript dans les assets pour les builds release, donc ton APK peut servir de base fixe qui charge un contenu projet dynamique.
+
+Structure des dossiers
+Tu peux organiser le projet hôte comme ça :
+
+text
+host-app/
+  android/
+  app/
+  src/
+    main/
+      assets/
+        runtime/
+          index.android.bundle
+          manifest.json
+          assets/
+      java/
+        com/tonapp/
+          MainApplication.kt
+          MainActivity.kt
+          runtime/
+            ProjectLoader.kt
+            BundleInstaller.kt
+            BundleVerifier.kt
+            ProjectStore.kt
+            ApkInstaller.kt
+          bridge/
+            FileBridgeModule.kt
+            ProjectBridgeModule.kt
+      res/
+  js/
+    shell/
+      App.tsx
+      screens/
+      services/
+      components/
+  projects/
+    current/
+      package.json
+      index.js
+      src/
+      assets/
+      rn.config.js
+  build/
+  cache/
+  output/
+Cette structure sépare bien le runtime hôte du projet utilisateur, ce qui est important vu le sandbox Android. Les bundles React Native de release se placent dans les assets, donc ton runtime fixe peut charger son bundle interne puis lire le projet à partir d’un dossier local.
+
+Cycle de chargement
+Le cycle idéal est le suivant :
+
+L’utilisateur choisit ou importe un projet React Native local.
+
+L’app copie le projet dans projects/current/.
+
+Un service interne génère le bundle JS du projet.
+
+Le bundle et les assets vont dans cache/ ou assets/runtime/.
+
+ProjectLoader vérifie l’intégrité du bundle.
+
+MainActivity lance React Native avec le bundle local.
+
+L’UI du projet s’affiche dans la coquille hôte.
+
+En release, React Native cherche normalement son bundle dans les assets, donc le principe de chargement local est cohérent avec le modèle officiel. Pour ton cas, la variante la plus simple est de charger le bundle du projet depuis un chemin interne contrôlé par l’app.
+
+Modules natifs nécessaires
+Tu vas probablement avoir besoin de ces modules Android natifs :
+
+ProjectStore : gérer import, copie et suppression des projets.
+
+BundleInstaller : écrire le bundle généré dans le stockage interne.
+
+BundleVerifier : vérifier hash, taille, version, compatibilité.
+
+ProjectLoader : fournir le chemin du bundle à React Native.
+
+ApkInstaller : proposer l’installation d’un APK exporté si tu choisis aussi ce mode.
+
+FileBridgeModule : exposer lecture/écriture de fichiers au JS.
+
+ProjectBridgeModule : exposer au JS l’état du build, les logs, et les erreurs.
+
+Les Native Modules sont le mécanisme standard pour connecter Kotlin/Java avec React Native côté JS. Pour Android, tu dois enregistrer ces modules dans l’application et les exposer ensuite via NativeModules côté JavaScript.
+
+Pseudo-code du loader
+Voici une version simplifiée du loader :
+
+kotlin
+class ProjectLoader(private val context: Context) \{
+
+  fun loadProject(projectId: String): BundleInfo \{
+    val projectDir = ProjectStore.getProjectDir(projectId)
+    val manifest = readJson(projectDir, "manifest.json")
+
+    val bundleFile = File(projectDir, "build/index.android.bundle")
+    require(bundleFile.exists()) \{ "Bundle missing" \}
+
+    val hashOk = BundleVerifier.verify(
+      bundleFile,
+      manifest.bundleHash
+    )
+    require(hashOk) \{ "Invalid bundle" \}
+
+    return BundleInfo(
+      entryPoint = bundleFile.absolutePath,
+      assetsPath = File(projectDir, "build/assets").absolutePath,
+      version = manifest.version
+    )
+  \}
+\}
+Et côté activité :
+
+kotlin
+class MainActivity : ReactActivity() \{
+  override fun getMainComponentName(): String \{
+    return "HostShell"
+  \}
+
+  override fun getJSBundleFile(): String \{
+    return ProjectRuntime.currentBundlePath()
+  \}
+\}
+Ce schéma correspond au principe React Native release : un bundle JS est chargé par l’app au démarrage. Ton loader ajoute une couche de sélection et de vérification avant de démarrer le runtime.
+
+Design du build interne
+Le “builder” interne ne devrait pas essayer de remplacer Gradle au début. Il doit d’abord faire ce pipeline :
+
+lire package.json et index.js,
+
+générer index.android.bundle,
+
+copier les assets,
+
+préparer le manifeste runtime,
+
+mettre à jour le chemin du bundle,
+
+redémarrer le runtime.
+
+C’est la version la plus robuste pour un MVP. Plus tard, tu pourras ajouter l’export APK, la signature, puis éventuellement une compilation plus complète.
+
+MVP recommandé
+Je te conseille ce MVP v1 :
+
+un seul APK hôte installé sur le téléphone,
+
+un seul projet actif à la fois,
+
+un bundle JS local chargé depuis stockage interne,
+
+un écran de logs,
+
+un bouton “Build / Run”,
+
+un bouton “Export APK” plus tard.
+
+Cela te donne déjà une plateforme autonome et mobile-only sans dépendre du PC ni de Termux, tout en restant dans une architecture réaliste pour Android.
+
+Ordre de réalisation
+Je ferais cet ordre :
+
+créer la coquille vide Android native,
+
+intégrer React Native runtime,
+
+charger un bundle local simple,
+
+ajouter le gestionnaire de projet,
+
+ajouter le build du bundle,
+
+ajouter la signature et l’export APK,
+
+ajouter le support multi-projets.
+
+Je peux maintenant te générer le squelette complet du projet avec :
+
+arborescence finale,
+
+fichiers Kotlin/JS minimum,
+
+manifest.json de projet,
+
+et un exemple de MainActivity + ProjectLoader prêt à coder.
+
+Relances
+
+Oui, génère le squelette complet avec les fichiers Kotlin et JS
+
+\subsection*{Anara}
+
+Voici le squelette complet du projet host-app, avec tous les fichiers Kotlin et JS prêts à coder.
+
+\subsubsection*{Arborescence finale}
+
+\begin{verbatim}
+host-app/
+├── android/
+│   ├── app/
+│   │   ├── build.gradle.kts
+│   │   ├── src/
+│   │   │   └── main/
+│   │   │       ├── AndroidManifest.xml
+│   │   │       ├── assets/
+│   │   │       │   └── runtime/
+│   │   │       │       └── manifest.json
+│   │   │       ├── java/com/hostapp/
+│   │   │       │   ├── MainApplication.kt
+│   │   │       │   ├── MainActivity.kt
+│   │   │       │   ├── runtime/
+│   │   │       │   │   ├── ProjectLoader.kt
+│   │   │       │   │   ├── BundleInstaller.kt
+│   │   │       │   │   ├── BundleVerifier.kt
+│   │   │       │   │   ├── ProjectStore.kt
+│   │   │       │   │   └── ProjectRuntime.kt
+│   │   │       │   └── bridge/
+│   │   │       │       ├── FileBridgeModule.kt
+│   │   │       │       └── ProjectBridgeModule.kt
+│   │   │       └── res/
+│   │   │           ├── values/
+│   │   │           │   ├── strings.xml
+│   │   │           │   ├── colors.xml
+│   │   │           │   └── themes.xml
+│   │   │           ├── layout/
+│   │   │           │   └── activity_main.xml
+│   │   │           └── drawable/
+│   │   │               └── ic_launcher.xml
+│   │   └── proguard-rules.pro
+│   ├── build.gradle.kts
+│   ├── gradle.properties
+│   ├── settings.gradle.kts
+│   └── gradle/
+│       └── wrapper/
+│           └── gradle-wrapper.properties
+├── js/
+│   ├── shell/
+│   │   ├── App.tsx
+│   │   ├── screens/
+│   │   │   ├── HomeScreen.tsx
+│   │   │   ├── ProjectListScreen.tsx
+│   │   │   ├── BuilderScreen.tsx
+│   │   │   └── LogScreen.tsx
+│   │   ├── services/
+│   │   │   ├── ProjectService.ts
+│   │   │   └── BridgeService.ts
+│   │   └── components/
+│   │       ├── ProjectCard.tsx
+│   │       ├── LogViewer.tsx
+│   │       └── BuildButton.tsx
+│   ├── projects/
+│   │   └── sample/
+│   │       ├── package.json
+│   │       ├── index.js
+│   │       ├── app.json
+│   │       ├── src/
+│   │       │   └── App.tsx
+│   │       └── assets/
+│   │           └── icon.png
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── babel.config.js
+├── output/
+├── cache/
+└── README.md
+\end{verbatim}
+
+\subsubsection*{Fichiers Android / Kotlin}
+
+\paragraph{\texttt{settings.gradle.kts}}
+
+\begin{verbatim}
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://www.jitpack.io") }
+    }
+}
+
+rootProject.name = "HostApp"
+include(":app")
+\end{verbatim}
+
+\paragraph{\texttt{build.gradle.kts} (root)}
+
+\begin{verbatim}
+plugins {
+    id("com.android.application") version "8.2.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+}
+\end{verbatim}
+
+\paragraph{\texttt{gradle.properties}}
+
+\begin{verbatim}
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+newArchEnabled=false
+hermesEnabled=true
+\end{verbatim}
+
+\paragraph{\texttt{app/build.gradle.kts}}
+
+\begin{verbatim}
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.hostapp"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.hostapp"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("src/main/assets")
+        }
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+
+    // React Native
+    val rnVersion = "0.73.4"
+    implementation("com.facebook.react:react-android:$rnVersion")
+    implementation("com.facebook.react:hermes-android:$rnVersion")
+}
+\end{verbatim}
+
+\paragraph{\texttt{AndroidManifest.xml}}
+
+\begin{verbatim}
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.ACCESS_ALL_EXTERNAL_STORAGE" />
+
+    <application
+        android:name=".MainApplication"
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@style/Theme.HostApp"
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>
+\end{verbatim}
+
+\paragraph{\texttt{MainApplication.kt}}
+
+\begin{verbatim}
+package com.hostapp
+
+import android.app.Application
+import com.facebook.react.PackageList
+import com.facebook.react.ReactApplication
+import com.facebook.react.ReactHost
+import com.facebook.react.ReactNativeHost
+import com.facebook.react.ReactPackage
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
+import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.facebook.react.defaults.DefaultReactNativeHost
+import com.hostapp.bridge.FileBridgePackage
+import com.hostapp.bridge.ProjectBridgePackage
+import com.hostapp.runtime.ProjectRuntime
+
+class MainApplication : Application(), ReactApplication {
+
+    override val reactNativeHost: ReactNativeHost =
+        object : DefaultReactNativeHost(this) {
+            override fun getPackages(): List<ReactPackage> =
+                PackageList(this).packages.apply {
+                    add(FileBridgePackage())
+                    add(ProjectBridgePackage())
+                }
+
+            override fun getJSMainModuleName(): String = "js/shell/index"
+
+            override fun getUseDeveloperSupport(): Boolean = false
+
+            override val isNewArchEnabled: Boolean = false
+            override val isHermesEnabled: Boolean = true
+        }
+
+    override val reactHost: ReactHost
+        get() = getDefaultReactHost(applicationContext, reactNativeHost)
+
+    override fun onCreate() {
+        super.onCreate()
+        ProjectRuntime.init(this)
+        load()
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{MainActivity.kt}}
+
+\begin{verbatim}
+package com.hostapp
+
+import android.os.Bundle
+import com.facebook.react.ReactActivity
+import com.facebook.react.ReactActivityDelegate
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
+import com.facebook.react.defaults.DefaultReactActivityDelegate
+import com.hostapp.runtime.ProjectRuntime
+
+class MainActivity : ReactActivity() {
+
+    override fun getMainComponentName(): String = "HostShell"
+
+    override fun getJSBundleFile(): String {
+        return ProjectRuntime.currentBundlePath()
+    }
+
+    override fun createReactActivityDelegate(): ReactActivityDelegate =
+        DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+}
+\end{verbatim}
+
+\paragraph{\texttt{runtime/ProjectRuntime.kt}}
+
+\begin{verbatim}
+package com.hostapp.runtime
+
+import android.content.Context
+import java.io.File
+
+object ProjectRuntime {
+
+    private var currentBundlePath: String = ""
+    private var currentAssetsPath: String = ""
+    private var initialized = false
+
+    private lateinit var internalDir: File
+
+    fun init(context: Context) {
+        if (initialized) return
+        internalDir = context.filesDir
+        initialized = true
+    }
+
+    fun currentBundlePath(): String {
+        if (currentBundlePath.isEmpty()) {
+            // Fallback: bundle par defaut dans les assets
+            return "assets://index.android.bundle"
+        }
+        return currentBundlePath
+    }
+
+    fun currentAssetsPath(): String = currentAssetsPath
+
+    fun setBundle(bundlePath: String, assetsPath: String) {
+        currentBundlePath = bundlePath
+        currentAssetsPath = assetsPath
+    }
+
+    fun getProjectsDir(): File {
+        return File(internalDir, "projects").also { it.mkdirs() }
+    }
+
+    fun getCacheDir(): File {
+        return File(internalDir, "cache").also { it.mkdirs() }
+    }
+
+    fun getCurrentProjectDir(): File {
+        return File(internalDir, "projects/current")
+    }
+
+    fun getLogsDir(): File {
+        return File(internalDir, "logs").also { it.mkdirs() }
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{runtime/ProjectStore.kt}}
+
+\begin{verbatim}
+package com.hostapp.runtime
+
+import android.content.Context
+import android.net.Uri
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.security.MessageDigest
+
+class ProjectStore(private val context: Context) {
+
+    data class ProjectInfo(
+        val id: String,
+        val name: String,
+        val version: String,
+        val sourceUri: Uri? = null,
+        val createdAt: Long = System.currentTimeMillis()
+    )
+
+    fun importProject(name: String, sourceUri: Uri): Result<ProjectInfo> {
+        return try {
+            val projectId = generateId(name)
+            val projectDir = File(ProjectRuntime.getProjectsDir(), projectId)
+            projectDir.mkdirs()
+
+            // Copier les fichiers depuis l'URI source
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                val targetFile = File(projectDir, "import.zip")
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            // Extraire l'archive
+            extractZip(
+                File(projectDir, "import.zip"),
+                projectDir
+            )
+
+            // Creer le manifeste si absent
+            ensureManifest(projectDir, name, projectId)
+
+            val info = readProjectInfo(projectDir)
+            Result.success(info)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun createBlankProject(name: String): Result<ProjectInfo> {
+        return try {
+            val projectId = generateId(name)
+            val projectDir = File(ProjectRuntime.getProjectsDir(), projectId)
+            projectDir.mkdirs()
+
+            // Ecrire le package.json minimal
+            val packageJson = JSONObject().apply {
+                put("name", projectId)
+                put("version", "1.0.0")
+                put("main", "index.js")
+                put("dependencies", JSONObject().apply {
+                    put("react", "18.2.0")
+                    put("react-native", "0.73.4")
+                })
+            }
+            File(projectDir, "package.json").writeText(packageJson.toString(2))
+
+            // Ecrire index.js minimal
+            File(projectDir, "index.js").writeText(
+                """
+                import { AppRegistry } from 'react-native';
+                import App from './src/App';
+                AppRegistry.registerComponent('HostShell', () => App);
+                """.trimIndent()
+            )
+
+            // Ecrire src/App.tsx minimal
+            val srcDir = File(projectDir, "src")
+            srcDir.mkdirs()
+            File(srcDir, "App.tsx").writeText(
+                """
+                import React from 'react';
+                import { View, Text, StyleSheet } from 'react-native';
+
+                export default function App() {
+                  return (
+                    <View style={styles.container}>
+                      <Text style={styles.title}>Hello from $name</Text>
+                      <Text style={styles.subtitle}>Project loaded successfully</Text>
+                    </View>
+                  );
+                }
+
+                const styles = StyleSheet.create({
+                  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+                  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
+                  subtitle: { fontSize: 14, color: '#666' },
+                });
+                """.trimIndent()
+            )
+
+            ensureManifest(projectDir, name, projectId)
+            val info = readProjectInfo(projectDir)
+            Result.success(info)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun listProjects(): List<ProjectInfo> {
+        val projectsDir = ProjectRuntime.getProjectsDir()
+        return projectsDir.listFiles()
+            ?.filter { it.isDirectory && File(it, "manifest.json").exists() }
+            ?.map { readProjectInfo(it) }
+            ?: emptyList()
+    }
+
+    fun deleteProject(projectId: String): Boolean {
+        val projectDir = File(ProjectRuntime.getProjectsDir(), projectId)
+        return projectDir.exists() && projectDir.deleteRecursively()
+    }
+
+    fun getProjectDir(projectId: String): File {
+        return File(ProjectRuntime.getProjectsDir(), projectId)
+    }
+
+    fun setCurrentProject(projectId: String) {
+        val currentDir = ProjectRuntime.getCurrentProjectDir()
+        if (currentDir.exists()) currentDir.deleteRecursively()
+
+        val sourceDir = getProjectDir(projectId)
+        sourceDir.copyRecursively(currentDir)
+    }
+
+    private fun ensureManifest(dir: File, name: String, id: String) {
+        val manifestFile = File(dir, "manifest.json")
+        if (!manifestFile.exists()) {
+            val manifest = JSONObject().apply {
+                put("id", id)
+                put("name", name)
+                put("version", "1.0.0")
+                put("rnVersion", "0.73.4")
+                put("createdAt", System.currentTimeMillis())
+                put("bundleHash", "")
+                put("bundleReady", false)
+            }
+            manifestFile.writeText(manifest.toString(2))
+        }
+    }
+
+    private fun readProjectInfo(dir: File): ProjectInfo {
+        val manifestFile = File(dir, "manifest.json")
+        return if (manifestFile.exists()) {
+            val json = JSONObject(manifestFile.readText())
+            ProjectInfo(
+                id = json.optString("id", dir.name),
+                name = json.optString("name", dir.name),
+                version = json.optString("version", "1.0.0"),
+                createdAt = json.optLong("createdAt", 0L)
+            )
+        } else {
+            ProjectInfo(id = dir.name, name = dir.name, version = "1.0.0")
+        }
+    }
+
+    private fun generateId(name: String): String {
+        val slug = name.lowercase()
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+        val hash = MessageDigest.getInstance("SHA-256")
+            .digest(System.currentTimeMillis().toString().toByteArray())
+            .take(4)
+            .joinToString("") { "%02x".format(it) }
+        return "$slug-$hash"
+    }
+
+    private fun extractZip(zipFile: File, targetDir: File) {
+        val zipInputStream = java.util.zip.ZipInputStream(zipFile.inputStream())
+        var entry = zipInputStream.nextEntry
+        while (entry != null) {
+            val outFile = File(targetDir, entry.name)
+            if (entry.isDirectory) {
+                outFile.mkdirs()
+            } else {
+                outFile.parentFile?.mkdirs()
+                outFile.outputStream().use { output ->
+                    zipInputStream.copyTo(output)
+                }
+            }
+            zipInputStream.closeEntry()
+            entry = zipInputStream.nextEntry
+        }
+        zipInputStream.close()
+        zipFile.delete()
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{runtime/BundleInstaller.kt}}
+
+\begin{verbatim}
+package com.hostapp.runtime
+
+import android.util.Log
+import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
+
+class BundleInstaller {
+
+    data class BuildResult(
+        val success: Boolean,
+        val bundlePath: String? = null,
+        val assetsPath: String? = null,
+        val error: String? = null,
+        val logs: List<String> = emptyList()
+    )
+
+    fun buildAndInstall(projectDir: File): BuildResult {
+        val logs = mutableListOf<String>()
+
+        return try {
+            logs.add("[BundleInstaller] Demarrage du build pour ${projectDir.name}")
+
+            val manifestFile = File(projectDir, "manifest.json")
+            val manifest = if (manifestFile.exists()) {
+                JSONObject(manifestFile.readText())
+            } else {
+                JSONObject()
+            }
+
+            // 1. Verifier que le projet a un index.js
+            val indexFile = File(projectDir, "index.js")
+            if (!indexFile.exists()) {
+                return BuildResult(
+                    success = false,
+                    error = "index.js introuvable dans le projet",
+                    logs = logs
+                )
+            }
+            logs.add("[BundleInstaller] index.js trouve")
+
+            // 2. Creer le dossier de build
+            val buildDir = File(projectDir, "build")
+            buildDir.mkdirs()
+
+            // 3. Generer le bundle React Native
+            logs.add("[BundleInstaller] Generation du bundle JS...")
+            val bundleFile = File(buildDir, "index.android.bundle")
+
+            val bundleGenerated = generateBundle(projectDir, bundleFile, logs)
+            if (!bundleGenerated) {
+                return BuildResult(
+                    success = false,
+                    error = "Echec de la generation du bundle",
+                    logs = logs
+                )
+            }
+
+            // 4. Copier les assets du projet
+            val projectAssetsDir = File(projectDir, "assets")
+            val buildAssetsDir = File(buildDir, "assets")
+            if (projectAssetsDir.exists()) {
+                buildAssetsDir.mkdirs()
+                projectAssetsDir.copyRecursively(buildAssetsDir, overwrite = true)
+                logs.add("[BundleInstaller] Assets copiés")
+            }
+
+            // 5. Calculer le hash du bundle
+            val bundleHash = computeHash(bundleFile)
+            logs.add("[BundleInstaller] Hash du bundle: $bundleHash")
+
+            // 6. Mettre a jour le manifeste
+            manifest.put("bundleHash", bundleHash)
+            manifest.put("bundleReady", true)
+            manifest.put("bundleSize", bundleFile.length())
+            manifest.put("builtAt", System.currentTimeMillis())
+            manifestFile.writeText(manifest.toString(2))
+
+            logs.add("[BundleInstaller] Build termine avec succes")
+
+            BuildResult(
+                success = true,
+                bundlePath = bundleFile.absolutePath,
+                assetsPath = buildAssetsDir.absolutePath,
+                logs = logs
+            )
+        } catch (e: Exception) {
+            logs.add("[BundleInstaller] Erreur: ${e.message}")
+            BuildResult(
+                success = false,
+                error = e.message,
+                logs = logs
+            )
+        }
+    }
+
+    fun installBundle(
+        bundlePath: String,
+        assetsPath: String,
+        projectId: String
+    ): Boolean {
+        return try {
+            val runtimeDir = ProjectRuntime.getCacheDir()
+            val installedBundle = File(runtimeDir, "active/index.android.bundle")
+            val installedAssets = File(runtimeDir, "active/assets")
+
+            installedBundle.parentFile?.mkdirs()
+            File(bundlePath).copyTo(installedBundle, overwrite = true)
+
+            val sourceAssets = File(assetsPath)
+            if (sourceAssets.exists()) {
+                if (installedAssets.exists()) installedAssets.deleteRecursively()
+                sourceAssets.copyRecursively(installedAssets)
+            }
+
+            ProjectRuntime.setBundle(
+                installedBundle.absolutePath,
+                installedAssets.absolutePath
+            )
+
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun generateBundle(
+        projectDir: File,
+        outputFile: File,
+        logs: MutableList<String>
+    ): Boolean {
+        return try {
+            // En MVP, on genere un bundle simplifie
+            // En production, on integrerait Metro bundler
+            val indexFile = File(projectDir, "index.js")
+            val srcDir = File(projectDir, "src")
+
+            val bundleContent = buildString {
+                appendLine("// Auto-generated bundle")
+                appendLine("// Project: ${projectDir.name}")
+                appendLine("// Generated at: ${java.util.Date()}")
+                appendLine()
+
+                // Integrer le code source
+                if (srcDir.exists()) {
+                    srcDir.walkTopDown()
+                        .filter { it.isFile && (it.extension == "js" || it.extension == "tsx" || it.extension == "ts") }
+                        .forEach { file ->
+                            appendLine("// --- ${file.name} ---")
+                            appendLine(file.readText())
+                            appendLine()
+                        }
+                }
+
+                appendLine(indexFile.readText())
+            }
+
+            outputFile.writeText(bundleContent)
+            logs.add("[BundleInstaller] Bundle genere (${outputFile.length()} octets)")
+            true
+        } catch (e: Exception) {
+            logs.add("[BundleInstaller] Erreur generation: ${e.message}")
+            false
+        }
+    }
+
+    private fun computeHash(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{runtime/BundleVerifier.kt}}
+
+\begin{verbatim}
+package com.hostapp.runtime
+
+import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
+
+class BundleVerifier {
+
+    data class VerifyResult(
+        val valid: Boolean,
+        val reason: String? = null,
+        val bundleSize: Long = 0,
+        val computedHash: String? = null
+    )
+
+    fun verify(bundleFile: File, expectedHash: String): VerifyResult {
+        if (!bundleFile.exists()) {
+            return VerifyResult(
+                valid = false,
+                reason = "Fichier bundle introuvable"
+            )
+        }
+
+        if (bundleFile.length() == 0L) {
+            return VerifyResult(
+                valid = false,
+                reason = "Fichier bundle vide"
+            )
+        }
+
+        if (bundleFile.length() > MAX_BUNDLE_SIZE) {
+            return VerifyResult(
+                valid = false,
+                reason = "Bundle trop grand: ${bundleFile.length()} octets (max: $MAX_BUNDLE_SIZE)"
+            )
+        }
+
+        val computedHash = computeHash(bundleFile)
+
+        if (expectedHash.isNotEmpty() && computedHash != expectedHash) {
+            return VerifyResult(
+                valid = false,
+                reason = "Hash incorrect: attendu=$expectedHash, calcule=$computedHash",
+                bundleSize = bundleFile.length(),
+                computedHash = computedHash
+            )
+        }
+
+        return VerifyResult(
+            valid = true,
+            bundleSize = bundleFile.length(),
+            computedHash = computedHash
+        )
+    }
+
+    fun verifyProjectManifest(projectDir: File): VerifyResult {
+        val manifestFile = File(projectDir, "manifest.json")
+        if (!manifestFile.exists()) {
+            return VerifyResult(valid = false, reason = "Manifeste introuvable")
+        }
+
+        return try {
+            val manifest = JSONObject(manifestFile.readText())
+            val bundleReady = manifest.optBoolean("bundleReady", false)
+            val bundleHash = manifest.optString("bundleHash", "")
+            val rnVersion = manifest.optString("rnVersion", "")
+
+            if (!bundleReady) {
+                return VerifyResult(valid = false, reason = "Bundle pas encore pret")
+            }
+
+            if (rnVersion.isEmpty()) {
+                return VerifyResult(valid = false, reason = "Version React Native non specifiee")
+            }
+
+            val bundleFile = File(projectDir, "build/index.android.bundle")
+            verify(bundleFile, bundleHash)
+        } catch (e: Exception) {
+            VerifyResult(valid = false, reason = "Erreur lecture manifeste: ${e.message}")
+        }
+    }
+
+    companion object {
+        private const val MAX_BUNDLE_SIZE = 50 * 1024 * 1024 // 50 Mo
+    }
+
+    private fun computeHash(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{runtime/ProjectLoader.kt}}
+
+\begin{verbatim}
+package com.hostapp.runtime
+
+import android.util.Log
+import org.json.JSONObject
+import java.io.File
+
+class ProjectLoader {
+
+    data class BundleInfo(
+        val entryPoint: String,
+        val assetsPath: String,
+        val version: String,
+        val projectName: String
+    )
+
+    private val bundleInstaller = BundleInstaller()
+    private val bundleVerifier = BundleVerifier()
+
+    fun loadProject(projectId: String): Result<BundleInfo> {
+        return try {
+            Log.d("ProjectLoader", "Chargement du projet: $projectId")
+
+            val projectDir = File(ProjectRuntime.getProjectsDir(), projectId)
+            if (!projectDir.exists()) {
+                return Result.failure(Exception("Projet introuvable: $projectId"))
+            }
+
+            // Lire le manifeste
+            val manifestFile = File(projectDir, "manifest.json")
+            if (!manifestFile.exists()) {
+                return Result.failure(Exception("Manifeste introuvable pour $projectId"))
+            }
+
+            val manifest = JSONObject(manifestFile.readText())
+            val bundleReady = manifest.optBoolean("bundleReady", false)
+
+            // Construire le bundle si pas pret
+            if (!bundleReady) {
+                Log.d("ProjectLoader", "Bundle pas pret, lancement du build...")
+                val buildResult = bundleInstaller.buildAndInstall(projectDir)
+                if (!buildResult.success) {
+                    return Result.failure(
+                        Exception("Echec du build: ${buildResult.error}")
+                    )
+                }
+            }
+
+            // Verifier l'integrite
+            val bundleFile = File(projectDir, "build/index.android.bundle")
+            val bundleHash = manifest.optString("bundleHash", "")
+            val verifyResult = bundleVerifier.verify(bundleFile, bundleHash)
+
+            if (!verifyResult.valid) {
+                return Result.failure(
+                    Exception("Verification echouee: ${verifyResult.reason}")
+                )
+            }
+
+            // Copier vers le cache actif
+            val assetsPath = File(projectDir, "build/assets").absolutePath
+            val installed = bundleInstaller.installBundle(
+                bundleFile.absolutePath,
+                assetsPath,
+                projectId
+            )
+
+            if (!installed) {
+                return Result.failure(Exception("Echec de l'installation du bundle"))
+            }
+
+            val bundleInfo = BundleInfo(
+                entryPoint = bundleFile.absolutePath,
+                assetsPath = assetsPath,
+                version = manifest.optString("version", "1.0.0"),
+                projectName = manifest.optString("name", projectId)
+            )
+
+            Log.d("ProjectLoader", "Projet charge: ${bundleInfo.projectName}")
+            Result.success(bundleInfo)
+        } catch (e: Exception) {
+            Log.e("ProjectLoader", "Erreur chargement", e)
+            Result.failure(e)
+        }
+    }
+
+    fun unloadCurrentProject() {
+        ProjectRuntime.setBundle("", "")
+        val currentDir = ProjectRuntime.getCurrentProjectDir()
+        if (currentDir.exists()) {
+            currentDir.deleteRecursively()
+        }
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{bridge/FileBridgeModule.kt}}
+
+\begin{verbatim}
+package com.hostapp.bridge
+
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.Promise
+import com.hostapp.runtime.ProjectRuntime
+import java.io.File
+
+class FileBridgeModule(reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
+
+    override fun getName(): String = "FileBridge"
+
+    @ReactMethod
+    fun readFile(path: String, promise: Promise) {
+        try {
+            val file = resolveFile(path)
+            if (!file.exists()) {
+                promise.reject("FILE_NOT_FOUND", "Fichier introuvable: $path")
+                return
+            }
+            promise.resolve(file.readText())
+        } catch (e: Exception) {
+            promise.reject("READ_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun writeFile(path: String, content: String, promise: Promise) {
+        try {
+            val file = resolveFile(path)
+            file.parentFile?.mkdirs()
+            file.writeText(content)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("WRITE_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun exists(path: String, promise: Promise) {
+        val file = resolveFile(path)
+        promise.resolve(file.exists())
+    }
+
+    @ReactMethod
+    fun mkdir(path: String, promise: Promise) {
+        try {
+            val file = resolveFile(path)
+            file.mkdirs()
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("MKDIR_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun listDir(path: String, promise: Promise) {
+        try {
+            val dir = resolveFile(path)
+            if (!dir.exists() || !dir.isDirectory) {
+                promise.reject("NOT_DIR", "Pas un repertoire: $path")
+                return
+            }
+            val files = dir.listFiles()?.map { mapOf(
+                "name" to it.name,
+                "isDirectory" to it.isDirectory,
+                "size" to it.length(),
+                "lastModified" to it.lastModified()
+            ) } ?: emptyList()
+            val result = com.facebook.react.bridge.Arguments.createArray()
+            files.forEach { fileMap ->
+                val map = com.facebook.react.bridge.Arguments.createMap()
+                map.putString("name", fileMap["name"] as String)
+                map.putBoolean("isDirectory", fileMap["isDirectory"] as Boolean)
+                map.putDouble("size", (fileMap["size"] as Long).toDouble())
+                map.putDouble("lastModified", (fileMap["lastModified"] as Long).toDouble())
+                result.pushMap(map)
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            promise.reject("LIST_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun delete(path: String, promise: Promise) {
+        try {
+            val file = resolveFile(path)
+            if (file.exists()) {
+                if (file.isDirectory) {
+                    file.deleteRecursively()
+                } else {
+                    file.delete()
+                }
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("DELETE_ERROR", e.message)
+        }
+    }
+
+    private fun resolveFile(path: String): File {
+        return if (path.startsWith("/")) {
+            File(path)
+        } else {
+            File(ProjectRuntime.getProjectsDir(), path)
+        }
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{bridge/FileBridgePackage.kt}}
+
+\begin{verbatim}
+package com.hostapp.bridge
+
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class FileBridgePackage : ReactPackage {
+    override fun createNativeModules(
+        reactContext: ReactApplicationContext
+    ): List<NativeModule> {
+        return listOf(FileBridgeModule(reactContext))
+    }
+
+    override fun createViewManagers(
+        reactContext: ReactApplicationContext
+    ): List<ViewManager<*, *>> {
+        return emptyList()
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{bridge/ProjectBridgeModule.kt}}
+
+\begin{verbatim}
+package com.hostapp.bridge
+
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.WritableNativeArray
+import com.facebook.react.bridge.WritableNativeMap
+import com.hostapp.runtime.*
+
+class ProjectBridgeModule(reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
+
+    private val projectStore = ProjectStore(reactContext)
+    private val projectLoader = ProjectLoader()
+    private val bundleInstaller = BundleInstaller()
+
+    override fun getName(): String = "ProjectBridge"
+
+    @ReactMethod
+    fun listProjects(promise: Promise) {
+        try {
+            val projects = projectStore.listProjects()
+            val result = WritableNativeArray()
+            projects.forEach { project ->
+                val map = WritableNativeMap()
+                map.putString("id", project.id)
+                map.putString("name", project.name)
+                map.putString("version", project.version)
+                map.putDouble("createdAt", project.createdAt.toDouble())
+                result.pushMap(map)
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            promise.reject("LIST_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun createBlankProject(name: String, promise: Promise) {
+        val result = projectStore.createBlankProject(name)
+        result.fold(
+            onSuccess = { project ->
+                val map = WritableNativeMap()
+                map.putString("id", project.id)
+                map.putString("name", project.name)
+                map.putString("version", project.version)
+                promise.resolve(map)
+            },
+            onFailure = { e ->
+                promise.reject("CREATE_ERROR", e.message)
+            }
+        )
+    }
+
+    @ReactMethod
+    fun deleteProject(projectId: String, promise: Promise) {
+        try {
+            val deleted = projectStore.deleteProject(projectId)
+            promise.resolve(deleted)
+        } catch (e: Exception) {
+            promise.reject("DELETE_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun buildProject(projectId: String, promise: Promise) {
+        try {
+            val projectDir = projectStore.getProjectDir(projectId)
+            val buildResult = bundleInstaller.buildAndInstall(projectDir)
+
+            val map = WritableNativeMap()
+            map.putBoolean("success", buildResult.success)
+            map.putString("error", buildResult.error)
+            map.putString("bundlePath", buildResult.bundlePath)
+            map.putString("assetsPath", buildResult.assetsPath)
+
+            val logsArray = WritableNativeArray()
+            buildResult.logs.forEach { logsArray.pushString(it) }
+            map.putArray("logs", logsArray)
+
+            promise.resolve(map)
+        } catch (e: Exception) {
+            promise.reject("BUILD_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun loadAndRunProject(projectId: String, promise: Promise) {
+        projectStore.setCurrentProject(projectId)
+        val result = projectLoader.loadProject(projectId)
+        result.fold(
+            onSuccess = { bundleInfo ->
+                val map = WritableNativeMap()
+                map.putString("projectName", bundleInfo.projectName)
+                map.putString("version", bundleInfo.version)
+                map.putString("bundlePath", bundleInfo.entryPoint)
+                map.putBoolean("loaded", true)
+                promise.resolve(map)
+            },
+            onFailure = { e ->
+                promise.reject("LOAD_ERROR", e.message)
+            }
+        )
+    }
+
+    @ReactMethod
+    fun getProjectManifest(projectId: String, promise: Promise) {
+        try {
+            val projectDir = projectStore.getProjectDir(projectId)
+            val manifestFile = java.io.File(projectDir, "manifest.json")
+            if (!manifestFile.exists()) {
+                promise.reject("NO_MANIFEST", "Manifeste introuvable")
+                return
+            }
+            promise.resolve(manifestFile.readText())
+        } catch (e: Exception) {
+            promise.reject("MANIFEST_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun getBuildLogs(projectId: String, promise: Promise) {
+        try {
+            val logsDir = ProjectRuntime.getLogsDir()
+            val logFile = java.io.File(logsDir, "$projectId.log")
+            if (logFile.exists()) {
+                promise.resolve(logFile.readText())
+            } else {
+                promise.resolve("Aucun log disponible")
+            }
+        } catch (e: Exception) {
+            promise.reject("LOG_ERROR", e.message)
+        }
+    }
+}
+\end{verbatim}
+
+\paragraph{\texttt{bridge/ProjectBridgePackage.kt}}
+
+\begin{verbatim}
+package com.hostapp.bridge
+
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class ProjectBridgePackage : ReactPackage {
+    override fun createNativeModules(
+        reactContext: ReactApplicationContext
+    ): List<NativeModule> {
+        return listOf(ProjectBridgeModule(reactContext))
+    }
+
+    override fun createViewManagers(
+        reactContext: ReactApplicationContext
+    ): List<ViewManager<*, *>> {
+        return emptyList()
+    }
+}
+\end{verbatim}
+
+\subsubsection*{Fichiers JS (Shell)}
+
+\paragraph{\texttt{js/shell/App.tsx}}
+
+\begin{verbatim}
+import React, { useState, useEffect } from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  StatusBar,
+} from 'react-native';
+import HomeScreen from './screens/HomeScreen';
+import ProjectListScreen from './screens/ProjectListScreen';
+import BuilderScreen from './screens/BuilderScreen';
+import LogScreen from './screens/LogScreen';
+
+type Screen = 'home' | 'projects' | 'builder' | 'logs';
+
+export default function App() {
+  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  const navigate = (screen: Screen, projectId?: string) => {
+    setCurrentScreen(screen);
+    if (projectId) setSelectedProjectId(projectId);
+  };
+
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'home':
+        return <HomeScreen onNavigate={navigate} />;
+      case 'projects':
+        return <ProjectListScreen onNavigate={navigate} />;
+      case 'builder':
+        return (
+          <BuilderScreen
+            projectId={selectedProjectId!}
+            onNavigate={navigate}
+          />
+        );
+      case 'logs':
+        return (
+          <LogScreen
+            projectId={selectedProjectId}
+            onNavigate={navigate}
+          />
+        );
+      default:
+        return <HomeScreen onNavigate={navigate} />;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      {renderScreen()}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/screens/HomeScreen.tsx}}
+
+\begin{verbatim}
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  NativeModules,
+} from 'react-native';
+
+const { ProjectBridge } = NativeModules;
+
+interface Props {
+  onNavigate: (screen: string, projectId?: string) => void;
+}
+
+export default function HomeScreen({ onNavigate }: Props) {
+  const [projectCount, setProjectCount] = useState(0);
+
+  useEffect(() => {
+    loadProjectCount();
+  }, []);
+
+  const loadProjectCount = async () => {
+    try {
+      const projects = await ProjectBridge.listProjects();
+      setProjectCount(projects.length);
+    } catch (e) {
+      console.warn('Erreur chargement projets:', e);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>React Native Builder</Text>
+        <Text style={styles.subtitle}>
+          Compilez et executez vos projets directement sur mobile
+        </Text>
+      </View>
+
+      <View style={styles.stats}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{projectCount}</Text>
+          <Text style={styles.statLabel}>Projets</Text>
+        </View>
+      </View>
+
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => onNavigate('projects')}
+        >
+          <Text style={styles.primaryButtonText}>Mes projets</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => {
+            ProjectBridge.createBlankProject('Nouveau projet')
+              .then((project: any) => {
+                onNavigate('builder', project.id);
+              })
+              .catch(console.error);
+          }}
+        >
+          <Text style={styles.secondaryButtonText}>Nouveau projet</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.info}>
+        <Text style={styles.infoTitle}>Comment ca marche</Text>
+        <Text style={styles.infoText}>
+          1. Creez ou importez un projet React Native{'\n'}
+          2. Le bundle JS est genere automatiquement{'\n'}
+          3. Le projet s'execute dans l'environnement hote
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { padding: 24, paddingTop: 16 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1a1a1a' },
+  subtitle: { fontSize: 15, color: '#666', marginTop: 4 },
+  stats: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 24 },
+  statCard: {
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    padding: 20,
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: { fontSize: 32, fontWeight: 'bold', color: '#3366ff' },
+  statLabel: { fontSize: 13, color: '#666', marginTop: 4 },
+  actions: { paddingHorizontal: 24, gap: 12 },
+  primaryButton: {
+    backgroundColor: '#3366ff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  secondaryButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  secondaryButtonText: { color: '#333', fontSize: 16, fontWeight: '500' },
+  info: { margin: 24, padding: 20, backgroundColor: '#fafafa', borderRadius: 12 },
+  infoTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  infoText: { fontSize: 14, color: '#555', lineHeight: 22 },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/screens/ProjectListScreen.tsx}}
+
+\begin{verbatim}
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  NativeModules,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+
+const { ProjectBridge } = NativeModules;
+
+interface Project {
+  id: string;
+  name: string;
+  version: string;
+  createdAt: number;
+}
+
+interface Props {
+  onNavigate: (screen: string, projectId?: string) => void;
+}
+
+export default function ProjectListScreen({ onNavigate }: Props) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProjects();
+    }, [])
+  );
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      const result = await ProjectBridge.listProjects();
+      setProjects(result);
+    } catch (e) {
+      console.error('Erreur chargement:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = (project: Project) => {
+    Alert.alert(
+      'Supprimer',
+      `Supprimer le projet "${project.name}" ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            await ProjectBridge.deleteProject(project.id);
+            loadProjects();
+          },
+        },
+      ]
+    );
+  };
+
+  const renderProject = ({ item }: { item: Project }) => (
+    <TouchableOpacity
+      style={styles.projectCard}
+      onPress={() => onNavigate('builder', item.id)}
+      onLongPress={() => handleDelete(item)}
+    >
+      <View style={styles.projectInfo}>
+        <Text style={styles.projectName}>{item.name}</Text>
+        <Text style={styles.projectVersion}>v{item.version}</Text>
+      </View>
+      <Text style={styles.arrow}>></Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => onNavigate('home')}>
+          <Text style={styles.backButton}>Retour</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Mes projets</Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}>
+          <Text style={styles.loadingText}>Chargement...</Text>
+        </View>
+      ) : projects.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>Aucun projet</Text>
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => onNavigate('home')}
+          >
+            <Text style={styles.createButtonText}>Creer un projet</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={projects}
+          renderItem={renderProject}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { padding: 24, paddingBottom: 16 },
+  backButton: { fontSize: 14, color: '#3366ff', marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: 'bold' },
+  list: { padding: 24, gap: 12 },
+  projectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 16,
+  },
+  projectInfo: { flex: 1 },
+  projectName: { fontSize: 16, fontWeight: '600' },
+  projectVersion: { fontSize: 13, color: '#999', marginTop: 2 },
+  arrow: { fontSize: 18, color: '#ccc' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: '#999' },
+  emptyText: { fontSize: 16, color: '#999', marginBottom: 16 },
+  createButton: {
+    backgroundColor: '#3366ff',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createButtonText: { color: '#fff', fontWeight: '600' },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/screens/BuilderScreen.tsx}}
+
+\begin{verbatim}
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  NativeModules,
+} from 'react-native';
+import LogViewer from '../components/LogViewer';
+
+const { ProjectBridge } = NativeModules;
+
+interface Props {
+  projectId: string;
+  onNavigate: (screen: string, projectId?: string) => void;
+}
+
+export default function BuilderScreen({ projectId, onNavigate }: Props) {
+  const [projectName, setProjectName] = useState('');
+  const [building, setBuilding] = useState(false);
+  const [buildResult, setBuildResult] = useState<any>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [manifest, setManifest] = useState<any>(null);
+
+  useEffect(() => {
+    loadManifest();
+  }, [projectId]);
+
+  const loadManifest = async () => {
+    try {
+      const m = await ProjectBridge.getProjectManifest(projectId);
+      const parsed = JSON.parse(m);
+      setManifest(parsed);
+      setProjectName(parsed.name || projectId);
+    } catch (e) {
+      setProjectName(projectId);
+    }
+  };
+
+  const handleBuild = async () => {
+    try {
+      setBuilding(true);
+      setLogs([]);
+      setBuildResult(null);
+
+      const result = await ProjectBridge.buildProject(projectId);
+      setBuildResult(result);
+      setLogs(result.logs || []);
+    } catch (e: any) {
+      setBuildResult({ success: false, error: e.message });
+      setLogs((prev) => [...prev, `[ERREUR] ${e.message}`]);
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  const handleRun = async () => {
+    try {
+      const result = await ProjectBridge.loadAndRunProject(projectId);
+      Alert.alert('Succes', `Projet "${result.projectName}" charge`);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => onNavigate('projects')}>
+          <Text style={styles.backButton}>Projets</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>{projectName}</Text>
+        {manifest && (
+          <Text style={styles.version}>v{manifest.version}</Text>
+        )}
+      </View>
+
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.buildButton, building && styles.buildButtonDisabled]}
+          onPress={handleBuild}
+          disabled={building}
+        >
+          <Text style={styles.buildButtonText}>
+            {building ? 'Build en cours...' : 'Build'}
+          </Text>
+        </TouchableOpacity>
+
+        {buildResult?.success && (
+          <TouchableOpacity style={styles.runButton} onPress={handleRun}>
+            <Text style={styles.runButtonText}>Run</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.logsButton}
+          onPress={() => onNavigate('logs', projectId)}
+        >
+          <Text style={styles.logsButtonText}>Voir les logs</Text>
+        </TouchableOpacity>
+      </View>
+
+      {buildResult && (
+        <View style={[
+          styles.resultBox,
+          buildResult.success ? styles.resultSuccess : styles.resultError,
+        ]}>
+          <Text style={styles.resultText}>
+            {buildResult.success
+              ? 'Build reussi'
+              : `Echec: ${buildResult.error}`}
+          </Text>
+        </View>
+      )}
+
+      {logs.length > 0 && (
+        <View style={styles.logSection}>
+          <Text style={styles.logSectionTitle}>Logs du build</Text>
+          <LogViewer logs={logs} />
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { padding: 24, paddingBottom: 16 },
+  backButton: { fontSize: 14, color: '#3366ff', marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: 'bold' },
+  version: { fontSize: 13, color: '#999', marginTop: 4 },
+  actions: { paddingHorizontal: 24, gap: 12, marginBottom: 24 },
+  buildButton: {
+    backgroundColor: '#28a745',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  buildButtonDisabled: { opacity: 0.6 },
+  buildButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  runButton: {
+    backgroundColor: '#3366ff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  runButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  logsButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  logsButtonText: { color: '#333', fontSize: 14 },
+  resultBox: { margin: 24, padding: 16, borderRadius: 12 },
+  resultSuccess: { backgroundColor: '#d4edda' },
+  resultError: { backgroundColor: '#f8d7da' },
+  resultText: { fontSize: 14, color: '#333' },
+  logSection: { paddingHorizontal: 24, marginBottom: 24 },
+  logSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/screens/LogScreen.tsx}}
+
+\begin{verbatim}
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  NativeModules,
+} from 'react-native';
+import LogViewer from '../components/LogViewer';
+
+const { ProjectBridge } = NativeModules;
+
+interface Props {
+  projectId: string | null;
+  onNavigate: (screen: string, projectId?: string) => void;
+}
+
+export default function LogScreen({ projectId, onNavigate }: Props) {
+  const [logs, setLogs] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (projectId) loadLogs();
+  }, [projectId]);
+
+  const loadLogs = async () => {
+    try {
+      const logText = await ProjectBridge.getBuildLogs(projectId!);
+      setLogs(logText.split('\n').filter((l: string) => l.trim()));
+    } catch (e) {
+      setLogs(['Erreur chargement des logs']);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => onNavigate('builder', projectId!)}>
+          <Text style={styles.backButton}>Retour</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Logs</Text>
+      </View>
+
+      {logs.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>Aucun log disponible</Text>
+        </View>
+      ) : (
+        <LogViewer logs={logs} />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#1a1a1a' },
+  header: { padding: 24, paddingBottom: 16 },
+  backButton: { fontSize: 14, color: '#6c9eff', marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { color: '#666' },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/components/LogViewer.tsx}}
+
+\begin{verbatim}
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+
+interface Props {
+  logs: string[];
+}
+
+export default function LogViewer({ logs }: Props) {
+  return (
+    <ScrollView style={styles.container} nestedScrollEnabled>
+      {logs.map((log, index) => (
+        <Text key={index} style={styles.line}>
+          {log}
+        </Text>
+      ))}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    padding: 12,
+    maxHeight: 300,
+  },
+  line: {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    color: '#a0a0a0',
+    lineHeight: 18,
+  },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/components/ProjectCard.tsx}}
+
+\begin{verbatim}
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+
+interface Props {
+  name: string;
+  version: string;
+  onPress: () => void;
+}
+
+export default function ProjectCard({ name, version, onPress }: Props) {
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress}>
+      <View style={styles.info}>
+        <Text style={styles.name}>{name}</Text>
+        <Text style={styles.version}>v{version}</Text>
+      </View>
+      <Text style={styles.arrow}>></Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  info: { flex: 1 },
+  name: { fontSize: 16, fontWeight: '600' },
+  version: { fontSize: 13, color: '#999', marginTop: 2 },
+  arrow: { fontSize: 18, color: '#ccc' },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/components/BuildButton.tsx}}
+
+\begin{verbatim}
+import React from 'react';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+
+interface Props {
+  onPress: () => void;
+  loading?: boolean;
+  label?: string;
+}
+
+export default function BuildButton({
+  onPress,
+  loading = false,
+  label = 'Build & Run',
+}: Props) {
+  return (
+    <TouchableOpacity
+      style={[styles.button, loading && styles.disabled]}
+      onPress={onPress}
+      disabled={loading}
+    >
+      {loading ? (
+        <ActivityIndicator color="#fff" />
+      ) : (
+        <Text style={styles.text}>{label}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: {
+    backgroundColor: '#28a745',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  disabled: { opacity: 0.6 },
+  text: { color: '#fff', fontSize: 16, fontWeight: '600' },
+});
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/services/BridgeService.ts}}
+
+\begin{verbatim}
+import { NativeModules } from 'react-native';
+
+const { ProjectBridge, FileBridge } = NativeModules;
+
+export interface Project {
+  id: string;
+  name: string;
+  version: string;
+  createdAt: number;
+}
+
+export interface BuildResult {
+  success: boolean;
+  bundlePath?: string;
+  assetsPath?: string;
+  error?: string;
+  logs: string[];
+}
+
+export interface BundleInfo {
+  projectName: string;
+  version: string;
+  bundlePath: string;
+  loaded: boolean;
+}
+
+export const ProjectService = {
+  listProjects: (): Promise<Project[]> => ProjectBridge.listProjects(),
+
+  createProject: (name: string): Promise<Project> =>
+    ProjectBridge.createBlankProject(name),
+
+  deleteProject: (id: string): Promise<boolean> =>
+    ProjectBridge.deleteProject(id),
+
+  buildProject: (id: string): Promise<BuildResult> =>
+    ProjectBridge.buildProject(id),
+
+  loadAndRun: (id: string): Promise<BundleInfo> =>
+    ProjectBridge.loadAndRunProject(id),
+
+  getManifest: (id: string): Promise<string> =>
+    ProjectBridge.getProjectManifest(id),
+
+  getLogs: (id: string): Promise<string> =>
+    ProjectBridge.getBuildLogs(id),
+};
+
+export const FileService = {
+  readFile: (path: string): Promise<string> => FileBridge.readFile(path),
+  writeFile: (path: string, content: string): Promise<boolean> =>
+    FileBridge.writeFile(path, content),
+  exists: (path: string): Promise<boolean> => FileBridge.exists(path),
+  mkdir: (path: string): Promise<boolean> => FileBridge.mkdir(path),
+  listDir: (path: string): Promise<any[]> => FileBridge.listDir(path),
+  delete: (path: string): Promise<boolean> => FileBridge.delete(path),
+};
+\end{verbatim}
+
+\paragraph{\texttt{js/shell/services/ProjectService.ts}}
+
+\begin{verbatim}
+import { ProjectService as Bridge } from './BridgeService';
+
+export async function createAndBuildProject(name: string) {
+  const project = await Bridge.createProject(name);
+  const buildResult = await Bridge.buildProject(project.id);
+
+  if (!buildResult.success) {
+    throw new Error(buildResult.error || 'Build echoue');
+  }
+
+  return { project, buildResult };
+}
+
+export async function runExistingProject(projectId: string) {
+  const result = await Bridge.loadAndRun(projectId);
+  return result;
+}
+
+export async function getProjectStatus(projectId: string) {
+  const manifest = await Bridge.getManifest(projectId);
+  const parsed = JSON.parse(manifest);
+  return {
+    name: parsed.name,
+    version: parsed.version,
+    bundleReady: parsed.bundleReady,
+    bundleHash: parsed.bundleHash,
+    builtAt: parsed.builtAt,
+  };
+}
+\end{verbatim}
+
+\subsubsection*{Exemple de projet sample}
+
+\paragraph{\texttt{js/projects/sample/package.json}}
+
+\begin{verbatim}
+{
+  "name": "sample-project",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.4"
+  }
+}
+\end{verbatim}
+
+\paragraph{\texttt{js/projects/sample/index.js}}
+
+\begin{verbatim}
+import { AppRegistry } from 'react-native';
+import App from './src/App';
+
+AppRegistry.registerComponent('HostShell', () => App);
+\end{verbatim}
+
+\paragraph{\texttt{js/projects/sample/src/App.tsx}}
+
+\begin{verbatim}
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+} from 'react-native';
+
+const DATA = [
+  { id: '1', title: 'Bienvenue dans React Native Builder' },
+  { id: '2', title: 'Ce projet tourne sur votre telephone' },
+  { id: '3', title: 'Aucun PC requis' },
+];
+
+export default function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Sample Project</Text>
+      <Text style={styles.counter}>Compteur: {count}</Text>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => setCount((c) => c + 1)}
+      >
+        <Text style={styles.buttonText}>Incrementer</Text>
+      </TouchableOpacity>
+
+      <FlatList
+        data={DATA}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.item}>
+            <Text style={styles.itemText}>{item.title}</Text>
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
+  counter: { fontSize: 18, marginBottom: 16 },
+  button: {
+    backgroundColor: '#3366ff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 24,
+  },
+  buttonText: { color: '#fff', textAlign: 'center', fontWeight: '600' },
+  item: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  itemText: { fontSize: 15 },
+});
+\end{verbatim}
+
+\paragraph{\texttt{assets/runtime/manifest.json}}
+
+\begin{verbatim}
+{
+  "type": "host-runtime",
+  "version": "1.0.0",
+  "rnVersion": "0.73.4",
+  "hermesEnabled": true,
+  "minSdkVersion": 24,
+  "maxBundleSize": 52428800,
+  "supportedExtensions": ["js", "jsx", "ts", "tsx", "json"],
+  "features": [
+    "bundle-loading",
+    "project-management",
+    "hot-reload",
+    "file-bridge",
+    "project-bridge"
+  ]
+}
+\end{verbatim}
+
+\paragraph{\texttt{res/values/strings.xml}}
+
+\begin{verbatim}
+<resources>
+    <string name="app_name">RN Builder</string>
+</resources>
+\end{verbatim}
+
+\paragraph{\texttt{res/values/colors.xml}}
+
+\begin{verbatim}
+<resources>
+    <color name="primary">#3366ff</color>
+    <color name="primary_dark">#2250cc</color>
+    <color name="accent">#28a745</color>
+    <color name="background">#ffffff</color>
+    <color name="surface">#f5f5f5</color>
+</resources>
+\end{verbatim}
+
+\paragraph{\texttt{res/values/themes.xml}}
+
+\begin{verbatim}
+<resources>
+    <style name="Theme.HostApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+</resources>
+\end{verbatim}
+
+\subsubsection*{Ordre de compilation}
+
+\begin{enumerate}
+\item \texttt{git clone} ou creer le dossier \texttt{host-app/}
+\item \texttt{cd host-app/android \&\& ./gradlew assembleDebug} pour verifier que la coquille compile
+\item Installer l'APK sur le telephone
+\item Copier le projet sample dans \texttt{projects/current/}
+\item Appuyer sur "Build" pour generer le bundle
+\item Appuyer sur "Run" pour charger le bundle dans le runtime
+\end{enumerate}
+Ce squelette est directement exploitable. Chaque fichier Kotlin est un module autonome, chaque composant JS est isole, et le cycle de chargement suit exactement le plan que tu as defini.
+
+
+
+\end{document}
