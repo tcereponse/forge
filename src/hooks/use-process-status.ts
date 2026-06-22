@@ -9,7 +9,7 @@ export interface ProcessStatus {
   buildLog: string;
 }
 
-const POLL_INTERVAL = 3000; // 3s
+const POLL_INTERVAL = 5000; // 5s
 
 export function useProcessStatus(
   projectId: string | null,
@@ -20,9 +20,10 @@ export function useProcessStatus(
   refresh: () => Promise<void>;
 } {
   const [status, setStatus] = useState<ProcessStatus | null>(null);
-  // Use a ref to track the latest status for the interval callback,
-  // avoiding re-running the effect on every status change.
   const statusRef = useRef<ProcessStatus | null>(null);
+  const errorCount = useRef(0);
+  const installTriggered = useRef(false);
+
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
@@ -33,6 +34,16 @@ export function useProcessStatus(
       const res = await fetch(`/api/projects/${projectId}/status`, {
         cache: "no-store",
       });
+      // Stop immediately on 404 — project doesn't exist
+      if (res.status === 404) {
+        errorCount.current += 1;
+        return;
+      }
+      if (!res.ok) {
+        errorCount.current += 1;
+        return;
+      }
+      errorCount.current = 0;
       const data = await res.json();
       if (data.success) {
         const newStatus: ProcessStatus = {
@@ -44,7 +55,7 @@ export function useProcessStatus(
         setStatus(newStatus);
       }
     } catch {
-      // ignore
+      errorCount.current += 1;
     }
   }, [projectId]);
 
@@ -53,18 +64,24 @@ export function useProcessStatus(
       return;
     }
 
-    // Initial fetch (deferred to avoid synchronous setState in effect)
-    const initialTimer = setTimeout(() => refresh(), 0);
+    // Reset error count on mount/project change
+    errorCount.current = 0;
+    installTriggered.current = false;
 
-    // Set up a single interval that checks the ref for whether to continue.
-    // This avoids the tight loop of: poll → setState → effect re-run → poll.
+    // Initial fetch
+    const initialTimer = setTimeout(() => refresh(), 500);
+
+    // Polling interval — stops on terminal states or errors
     const interval = setInterval(async () => {
+      // Stop if too many errors (server down or project missing)
+      if (errorCount.current >= 3) {
+        clearInterval(interval);
+        return;
+      }
       const s = statusRef.current;
-      // Only keep polling while install or build is ACTIVELY running.
       const installActive = s?.install === "installing";
       const buildActive = s?.build === "building";
       if (!installActive && !buildActive) {
-        // Terminal or idle state — stop polling.
         clearInterval(interval);
         return;
       }
@@ -79,11 +96,16 @@ export function useProcessStatus(
 
   const triggerBuild = useCallback(async () => {
     if (!projectId) return;
+    if (errorCount.current >= 3) return; // Don't spam if server is down
     try {
-      await fetch(`/api/projects/${projectId}/build`, { method: "POST" });
+      const res = await fetch(`/api/projects/${projectId}/build`, { method: "POST" });
+      if (res.status === 404) {
+        errorCount.current += 1;
+        return;
+      }
       refresh();
     } catch {
-      // ignore
+      errorCount.current += 1;
     }
   }, [projectId, refresh]);
 
