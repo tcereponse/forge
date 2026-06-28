@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import type { ProjectRecord } from "@/lib/forge-config";
+import { GpuBadge } from "@/components/forge/gpu-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -203,6 +204,9 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-slate-800 px-4 py-3">
+        <div className="mb-2">
+          <GpuBadge />
+        </div>
         <p className="text-[10px] leading-relaxed text-slate-600">
           Propulsé par{" "}
           <span className="font-mono text-cyan-500/70">z-ai-web-dev-sdk</span>{" "}
