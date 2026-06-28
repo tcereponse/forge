@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: Web Landing Pack",
+  "version": "1.0.0",
+  "description": "Injecte les architectures de Landing Pages à haute conversion.",
+  "permissions": ["activeTab"],
+  "content_scripts": [{
+    "matches": ["*://*.deepseek.com/*", "*://chat.deepseek.com/*"],
+    "js": ["inject_landing.js"],
+    "run_at": "document_idle"
+  }]
+}

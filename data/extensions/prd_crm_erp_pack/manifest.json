@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: CRM & ERP Pack",
+  "version": "1.0.0",
+  "description": "Injecte les architectures de gestion d'entreprise (CRM).",
+  "permissions": ["activeTab"],
+  "content_scripts": [{
+    "matches": ["*://*.deepseek.com/*", "*://chat.deepseek.com/*"],
+    "js": ["inject_crm.js"],
+    "run_at": "document_idle"
+  }]
+}

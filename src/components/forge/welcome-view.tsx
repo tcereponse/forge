@@ -9,9 +9,16 @@ import {
   Download,
   Cpu,
   ArrowRight,
+  FolderGit2,
+  CheckCircle2,
+  Zap,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Button } from "@/components/ui/button";
+import {
+  TemplatesGallery,
+  type ProjectTemplate,
+} from "@/components/forge/templates-gallery";
 
 const FEATURES = [
   {
@@ -36,15 +43,44 @@ const FEATURES = [
   },
 ];
 
-const SAMPLE_IDEAS = [
-  "Une app de gestion de tâches avec catégories et statistiques",
-  "Un portfolio développeur avec projets et contact",
-  "Un convertisseur de devises avec historique",
-  "Un lecteur de podcasts avec favoris",
-];
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: typeof FolderGit2;
+  label: string;
+  value: string | number;
+  accent: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+      <div
+        className={`flex h-9 w-9 items-center justify-center rounded-lg ring-1 ${accent}`}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+          {label}
+        </p>
+        <p className="truncate text-sm font-bold text-slate-100">{value}</p>
+      </div>
+    </div>
+  );
+}
 
 export function WelcomeView() {
-  const { setShowBuilder } = useForgeStore();
+  const { setShowBuilder, setPendingTemplate, projects } = useForgeStore();
+
+  const readyCount = projects.filter((p) => p.status === "ready").length;
+  const lastProject = projects[0];
+
+  function handlePickTemplate(tpl: ProjectTemplate) {
+    setPendingTemplate(tpl);
+    setShowBuilder(true);
+  }
 
   return (
     <div className="custom-scroll h-full overflow-y-auto">
@@ -67,10 +103,10 @@ export function WelcomeView() {
             <span className="bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-300 bg-clip-text text-transparent">
               React
             </span>{" "}
-            avec l’IA
+            avec l&rsquo;IA
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-sm leading-relaxed text-slate-400 sm:text-base">
-            Décris ton application, configure ta stack, et l’IA génère un
+            Décris ton application, configure ta stack, et l&rsquo;IA génère un
             projet React complet, fonctionnel et téléchargeable — code source,
             configuration et composants inclus.
           </p>
@@ -85,8 +121,35 @@ export function WelcomeView() {
           </div>
         </motion.div>
 
+        {/* Health dashboard — quick stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3"
+        >
+          <StatCard
+            icon={FolderGit2}
+            label="Projets créés"
+            value={projects.length}
+            accent="bg-cyan-500/10 ring-cyan-500/20 text-cyan-300"
+          />
+          <StatCard
+            icon={CheckCircle2}
+            label="Projets prêts"
+            value={readyCount}
+            accent="bg-emerald-500/10 ring-emerald-500/20 text-emerald-300"
+          />
+          <StatCard
+            icon={Zap}
+            label="Dernier projet"
+            value={lastProject ? lastProject.name : "—"}
+            accent="bg-violet-500/10 ring-violet-500/20 text-violet-300"
+          />
+        </motion.div>
+
         {/* Features */}
-        <div className="mt-14 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => {
             const Icon = f.icon;
             return (
@@ -111,19 +174,27 @@ export function WelcomeView() {
           })}
         </div>
 
-        {/* Sample ideas */}
+        {/* Templates Gallery */}
+        <TemplatesGallery onPick={handlePickTemplate} />
+
+        {/* Legacy sample ideas — kept for free-form inspiration */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mt-10 rounded-xl border border-slate-800 bg-slate-950/40 p-5"
+          transition={{ delay: 0.5 }}
+          className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 p-5"
         >
           <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
             <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
-            Idées pour démarrer
+            Ou décris ta propre idée
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {SAMPLE_IDEAS.map((idea) => (
+            {[
+              "Une app de gestion de tâches avec catégories et statistiques",
+              "Un portfolio développeur avec projets et contact",
+              "Un convertisseur de devises avec historique",
+              "Un lecteur de podcasts avec favoris",
+            ].map((idea) => (
               <button
                 key={idea}
                 onClick={() => setShowBuilder(true)}

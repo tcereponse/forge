@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Elite Forge Universal Bridge",
+  "version": "4.6.0",
+  "description": "Polyglot Bridge for Autonomous Mobile Forge",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "*://chat.deepseek.com/*",
+    "*://chat.openai.com/*",
+    "*://chatgpt.com/*",
+    "*://claude.ai/*",
+    "*://www.perplexity.ai/*",
+    "*://gemini.google.com/*",
+    "http://127.0.0.1:5005/*",
+    "http://localhost:5005/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://chat.deepseek.com/*",
+        "*://chat.openai.com/*",
+        "*://chatgpt.com/*",
+        "*://claude.ai/*",
+        "*://www.perplexity.ai/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

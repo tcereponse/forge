@@ -96,7 +96,7 @@ function OptionGrid<T extends string>({
 }
 
 export function BuilderForm() {
-  const { fetchProjects, selectProject, setGenerating, setPhase, fetchProject } =
+  const { fetchProjects, selectProject, setGenerating, setPhase, fetchProject, pendingTemplate, setPendingTemplate } =
     useForgeStore();
 
   const [name, setName] = useState("");
@@ -111,6 +111,24 @@ export function BuilderForm() {
   const [features, setFeatures] = useState<string[]>([]);
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+
+  // One-shot template pre-fill — applied when user picks a template from the gallery
+  useEffect(() => {
+    if (!pendingTemplate) return;
+    const tpl = pendingTemplate;
+    setName(tpl.name);
+    setDescription(tpl.description);
+    setStack(tpl.config.stack);
+    setStyling(tpl.config.styling);
+    setRouting(tpl.config.routing);
+    setStateMgmt(tpl.config.stateMgmt);
+    setUiLib(tpl.config.uiLib);
+    setFeatures(tpl.features);
+    setTypescript(true);
+    // Clear the one-shot so it doesn't reapply on re-mount
+    setPendingTemplate(null);
+    toast.success(`Modèle « ${tpl.name} » chargé — prêt à forger !`);
+  }, [pendingTemplate, setPendingTemplate]);
 
   // Extension packs state
   const [extPacks, setExtPacks] = useState<

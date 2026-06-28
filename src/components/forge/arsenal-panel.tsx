@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -41,7 +41,9 @@ const DOC_ICONS: Record<string, typeof Target> = {
   maintenance: TrendingUp,
 };
 
-export function ArsenalPanel({ arsenal }: { arsenal: { documents: ArsenalDocument[] } | null }) {
+// Memoized — arsenal is a stable reference from the store unless the project
+// is re-fetched, so this skips re-render on tab switches / polling.
+export const ArsenalPanel = memo(function ArsenalPanel({ arsenal }: { arsenal: { documents: ArsenalDocument[] } | null }) {
   const [activeId, setActiveId] = useState<string>("vision");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -197,4 +199,4 @@ export function ArsenalPanel({ arsenal }: { arsenal: { documents: ArsenalDocumen
       </div>
     </div>
   );
-}
+});

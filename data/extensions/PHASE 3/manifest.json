@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "ELITE FORGE — PHASE 3 (HARDEN)",
+  "version": "1.0.0",
+  "description": "Protocole de Durcissement Industriel Grade Gold (Tests & Docker)",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://127.0.0.1:5005/*", "https://chat.deepseek.com/*", "https://gemini.google.com/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chat.deepseek.com/*", "https://gemini.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 import type { ProjectRecord, ValidationReport, Arsenal } from "@/lib/forge-config";
+import type { ProjectTemplate } from "@/components/forge/templates-gallery";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 
 // Ensure every project record has safe defaults for array/string fields,
 // regardless of which endpoint it came from (list vs detail).
@@ -53,6 +55,9 @@ interface ForgeState {
   generationPhase: "idle" | "prd" | "code" | "saving" | "done" | "error";
   generationError: string | null;
 
+  // Template pre-fill (one-shot) — set when user clicks a gallery template
+  pendingTemplate: ProjectTemplate | null;
+
   // Actions
   setProjects: (p: ProjectRecord[]) => void;
   fetchProjects: () => Promise<void>;
@@ -65,6 +70,7 @@ interface ForgeState {
   setPhase: (p: ForgeState["generationPhase"]) => void;
   setGenerationError: (e: string | null) => void;
   removeProject: (id: string) => void;
+  setPendingTemplate: (t: ProjectTemplate | null) => void;
 }
 
 export const useForgeStore = create<ForgeState>((set, get) => ({
@@ -74,21 +80,23 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   currentProject: null,
   loadingProject: false,
   validation: null,
-  showBuilder: true,
+  showBuilder: false,
   generating: false,
   generationPhase: "idle",
   generationError: null,
+  pendingTemplate: null,
 
   setProjects: (p) => set({ projects: p }),
   setShowBuilder: (v) => set({ showBuilder: v }),
   setGenerating: (v) => set({ generating: v }),
   setPhase: (p) => set({ generationPhase: p }),
   setGenerationError: (e) => set({ generationError: e }),
+  setPendingTemplate: (t) => set({ pendingTemplate: t }),
 
   fetchProjects: async () => {
     set({ loadingProjects: true, projectsError: null });
     try {
-      const res = await fetch("/api/projects", { cache: "no-store" });
+      const res = await fetchWithRetry("/api/projects", { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       set({ projects: normalizeProjects(data.projects), loadingProjects: false });
@@ -115,7 +123,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       loadingProject: true,
     });
     try {
-      const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
+      const res = await fetchWithRetry(`/api/projects/${id}`, { cache: "no-store" });
       // Handle 404 (project was deleted) gracefully
       if (res.status === 404) {
         set({
@@ -150,7 +158,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     if (!cur) return;
     set({ loadingProject: true });
     try {
-      const res = await fetch(`/api/projects/${cur.id}`, { cache: "no-store" });
+      const res = await fetchWithRetry(`/api/projects/${cur.id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       set({
@@ -167,7 +175,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   fetchProject: async (id) => {
     set({ loadingProject: true });
     try {
-      const res = await fetch(`/api/projects/${id}`, { cache: "no-store" });
+      const res = await fetchWithRetry(`/api/projects/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       set({

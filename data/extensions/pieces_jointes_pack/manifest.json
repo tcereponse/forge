@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: pièces jointes Pack",
+  "version": "1.0.0",
+  "description": "Pack d'extensions PRD pour la catégorie pièces jointes.",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_pieces_jointes.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

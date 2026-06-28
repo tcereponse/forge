@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "PHASE 2 — FORGE DU CODE",
+  "version": "12.0",
+  "description": "Phase 2 : Forge du Code — Injection des extensions Diamond pour une génération Zéro Erreur",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "*://*.deepseek.com/*",
+    "*://chat.deepseek.com/*",
+    "*://chatgpt.com/*",
+    "*://gemini.google.com/*",
+    "http://localhost:5005/*",
+    "http://127.0.0.1:5005/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

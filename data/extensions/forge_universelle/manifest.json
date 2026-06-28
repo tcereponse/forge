@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Elite Forge Universelle",
+  "version": "1.0.0",
+  "description": "L'extension maîtresse pour générer, auditer et propulser n'importe quel projet Full-Stack (FastAPI + Vite) depuis le navigateur.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.deepseek.com/*", "*://chat.deepseek.com/*", "http://localhost:*/*"],
+      "js": ["elite_core.js"],
+      "css": ["elite_style.css"],
+      "run_at": "document_end"
+    }
+  ]
+}

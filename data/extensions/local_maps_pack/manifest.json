@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: Local & Maps Pack",
+  "version": "1.0.0",
+  "description": "Pack d'extensions PRD pour la catégorie Local & Maps.",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*"
+      ],
+      "js": [
+        "inject_local_maps.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

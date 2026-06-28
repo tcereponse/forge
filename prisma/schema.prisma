@@ -36,5 +36,24 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  snapshots   Snapshot[]
+
   @@index([createdAt])
+}
+
+// Versioned snapshots of a project's generated files — lets users save
+// restore points before evolving/regenerating, and roll back if needed.
+model Snapshot {
+  id        String   @id @default(cuid())
+  projectId String
+  label     String   @default("Snapshot") // user-provided or auto label
+  filesJson String   @default("[]") // JSON array of { path, content, language }
+  fileCount Int      @default(0)
+  prd       String   @default("") // PRD at snapshot time (markdown)
+  note      String   @default("") // optional user note
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
 }

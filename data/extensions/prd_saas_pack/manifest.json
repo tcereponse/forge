@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "PRD: SaaS Master Pack",
+  "version": "1.0.0",
+  "description": "Le coffre-fort des Master Blueprints SaaS. Injecte instantanément les PRD Auth, Billing ou Analytics dans l'Agent IA.",
+  "permissions": ["activeTab"],
+  "content_scripts": [{
+    "matches": ["*://*.deepseek.com/*", "*://chat.deepseek.com/*"],
+    "js": ["inject_saas.js"],
+    "run_at": "document_idle"
+  }]
+}

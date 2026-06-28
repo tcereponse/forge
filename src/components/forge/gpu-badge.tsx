@@ -12,14 +12,23 @@ interface GpuStatus {
   active: boolean;
 }
 
+/**
+ * Smart GPU badge — polls only when the tab is visible.
+ * - Pause polling when document is hidden (saves server load).
+ * - Immediate re-check when tab regains focus.
+ * - 60s interval (was 30s) — backend mode rarely changes.
+ */
 export function GpuBadge() {
   const [status, setStatus] = useState<GpuStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     async function check() {
+      // Skip entirely if tab is hidden — no point burning a request
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await fetch("/api/gpu-status", { cache: "no-store" });
         const data = await res.json();
@@ -40,13 +49,34 @@ export function GpuBadge() {
       }
     }
 
-    check();
-    // Check every 30s (not aggressive)
-    const interval = setInterval(check, 30000);
+    function start() {
+      check();
+      if (interval) clearInterval(interval);
+      interval = setInterval(check, 60000);
+    }
+
+    function stop() {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    }
+
+    function onVisibility() {
+      if (document.hidden) {
+        stop();
+      } else {
+        start(); // immediate re-check + restart interval
+      }
+    }
+
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

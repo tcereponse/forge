@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -159,7 +159,14 @@ function TreeItem({
   );
 }
 
-export function FileExplorer({ project }: { project: ProjectRecord }) {
+// Memoized — skips re-render when parent updates (tab switch, polling) but
+// the project reference is unchanged. Custom comparator keyed on identity +
+// files length (content changes produce a new array reference anyway).
+export const FileExplorer = memo(function FileExplorer({
+  project,
+}: {
+  project: ProjectRecord;
+}) {
   const [activePath, setActivePath] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [expandedSet, setExpandedSet] = useState<Set<string>>(
@@ -311,4 +318,10 @@ export function FileExplorer({ project }: { project: ProjectRecord }) {
       </div>
     </div>
   );
-}
+},
+(prev, next) =>
+  prev.project === next.project ||
+  (prev.project.id === next.project.id &&
+    prev.project.files === next.project.files &&
+    prev.project.fileCount === next.project.fileCount),
+);

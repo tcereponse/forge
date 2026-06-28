@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { width: 300px; padding: 15px; font-family: sans-serif; background: #050a14; color: white; }
+        h1 { font-size: 14px; color: #00d2ff; text-align: center; margin-bottom: 20px; }
+        .btn { 
+            width: 100%; padding: 12px; background: #00d2ff; border: none; color: black; 
+            font-weight: bold; border-radius: 8px; cursor: pointer; margin-bottom: 10px;
+        }
+        .status { font-size: 10px; opacity: 0.6; text-align: center; }
+        .nuggets { margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+        .nugget-item { font-size: 11px; color: #ffd700; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <h1>💎 PHASE 5 : REFACTORING</h1>
+    <button id="launch" class="btn">🚀 LANCER L'ÉVOLUTION</button>
+    
+    <div class="nuggets" id="nugget-list">
+        <div style="font-size: 10px; opacity: 0.5; margin-bottom: 10px;">PÉPITES DÉTECTÉES :</div>
+        <!-- Liste des extensions auto-sélectionnées -->
+    </div>
+
+    <div class="status" id="status">En attente de mission...</div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

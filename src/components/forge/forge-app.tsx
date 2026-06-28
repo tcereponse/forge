@@ -9,6 +9,7 @@ import { BuilderForm } from "@/components/forge/builder-form";
 import { Workspace } from "@/components/forge/workspace";
 import { WelcomeView } from "@/components/forge/welcome-view";
 import { GenerationOverlay } from "@/components/forge/generation-overlay";
+import { CommandPalette } from "@/components/forge/command-palette";
 
 export function ForgeApp() {
   const {
@@ -89,6 +90,7 @@ export function ForgeApp() {
       </main>
 
       <GenerationOverlay />
+      <CommandPalette />
     </div>
   );
 }
