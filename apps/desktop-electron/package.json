@@ -1,0 +1,54 @@
+{
+  "name": "react-forge-desktop",
+  "version": "1.0.0",
+  "description": "React Forge — Desktop Edition with GPU acceleration",
+  "main": "main/index.ts",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "electron": "^31.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.reactforge.desktop",
+    "productName": "React Forge",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "main/**/*",
+      "preload/**/*",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../../services/local-ai-gpu",
+        "to": "services/local-ai-gpu"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
