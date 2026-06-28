@@ -1,0 +1,1112 @@
+a bonne idée est de ne pas “mettre toute l’app sur le GPU”, mais d’utiliser la carte NVIDIA pour les parties lourdes : IA, analyse de contenu, embeddings, rendu, ou calcul parallèle. Pour une extension navigateur, l’architecture moderne repose surtout sur Manifest V3 + service worker, avec la logique d’arrière-plan séparée du DOM.
+
+Ce qui peut utiliser la GPU
+IA locale ou hybride : résumé, chat, extraction d’informations, classification, embeddings. Les solutions web modernes peuvent s’appuyer sur WebGPU, WebAssembly, ou des modèles exécutés côté machine selon le contexte.
+
+Rendu et interface : prévisualisations, surlignage, visualisation de données, effets UI, canvas accéléré.
+
+Traitements parallèles : parsing massif, scoring, recherche sémantique, calculs répétitifs, si tu exposes une couche native ou une librairie compatible GPU.
+
+Ce qui ne passera pas sur le GPU
+La navigation classique de l’extension.
+
+Les scripts de fond MV3 qui gèrent les événements, le stockage, et la messagerie.
+
+Le DOM de la page depuis le service worker, car en Manifest V3 le background est un service worker et n’a pas accès direct au DOM.
+
+Architecture recommandée
+Extension Chrome/Edge en Manifest V3 pour l’UI, le contexte page, et les actions utilisateur.
+
+Service worker pour orchestrer les tâches, stocker l’état et communiquer avec les content scripts.
+
+Moteur IA local ou distant pour les calculs lourds.
+
+Si tu veux exploiter la NVIDIA du PC, ajoute soit :
+
+une application native locale avec CUDA / TensorRT / autre backend GPU,
+
+soit du WebGPU côté navigateur si ton modèle et ton pipeline sont compatibles.
+
+Pour ton application
+D’après ton rapport, ton app ressemble à une extension intelligente de navigation et d’assistance. Le meilleur usage de la carte NVIDIA serait :
+
+accélérer les résumés IA,
+
+faire de l’extraction structurée,
+
+générer des embeddings locaux,
+
+rendre des panneaux latéraux ou visualisations plus fluides,
+
+exécuter un moteur local qui reçoit le texte de la page et renvoie la réponse à l’extension.
+
+Recommandation pratique
+Si tu développes en React / TypeScript, fais ceci :
+
+extension MV3 pour l’interface,
+
+content scripts pour lire la page,
+
+service worker pour piloter les messages,
+
+backend local en Node.js ou service natif pour la partie GPU,
+
+communication via HTTP local, WebSocket, ou native messaging.
+
+Exemple simple : l’extension envoie le texte d’un article au moteur local, le moteur utilise la GPU NVIDIA pour générer un résumé, puis renvoie le résultat à l’extension.
+
+Je peux te proposer maintenant une architecture technique complète pour ton cas, avec dossiers, flux de messages, et techno exacte selon que tu veux faire ça en 100% local, hybride local/cloud, ou dans une extension Chrome pure.
+
+voici l'application creer :
+Voici le descriptif complet de React Forge — tout ce que l'utilisateur peut faire :
+🚀 React Forge — Guide Complet
+📋 Vue d'ensemble
+React Forge est un générateur de projets React par IA qui crée des applications complètes, fonctionnelles et téléchargeables. Il génère le code source, installe les dépendances, compile le projet, affiche un aperçu en direct, et produit un template Android APK.
+1. 🏗️ Création de Projet
+Description
+L'utilisateur décrit son application en langage naturel
+Ou laisse vide — une description est auto-générée à partir des features et packs sélectionnés
+Plus la description est précise, meilleur est le code généré
+Stack technique configurable
+Option
+Choix
+Build tool
+Vite + React, Next.js, Create React App
+TypeScript
+Activé/désactivé
+Styling
+Tailwind CSS, CSS Modules, Styled Components
+Routing
+React Router v6 (HashRouter), Aucun
+State management
+Aucun, Zustand, React Context, Redux Toolkit
+UI Library
+Aucune, shadcn/ui, Material UI
+Fonctionnalités (10 disponibles)
+Chaque feature est vraiment implémentée dans le code (pas juste un commentaire) :
+🌙 Dark Mode — toggle avec classList.toggle('dark') + classes dark: Tailwind
+🔐 Authentification — formulaire login/logout avec useState
+🌐 Couche API / fetch — fonctions fetch avec loading/error states
+📝 Formulaires — react-hook-form avec validation Zod
+📊 Graphiques — recharts (BarChart, LineChart) avec données mockées
+📋 Tableaux — tableau HTML triable avec pagination
+📱 PWA / offline — vite-plugin-pwa + manifest + service worker
+🌍 Internationalisation — react-i18next avec sélecteur FR/EN
+🧪 Tests — Vitest + @testing-library/react + fichier de test
+✨ Animations — framer-motion (motion.div, AnimatePresence, whileHover)
+2. 📦 Packs d'Extensions PRD (49 packs)
+Catalogue complet
+49 packs d'extensions contenant 325 contextes PRD spécialisés qui guident l'IA pour produire du code de qualité industrielle.
+Sélection des packs
+Clique sur « 49 packs d'extensions PRD » pour ouvrir le catalogue
+Clique sur chaque pack pour le sélectionner/désélectionner
+Les packs sont colorés en cyan quand sélectionnés
+Les packs auto-mappés par les features sont marqués « auto: »
+Mapping automatique Features → Packs
+Feature
+Packs automatiquement associés
+Dark Mode
+interface_pack, layout_pack
+Auth
+saas_pack, auth_mobile_pack
+API
+saas_pack, ia_pack
+Forms
+forms_inputs_pack, formulaire_pack
+Charts
+productivity_pack, interface_pack
+Tables
+productivity_pack, interface_pack
+PWA
+mobile_pack, mobile_web_pack
+i18n
+texte_pack
+Tests
+productivity_pack
+Animations
+interface_pack, widget_pack
+Packs disponibles (examples)
+Gamification — points, achievements, badges, leaderboard
+Audio — player avec visualizer
+Vidéo — player type YouTube
+E-Commerce — catalogue, panier, checkout
+Feed Social — posts, likes, comments
+Chat — messages en bulles
+Blog — articles, catégories
+SaaS Dashboard — stats, sidebar, charts
+CRM/ERP — contacts, pipeline, deals
+AI Apps — chat interface, prompt builder
+...et 39 autres packs
+Injection dans la génération
+Chaque pack sélectionné injecte ses contextes PRD dans le prompt LLM
+Le PRD et le code générés reflètent les packs dans leur logique métier
+L'UI affiche quelles extensions sont actives pour la génération
+3. ⚙️ Génération (4 phases)
+Phase 1 : Arsenal PRD Grade Diamond (10 documents)
+L'IA génère 10 documents PRD structurés qui guident la génération :
+Vision Stratégique — objectifs, public, fonctionnalités clés
+Architecture Système — stack, structure des dossiers
+Interface Utilisateur — design system, composants
+Base de Données — modèles de données, schémas
+Sécurité — auth, validation, guards
+API et Protocoles — endpoints, hooks de fetch
+Expérience Utilisateur — animations, empty states
+Tests et Qualité — stratégie, cas de test
+Déploiement — build Vite, optimisations
+Maintenance — roadmap, monitoring
+Phase 2 : Génération de code
+L'LLM génère les fichiers React (App.tsx, MainComponent.tsx, composants pack)
+Le prompt inclut les directives UI par pack, l'arsenal PRD, les contextes d'extensions
+Règle stricte : chaque composant doit avoir une VRAIE UI (pas de stub)
+Navigation fonctionnelle : tous les boutons ont un onClick
+Phase 3 : Templates + Fusion
+Fichiers de config injectés déterministiquement : package.json, vite.config, tsconfig, tailwind.config, postcss.config, index.html, main.tsx, .gitignore, README.md
+Fichiers mobile : manifest.json, sw.js, icon.svg, capacitor.config.ts, BUILD_APK.md
+Phase 4 : Post-traitement
+Anti-corruption : détection et réparation des sauts de ligne \n → newline
+Réconciliation des dépendances : scan des imports → ajout auto au package.json
+Auto-réparation des imports manquants : si l'LLM importe un composant qu'il n'a pas créé, un 2ème appel LLM génère le composant manquant
+Création de stubs : fallback si l'auto-réparation échoue
+Vérification : config Tailwind, utils.ts/cn(), architecture React
+4. 💾 Workspace (6 onglets)
+Onglet « Code source »
+Arborescence de fichiers navigable (dossiers dépliables)
+Coloration syntaxique avec numérotation des lignes
+Copier un fichier dans le presse-papier
+Télécharger ZIP (source uniquement ou complet avec node_modules)
+Onglet « PRD »
+Document Product Requirements Document en Markdown
+Structuré : Objectif, Fonctionnalités, Architecture, Composants
+Onglet « Arsenal PRD »
+10 documents PRD navigables avec sidebar
+Icônes spécifiques par document (Target, Boxes, Palette, Database, etc.)
+Navigation précédent/suivant entre les documents
+Sidebar réductible
+Onglet « Validation »
+Rapport de validation post-génération
+Corrections automatiques affichées (dépendances ajoutées, imports réparés, etc.)
+Statistiques : fichiers scannés, imports analysés, packages ajoutés
+Badge « Prêt à l'emploi » ou « Points d'attention »
+Onglet « Aperçu »
+Build automatique : npm install → npm run build → dist/
+Aperçu en direct dans un iframe (l'app React compilée)
+Statut temps réel : Dépendances (En attente → Installé), Build (En attente → Prêt)
+Logs : npm install et npm run build affichables
+Bouton Refresh pour recharger l'iframe
+Bouton « Ouvrir » pour ouvrir dans un nouvel onglet
+Onglet « Évoluer »
+Faire évoluer un projet existant sans tout recréer
+Ajouter de nouvelles fonctionnalités (les déjà présentes sont désactivées)
+Ajouter de nouveaux packs (les déjà présents sont désactivés)
+Décrire l'évolution souhaitée
+L'IA préserve le code existant et ajoute les nouvelles pages
+Réinstallation automatique des dépendances après évolution
+5. 📊 Fonctionnalités implémentées (détection automatique)
+Un panneau affiche quelles features sont réellement détectées dans le code généré :
+✅ Vert « Implémenté » : la feature est dans le code
+⚠️ Orange « Non détecté » : la feature a été sélectionnée mais n'est pas trouvée
+Détection par mots-clés : dark: + documentElement pour darkmode, recharts + Chart pour charts, framer-motion pour animations, etc.
+6. 📥 Téléchargement
+ZIP Source (bouton « ZIP source »)
+Code source + config + README
+~15 Ko, léger
+Lancer avec npm install && npm run dev
+ZIP Complet (bouton « ZIP complet +deps »)
+Source + node_modules + dist (build)
+~27 Mo
+Lance directement avec npm run dev — aucune installation requise
+Disponible seulement quand npm install a terminé
+Menu déroulant
+Clique sur la flèche à côté du bouton ZIP
+Choix entre « ZIP complet » (avec deps) ou « ZIP source uniquement »
+7. 📱 APK Android (bouton vert « APK »)
+Télécharge un ZIP contenant un template Android natif complet :
+Fichiers Android inclus
+AndroidManifest.xml — manifest avec permissions Internet
+MainActivity.java — Activity WebView qui charge l'app
+build.gradle (app + project) — config Gradle (compileSdk 34, minSdk 24)
+settings.gradle + gradle.properties
+res/values/ — styles, colors, strings
+res/drawable/ — icône vectorielle
+res/mipmap-anydpi-v26/ — icône adaptive
+Fichiers .j2 pour forge_apk_builder.py
+AndroidManifest.xml.j2 — template avec {{ package_id }}
+MainActivity.java.j2 — template avec {{ package_id }}
+Scripts de build
+build-apk.sh (Linux/Mac) — npm build → copie dist → gradlew assembleDebug
+build-apk.bat (Windows) — même chose en .bat
+BUILD_APK.md — instructions détaillées
+Comment obtenir le .apk
+bash
+# Méthode 1 : Script
+./build-apk.sh # Linux/Mac
+build-apk.bat # Windows
+# Méthode 2 : Android Studio
+# Ouvre android/ → Build → Build APK(s)
+# Méthode 3 : Script Python
+python forge_apk_builder.py --src dist --name "MonApp" --package "com.reactforge.monapp" --build
+8. 🔄 Gestion des Projets
+Galerie (sidebar)
+Liste de tous les projets avec statut (Prêt, En cours, Échec)
+Nombre de fichiers et date de création
+Supprimer un projet (corbeille au survol)
+Rafraîchir la liste
+Workflow complet
+text
+Nouveau projet → Configurer stack → Sélectionner features + packs → Générer
+→ Auto-install npm → Build → Aperçu live → Télécharger ZIP/APK
+→ Évoluer (ajouter features/packs) → Re-build → Re-télécharger
+9. 🛡️ Garanties Quality
+Anti-corruption
+Détection des \n corrompus en n littéral
+Réparation automatique des sauts de ligne
+Crash-test : première ligne > 300 caractères = corruption détectée
+Auto-réparation
+Imports manquants → 2ème appel LLM pour générer le composant
+Dépendances manquantes → ajout automatique au package.json (17+ packages mappés)
+Fichiers utilitaires → création auto de src/lib/utils.ts si cn() est utilisé
+Build sécurisé
+vite build directement (sans tsc --noEmit strict)
+Les erreurs de typage TypeScript ne bloquent plus le build
+Vite/esbuild compile sans vérification de types
+10. 🎨 Interface
+Design
+Thème sombre (slate-950) avec accents cyan/teal
+Responsive (mobile-first)
+Animations Framer Motion
+Custom scrollbar cyan
+Layout
+Sidebar (gauche) : galerie de projets + bouton « Nouveau projet »
+Zone principale : builder form ou workspace selon le contexte
+Footer sticky en bas
+Onglets du workspace
+Code source (arborescence + visualiseur)
+PRD (document Markdown)
+Arsenal PRD (10 documents navigables)
+Validation (rapport)
+Aperçu (iframe live)
+Évoluer (ajout de features/packs)
+React Forge est un outil complet qui couvre tout le cycle : description → génération IA → installation → build → aperçu → évolution → téléchargement (ZIP/APK).
+
+Oui, ton application peut tirer très bien parti d’une carte graphique NVIDIA, mais il faut cibler les bons blocs de React Forge. L’idée n’est pas d’accélérer l’UI React elle-même, mais d’utiliser le GPU pour la génération IA, les embeddings, le rendu d’aperçus, et certains calculs parallèles.
+
+Où mettre le GPU
+Dans React Forge, les meilleurs candidats sont :
+
+la génération PRD et la synthèse de description utilisateur,
+
+la génération de code via un modèle local,
+
+la réparation d’imports / dépendances par analyse sémantique,
+
+les embeddings pour retrouver les packs PRD pertinents,
+
+l’aperçu live si tu fais du rendu avancé ou des visualisations lourdes.
+
+Architecture conseillée
+La structure la plus propre est :
+
+Frontend React : l’interface, les onglets, le workspace, le suivi des builds.
+
+Backend local Node.js : orchestration, fichiers, ZIP, build, install.
+
+Moteur IA local : modèle qui génère PRD, code, corrections.
+
+Accélération NVIDIA : via CUDA/TensorRT côté natif, ou via WebGPU si tu exécutes une partie de l’IA dans le navigateur.
+
+Deux stratégies possibles
+1. Local natif, le plus puissant
+Tu gardes React Forge en React/Electron/Node, et tu branches un service local GPU pour :
+
+inference LLM,
+
+embeddings,
+
+classification de features/packs,
+
+génération d’artefacts.
+C’est la meilleure option si tu veux exploiter réellement la carte NVIDIA à fond.
+
+2. WebGPU dans le navigateur
+Tu peux aussi faire tourner une partie IA directement dans le navigateur avec WebGPU, ce qui donne accès au GPU depuis JavaScript pour certains modèles et calculs.
+
+C’est intéressant si tu veux une app plus portable, mais c’est souvent moins flexible qu’un backend natif pour un gros générateur de projets.
+
+Ce que je te recommande pour React Forge
+Vu ton produit, je ferais ceci :
+
+React UI pour tout le builder.
+
+Node local pour npm install, build, zip, validation.
+
+Service IA local séparé pour PRD + code + évolution.
+
+GPU NVIDIA réservé à l’inférence et aux embeddings.
+
+Fallback CPU/cloud si la machine n’a pas de GPU compatible.
+
+Exemple concret
+Quand l’utilisateur clique Générer :
+
+React envoie la description au backend.
+
+Le backend interroge le moteur IA local.
+
+Le moteur utilise le GPU NVIDIA pour produire le PRD, les composants, et les corrections.
+
+Le backend écrit les fichiers, lance le build, puis renvoie l’aperçu.
+
+Si tu veux, je peux te proposer maintenant une architecture technique précise pour React Forge avec :
+
+dossiers,
+
+flux de messages,
+
+module IA local GPU,
+
+format d’API,
+
+et une version compatible Electron / web / Android APK.
+
+je veut un plan prd complet descriptif pour metre en oeuvre toute cette technologie pour l'utilisateion maximal des carte graphique nvidia et pour metre a jour cette implementation dans le projet afin d'apporter toute ces amelioration pour toute les performance et pour l'utilisation :: proposer maintenant une architecture technique précise pour React Forge avec :
+dossiers,
+flux de messages,
+module IA local GPU,
+format d’API,
+et une version compatible Electron / web / Android APK.proposer maintenant une architecture technique précise pour React Forge avec :
+dossiers,
+flux de messages,
+module IA local GPU,
+format d’API,
+et une version compatible Electron / web / Android APK.proposer maintenant une architecture technique précise pour React Forge avec :
+dossiers,
+flux de messages,
+module IA local GPU,
+format d’API,
+et une version compatible Electron / web / Android APK.
+
+Oui. Pour React Forge, je te conseille une architecture local-first, GPU-first, avec une séparation nette entre l’UI, l’orchestrateur, et le moteur IA accéléré NVIDIA. Cette approche est cohérente avec WebGPU dans le navigateur, Electron pour le desktop, et un backend local TensorRT-LLM pour exploiter vraiment les GPU NVIDIA.
+
+PRD cible
+Le PRD doit définir 5 objectifs non négociables : génération de projets, génération PRD, génération de code, post-traitement automatique, et exécution multi-cibles Web/Electron/Android. Le KPI principal n’est pas seulement la qualité du code, mais aussi la latence de génération, le taux de build réussi, le taux de réparation automatique, et l’utilisation effective du GPU.
+
+Exigences fonctionnelles
+Générer un projet React complet à partir d’un prompt.
+
+Activer des packs PRD et les injecter dans la génération.
+
+Construire, valider, corriger et recompiler automatiquement.
+
+Fournir un mode évolutif pour patcher un projet existant.
+
+Exporter en ZIP source, ZIP complet et template APK Android.
+
+Exigences de performance
+Démarrer l’inférence locale en moins de quelques secondes.
+
+Utiliser le GPU pour embeddings, génération, et scoring.
+
+Garder l’UI fluide avec workers séparés.
+
+Avoir un fallback CPU/cloud si CUDA ou WebGPU n’est pas disponible.
+
+Architecture technique
+La meilleure structure est un monorepo avec une couche UI, une couche orchestration, et une couche IA locale. Le GPU NVIDIA doit être isolé dans un service dédié afin de pouvoir le remplacer par WebGPU, TensorRT-LLM, ou un backend natif selon la plateforme.
+
+text
+react-forge/
+  apps/
+    web/
+    desktop-electron/
+    mobile-android/
+  packages/
+    ui/
+    core/
+    prd-engine/
+    codegen/
+    validation/
+    export/
+    api-client/
+    shared/
+  services/
+    local-ai-gpu/
+    build-runner/
+    file-system/
+    pack-registry/
+  assets/
+  docs/
+  scripts/
+Flux de messages
+Le flux doit être événementiel et asynchrone pour éviter de bloquer l’interface. Le front envoie une commande, l’orchestrateur la découpe, le moteur GPU traite les tâches lourdes, puis le résultat revient par streaming d’événements.
+
+Séquence principale
+L’utilisateur décrit l’app.
+
+Le front envoie project.generate.
+
+Le core prépare le prompt, les packs, et l’arsenal PRD.
+
+Le service IA GPU produit le PRD, les fichiers et les corrections.
+
+Le build-runner installe, compile, analyse, puis remonte les logs.
+
+Le front affiche l’aperçu live, la validation, et les exports.
+
+Événements recommandés
+project.create
+
+prd.generate
+
+code.generate
+
+dependency.resolve
+
+build.start
+
+build.progress
+
+build.success
+
+build.failure
+
+repair.request
+
+repair.result
+
+export.ready
+
+Module IA local GPU
+Le module IA doit être séparé en trois sous-composants. Cela permet de brancher soit WebGPU, soit TensorRT-LLM, soit un service natif CUDA sans changer le reste du produit.
+
+Sous-composants
+Prompt Orchestrator : assemble les packs, les features, le contexte projet.
+
+Inference Engine : exécute le modèle local sur GPU.
+
+Post Processor : corrige le JSON, les imports, les dépendances, les fichiers corrompus.
+
+Choix technique
+Desktop : TensorRT-LLM ou service local CUDA pour performance maximale.
+
+Web : WebGPU pour des modèles plus légers et du calcul côté navigateur.
+
+Android : mode dégradé, avec génération distante ou pré-calculée, car l’exécution GPU locale de gros modèles n’est pas l’objectif principal du APK.
+
+API interne
+L’API doit être simple, versionnée, et streaming-friendly. Le front ne doit jamais appeler directement les bibliothèques GPU ; il doit passer par un contrat stable.
+
+Endpoints
+text
+POST /v1/projects
+POST /v1/projects/{id}/generate
+POST /v1/projects/{id}/evolve
+POST /v1/projects/{id}/build
+POST /v1/projects/{id}/export/zip
+POST /v1/projects/{id}/export/apk
+GET  /v1/projects/{id}/events
+GET  /v1/projects/{id}/preview
+GET  /v1/health
+Format de requête
+json
+{
+  "projectId": "uuid",
+  "prompt": "Créer une app de dashboard SaaS",
+  "stack": {
+    "framework": "vite-react",
+    "typescript": true,
+    "styling": "tailwind",
+    "routing": "react-router"
+  },
+  "features": ["darkMode", "charts", "auth"],
+  "packs": ["saas_pack", "interface_pack"],
+  "target": ["web", "electron", "android"],
+  "gpuMode": "auto"
+}
+Format d’événements
+json
+{
+  "type": "build.progress",
+  "projectId": "uuid",
+  "step": "npm install",
+  "progress": 0.64,
+  "message": "Installing dependencies",
+  "timestamp": "2026-06-28T11:50:00Z"
+}
+Dossiers d’implémentation
+Il faut structurer le code par responsabilités, pas seulement par type de fichier. Le moteur IA, la validation, le build, et l’export doivent être testables indépendamment.
+
+text
+packages/core/
+  domain/
+  prompts/
+  workflow/
+  events/
+  types/
+
+packages/prd-engine/
+  packs/
+  arsenal/
+  generator/
+  validators/
+
+packages/codegen/
+  templates/
+  repair/
+  dependency-mapper/
+  file-fixer/
+
+services/local-ai-gpu/
+  adapters/
+  engines/
+  tensorRT/
+  webgpu/
+  fallback/
+
+services/build-runner/
+  npm/
+  vite/
+  apk/
+  preview/
+
+apps/desktop-electron/
+  main/
+  preload/
+  renderer/
+
+apps/web/
+  src/
+
+apps/mobile-android/
+  src/
+  android/
+Version Electron / web / Android
+Pour la compatibilité multiplateforme, le cœur métier doit être partagé, et seules les couches d’exécution changent. Electron peut embarquer le moteur local et le workspace complet, tandis que la version web utilise WebGPU ou un backend distant.
+
+Electron
+Meilleure option pour exploiter la GPU NVIDIA locale.
+
+Permet accès disque, build, preview, ZIP, APK.
+
+Peut héberger le service IA local en processus séparé.
+
+Web
+Utilise WebGPU quand disponible.
+
+Charge moins de fonctionnalités locales lourdes.
+
+Conserve le même API contractuel et le même core.
+
+Android APK
+Doit rester léger.
+
+Sert surtout de client d’édition, de pilotage, ou de preview.
+
+Peut déclencher des services distants ou synchronisés, plutôt que tenter une IA lourde locale.
+
+Plan d’évolution
+L’amélioration doit être pilotée par une roadmap technique. Le point clé est de rendre chaque brique remplaçable, afin d’améliorer progressivement les performances GPU sans casser l’existant.
+
+Étapes
+Stabiliser le core et les contrats d’API.
+
+Extraire l’inférence IA dans un service local.
+
+Ajouter un backend WebGPU en fallback.
+
+Optimiser le streaming des générations.
+
+Ajouter le cache des prompts, embeddings, et validations.
+
+Mesurer le taux d’occupation GPU et le temps de réponse.
+
+Étendre à Electron, puis au web, puis au mobile.
+
+Priorités GPU
+Pour maximiser l’utilisation NVIDIA, vise d’abord :
+
+embeddings locaux,
+
+génération PRD,
+
+génération de code,
+
+réparation automatique,
+
+scoring des packs,
+
+indexation mémoire du projet,
+
+batch processing parallèle.
+
+Je peux maintenant te rédiger le PRD complet prêt à intégrer dans React Forge, avec sections Objectif, Architecture, Exigences, API, Workflows, KPIs, Risques, et Roadmap technique.
+
+je veut le plan d'implementation complet pour que l'equipe de dev puisse faire toute les nouvelle modification et amelioration du projet : Oui rédige ce PRD complet en mettant l'accent sur TensorRT-LLM
+Peux-tu intégrer la gestion des fallbacks CPU dans le PRD
+Oui génère le PRD et précise les API pour le service GPU dédié
+D'accord rédige le PRD en incluant les KPIs de performance GPU
+Oui rédige le PRD et détaille le workflow de génération de code
+
+Voici un PRD complet pour l’implémentation du service IA local GPU (TensorRT-LLM) dans React Forge, avec fallback CPU, API dédiées, KPIs de performance et workflow détaillé de génération de code.
+
+1. Vision & Objectifs
+React Forge devient un générateur de projets React « GPU-first », capable de :
+
+Exploiter TensorRT-LLM sur GPU NVIDIA pour la génération PRD, code et réparations locales.
+
+Basculer automatiquement vers un fallback CPU (ou backend distant) en cas d’absence de GPU ou d’erreur GPU.
+
+Offrir une latence de génération réduite et un taux de build/réparation maximal, tout en gardant une UI fluide.
+
+2. Périmètre Fonctionnel
+2.1. Nouveaux blocs fonctionnels
+Service IA local GPU :
+
+Génération des 10 documents PRD « Arsenal ».
+
+Génération de la structure de fichiers et du code React.
+
+Génération des scripts de build/APK et de config.
+
+Post-traitement : fixes sur imports, dépendances, stubs, correction de corruption.
+
+Gestion des fallbacks :
+
+Détection de la présence GPU/NVIDIA/TensorRT-LLM.
+
+Mode gpuMode: auto, gpu-only, cpu-only, remote.
+
+Bascule automatique vers CPU (ou backend distant) selon les capacités.
+
+KPIs & monitoring GPU :
+
+Mesure du temps d’inférence, du taux d’utilisation GPU, du throughput requêtes.
+
+Exposition des KPIs à l’UI (onglet Validation / Monitoring).
+
+3. Architecture Technique
+3.1. Vue d’ensemble
+Architecture en 3 couches :
+
+UI Apps (web, Electron, Android APK client) : React Forge UI.
+
+Core & Services (Node.js) : orchestration, filesystem, builds, events.
+
+IA Engine (service dédié) : TensorRT-LLM sur GPU + fallback CPU.
+
+text
+react-forge/
+  apps/
+    web/
+    desktop-electron/
+    mobile-android/
+  services/
+    local-ai-gpu/      # TensorRT-LLM + fallback CPU
+    build-runner/      # npm, vite, apk
+    pack-registry/
+  packages/
+    core/
+    prd-engine/
+    codegen/
+    validation/
+    export/
+    shared/
+3.2. Service IA local GPU (TensorRT-LLM)
+Processus séparé ou microservice local :
+
+Backend : Python (TensorRT-LLM API) ou C++ wrapper + HTTP/GRPC.
+
+Interface : API HTTP/GRPC appelée par le core Node.js.
+
+Responsabilités :
+
+Charger et gérer les modèles optimisés TensorRT-LLM (LLM + embeddings).
+
+Proposer des endpoints pour PRD, codegen, repair et embeddings.
+
+Gérer le mode GPU/CPU et renvoyer la capacité (health, capabilities).
+
+4. API du Service GPU
+4.1. Principes
+API stateless, versionnée (/v1).
+
+Réponses toujours structurées en JSON.
+
+Streaming possible via SSE/WebSocket pour les logs de génération (optionnel V1).
+
+4.2. Endpoints
+4.2.1. Health & capabilities
+text
+GET /v1/health
+GET /v1/capabilities
+Exemple de réponse GET /v1/capabilities :
+
+json
+{
+  "gpuAvailable": true,
+  "backend": "tensorrt-llm",
+  "deviceName": "NVIDIA RTX 4080",
+  "memoryTotalMB": 16384,
+  "memoryFreeMB": 9210,
+  "supportsEmbeddings": true,
+  "supportsCodegen": true,
+  "supportsPRD": true,
+  "supportsRepair": true,
+  "fallbackMode": "cpu"
+}
+4.2.2. Génération PRD
+text
+POST /v1/prd/generate
+Request :
+
+json
+{
+  "projectId": "uuid",
+  "prompt": "Dashboard SaaS avec auth, charts, dark mode",
+  "features": ["auth", "charts", "darkMode"],
+  "packs": ["saas_pack", "interface_pack", "productivity_pack"],
+  "target": ["web", "electron", "android"],
+  "gpuMode": "auto"
+}
+Response (simplifiée) :
+
+json
+{
+  "projectId": "uuid",
+  "gpuUsed": true,
+  "backend": "tensorrt-llm",
+  "documents": [
+    {"id": "vision", "content": "..."},
+    {"id": "architecture", "content": "..."},
+    ...
+    {"id": "maintenance", "content": "..."}
+  ],
+  "metrics": {
+    "latencyMs": 1150,
+    "device": "NVIDIA RTX 4080",
+    "computeMode": "gpu"
+  }
+}
+4.2.3. Génération de code
+text
+POST /v1/code/generate
+Request :
+
+json
+{
+  "projectId": "uuid",
+  "prdArsenal": { /* documents PRD */ },
+  "stack": {
+    "framework": "vite-react",
+    "typescript": true,
+    "styling": "tailwind",
+    "routing": "react-router"
+  },
+  "features": ["auth", "charts", "darkMode"],
+  "packs": ["saas_pack", "interface_pack"],
+  "gpuMode": "auto"
+}
+Response :
+
+json
+{
+  "projectId": "uuid",
+  "gpuUsed": true,
+  "backend": "tensorrt-llm",
+  "files": [
+    {"path": "src/App.tsx", "content": "..."},
+    {"path": "src/main.tsx", "content": "..."},
+    {"path": "src/components/AuthForm.tsx", "content": "..."},
+    ...
+  ],
+  "metrics": {
+    "latencyMs": 2450,
+    "tokensInput": 5000,
+    "tokensOutput": 8500,
+    "computeMode": "gpu"
+  }
+}
+4.2.4. Post-traitement & réparation
+text
+POST /v1/code/repair
+Request :
+
+json
+{
+  "projectId": "uuid",
+  "files": [
+    {"path": "src/App.tsx", "content": "..."},
+    ...
+  ],
+  "detectedIssues": [
+    "missing_import",
+    "undefined_component",
+    "dependency_missing"
+  ],
+  "gpuMode": "auto"
+}
+Response :
+
+json
+{
+  "projectId": "uuid",
+  "gpuUsed": false,
+  "backend": "cpu",
+  "fixedFiles": [
+    {"path": "src/App.tsx", "content": "..."},
+    ...
+  ],
+  "addedDependencies": ["react-hook-form", "zod"],
+  "metrics": {
+    "latencyMs": 720,
+    "computeMode": "cpu"
+  }
+}
+4.2.5. Embeddings & packs
+text
+POST /v1/embeddings/prompt
+POST /v1/embeddings/packs
+Utilisés pour mapper prompt/features vers les packs PRD les plus pertinents (GPU si dispo).
+
+5. Gestion des fallbacks CPU
+5.1. Modes de fonctionnement
+gpuMode: "auto" :
+
+Utilise TensorRT-LLM si GPU disponible et stable.
+
+Bascule automatiquement sur CPU si :
+
+pas de GPU,
+
+out-of-memory GPU,
+
+erreur TensorRT-LLM.
+
+gpuMode: "gpu-only" :
+
+Échec explicite si GPU indisponible (utile pour bench et tests).
+
+gpuMode: "cpu-only" :
+
+Force l’utilisation CPU, même si GPU présent (debug, compat).
+
+gpuMode: "remote" :
+
+Appel vers un backend distant (cloud) si configuré.
+
+5.2. Stratégie de fallback
+Avant chaque requête IA :
+
+GET /v1/capabilities.
+
+Décision de mode (gpu ou cpu).
+
+En cas d’erreur GPU (OOME, runtime):
+
+Log l’événement.
+
+Rejoue la requête en mode CPU.
+
+Remonte à l’UI un indicateur « GPU failure, CPU fallback ».
+
+6. Workflow de Génération de Code
+6.1. Vue globale
+Input utilisateur : description, features, packs, stack.
+
+Construction du prompt & PRD (GPU).
+
+Génération du code (GPU).
+
+Post-traitement (GPU/CPU).
+
+Build & validation (CPU).
+
+Export & preview.
+
+6.2. Étapes détaillées
+Étape 1 – Création du projet
+UI → core : project.create (stockage en base/local).
+
+core appelle POST /v1/prd/generate avec prompt, features, packs.
+
+Service GPU produit :
+
+10 docs PRD,
+
+métadonnées (latence, device, mode).
+
+Étape 2 – Génération de code
+core assemble :
+
+arsenal PRD,
+
+stack chosen,
+
+packs actifs.
+
+core appelle POST /v1/code/generate.
+
+Service GPU renvoie :
+
+fichiers React, config, scripts, templates APK.
+
+core écrit les fichiers dans le workspace projet.
+
+Étape 3 – Post-traitement
+validation scanne :
+
+imports manquants,
+
+dépendances non référencées,
+
+corruption \n vs n.
+
+core appelle POST /v1/code/repair avec les fichiers et les issues détectées.
+
+Service IA corrige :
+
+ajoute fichiers manquants,
+
+ajoute dépendances,
+
+crée stubs si nécessaire.
+
+Étape 4 – Build & Aperçu
+build-runner :
+
+npm install,
+
+npm run build,
+
+collecte logs.
+
+UI reçoit les événements :
+
+build.progress,
+
+build.success / build.failure.
+
+Onglet « Aperçu » charge dist/ dans un iframe.
+
+Étape 5 – Évolution de projet
+UI → core : project.evolve (nouvelles features/packs).
+
+core appelle POST /v1/prd/generate avec contexte projet + évolution.
+
+core appelle POST /v1/code/generate avec code existant + instructions d’évolution.
+
+Service IA génère les nouvelles pages / composants, en respectant l’existant.
+
+7. KPIs de Performance GPU
+7.1. KPIs principaux
+Latence d’inférence :
+
+mean_latency_prd_ms (par projet).
+
+mean_latency_codegen_ms.
+
+Taux d’utilisation GPU :
+
+gpu_usage_percent_mean sur la durée de la génération.
+
+Taux de fallback :
+
+%_requests_gpu vs %_requests_cpu.
+
+nombre d’erreurs GPU → fallback CPU.
+
+Throughput :
+
+projects_generated_per_hour.
+
+tokens_inference_per_second.
+
+7.2. KPIs qualité
+Taux de build réussi :
+
+%_projects_build_success.
+
+Taux de réparation automatique :
+
+%_imports_fixed_auto.
+
+%_dependencies_fixed_auto.
+
+Taux de features détectées vs sélectionnées :
+
+ratio features sélectionnées vs features « Implémenté ».
+
+8. Plan d’Implémentation (pour l’équipe dev)
+8.1. Phase 1 – Extraction du cœur & API
+Extraire les opérations IA actuelles dans un module prd-engine + codegen.
+
+Définir des interfaces internes (IPrdGenerator, ICodeGenerator, IRepairEngine).
+
+Implémenter une version mock pour commencer (sans GPU).
+
+8.2. Phase 2 – Service IA local GPU
+Créer le repo/service services/local-ai-gpu.
+
+Intégrer TensorRT-LLM pour un modèle LLM + embeddings.
+
+Exposer les endpoints /v1/prd/generate, /v1/code/generate, /v1/code/repair, /v1/embeddings/*.
+
+Implémenter la logique gpuMode + fallback CPU.
+
+8.3. Phase 3 – Intégration dans Core
+core utilise maintenant l’API externe du service IA.
+
+Ajouter la configuration :
+
+URL du service,
+
+mode par défaut (gpuMode: auto).
+
+Ajout de la logique de retry/fallback sur erreurs.
+
+8.4. Phase 4 – UI & Monitoring
+Adapter l’UI :
+
+afficher si GPU utilisé ou CPU.
+
+afficher latence IA dans « Validation ».
+
+ajouter un mini dashboard « Performance IA ».
+
+8.5. Phase 5 – Electron & Web & APK
+Electron :
+
+packager local-ai-gpu avec l’app, ou le laisser comme service local.
+
+ajuster les settings GPU pour Chromium/Electron si nécessaire.
+
+Web :
+
+mode remote par défaut (service IA distant).
+
+option webgpu future via WebLLM ou équivalent.
+
+APK Android :
+
+se comporte comme client vers un backend IA (local ou distant).
+
+ne tente pas de charger TensorRT-LLM sur appareil mobile dans V1.
+
+9. Risques & Contraintes
+Contraintes matérielles :
+
+nécessite GPU NVIDIA + drivers + runtime TensorRT.
+
+Risques :
+
+OOME GPU, config TensorRT-LLM complexe, latence cold-start.
+
+Mitigation :
+
+fallback CPU robuste.
+
+configuration gpu-only réservée aux environnements maîtrisés.
+
+tests de charge et de compatibilité.
+
+Si tu veux, je peux te dériver de ce PRD une checklist Trello/Jira pour l’équipe dev (épopées, stories, tâches) ou un schéma de dossiers concret pour ton monorepo actuel (avec noms de packages npm, scripts, et points d’intégration précis).
+
