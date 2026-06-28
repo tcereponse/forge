@@ -1,0 +1,879 @@
+ React Forge — Guide Complet
+📋 Vue d'ensemble
+React Forge est un générateur de projets React par IA qui crée des applications complètes, fonctionnelles et téléchargeables. Il génère le code source, installe les dépendances, compile le projet, affiche un aperçu en direct, et produit un template Android APK.
+
+1. 🏗️ Création de Projet
+Description
+L'utilisateur décrit son application en langage naturel
+Ou laisse vide — une description est auto-générée à partir des features et packs sélectionnés
+Plus la description est précise, meilleur est le code généré
+Stack technique configurable
+Option
+Choix
+Build tool	Vite + React, Next.js, Create React App
+TypeScript	Activé/désactivé
+Styling	Tailwind CSS, CSS Modules, Styled Components
+Routing	React Router v6 (HashRouter), Aucun
+State management	Aucun, Zustand, React Context, Redux Toolkit
+UI Library	Aucune, shadcn/ui, Material UI
+
+Fonctionnalités (10 disponibles)
+Chaque feature est vraiment implémentée dans le code (pas juste un commentaire) :
+
+🌙 Dark Mode — toggle avec classList.toggle('dark') + classes dark: Tailwind
+🔐 Authentification — formulaire login/logout avec useState
+🌐 Couche API / fetch — fonctions fetch avec loading/error states
+📝 Formulaires — react-hook-form avec validation Zod
+📊 Graphiques — recharts (BarChart, LineChart) avec données mockées
+📋 Tableaux — tableau HTML triable avec pagination
+📱 PWA / offline — vite-plugin-pwa + manifest + service worker
+🌍 Internationalisation — react-i18next avec sélecteur FR/EN
+🧪 Tests — Vitest + @testing-library/react + fichier de test
+✨ Animations — framer-motion (motion.div, AnimatePresence, whileHover)
+2. 📦 Packs d'Extensions PRD (49 packs)
+Catalogue complet
+49 packs d'extensions contenant 325 contextes PRD spécialisés qui guident l'IA pour produire du code de qualité industrielle.
+
+Sélection des packs
+Clique sur « 49 packs d'extensions PRD » pour ouvrir le catalogue
+Clique sur chaque pack pour le sélectionner/désélectionner
+Les packs sont colorés en cyan quand sélectionnés
+Les packs auto-mappés par les features sont marqués « auto: »
+Mapping automatique Features → Packs
+Feature
+Packs automatiquement associés
+Dark Mode	interface_pack, layout_pack
+Auth	saas_pack, auth_mobile_pack
+API	saas_pack, ia_pack
+Forms	forms_inputs_pack, formulaire_pack
+Charts	productivity_pack, interface_pack
+Tables	productivity_pack, interface_pack
+PWA	mobile_pack, mobile_web_pack
+i18n	texte_pack
+Tests	productivity_pack
+Animations	interface_pack, widget_pack
+
+Packs disponibles (examples)
+Gamification — points, achievements, badges, leaderboard
+Audio — player avec visualizer
+Vidéo — player type YouTube
+E-Commerce — catalogue, panier, checkout
+Feed Social — posts, likes, comments
+Chat — messages en bulles
+Blog — articles, catégories
+SaaS Dashboard — stats, sidebar, charts
+CRM/ERP — contacts, pipeline, deals
+AI Apps — chat interface, prompt builder
+...et 39 autres packs
+Injection dans la génération
+Chaque pack sélectionné injecte ses contextes PRD dans le prompt LLM
+Le PRD et le code générés reflètent les packs dans leur logique métier
+L'UI affiche quelles extensions sont actives pour la génération
+3. ⚙️ Génération (4 phases)
+Phase 1 : Arsenal PRD Grade Diamond (10 documents)
+L'IA génère 10 documents PRD structurés qui guident la génération :
+
+Vision Stratégique — objectifs, public, fonctionnalités clés
+Architecture Système — stack, structure des dossiers
+Interface Utilisateur — design system, composants
+Base de Données — modèles de données, schémas
+Sécurité — auth, validation, guards
+API et Protocoles — endpoints, hooks de fetch
+Expérience Utilisateur — animations, empty states
+Tests et Qualité — stratégie, cas de test
+Déploiement — build Vite, optimisations
+Maintenance — roadmap, monitoring
+Phase 2 : Génération de code
+L'LLM génère les fichiers React (App.tsx, MainComponent.tsx, composants pack)
+Le prompt inclut les directives UI par pack, l'arsenal PRD, les contextes d'extensions
+Règle stricte : chaque composant doit avoir une VRAIE UI (pas de stub)
+Navigation fonctionnelle : tous les boutons ont un onClick
+Phase 3 : Templates + Fusion
+Fichiers de config injectés déterministiquement : package.json, vite.config, tsconfig, tailwind.config, postcss.config, index.html, main.tsx, .gitignore, README.md
+Fichiers mobile : manifest.json, sw.js, icon.svg, capacitor.config.ts, BUILD_APK.md
+Phase 4 : Post-traitement
+Anti-corruption : détection et réparation des sauts de ligne \n → newline
+Réconciliation des dépendances : scan des imports → ajout auto au package.json
+Auto-réparation des imports manquants : si l'LLM importe un composant qu'il n'a pas créé, un 2ème appel LLM génère le composant manquant
+Création de stubs : fallback si l'auto-réparation échoue
+Vérification : config Tailwind, utils.ts/cn(), architecture React
+4. 💾 Workspace (6 onglets)
+Onglet « Code source »
+Arborescence de fichiers navigable (dossiers dépliables)
+Coloration syntaxique avec numérotation des lignes
+Copier un fichier dans le presse-papier
+Télécharger ZIP (source uniquement ou complet avec node_modules)
+Onglet « PRD »
+Document Product Requirements Document en Markdown
+Structuré : Objectif, Fonctionnalités, Architecture, Composants
+Onglet « Arsenal PRD »
+10 documents PRD navigables avec sidebar
+Icônes spécifiques par document (Target, Boxes, Palette, Database, etc.)
+Navigation précédent/suivant entre les documents
+Sidebar réductible
+Onglet « Validation »
+Rapport de validation post-génération
+Corrections automatiques affichées (dépendances ajoutées, imports réparés, etc.)
+Statistiques : fichiers scannés, imports analysés, packages ajoutés
+Badge « Prêt à l'emploi » ou « Points d'attention »
+Onglet « Aperçu »
+Build automatique : npm install → npm run build → dist/
+Aperçu en direct dans un iframe (l'app React compilée)
+Statut temps réel : Dépendances (En attente → Installé), Build (En attente → Prêt)
+Logs : npm install et npm run build affichables
+Bouton Refresh pour recharger l'iframe
+Bouton « Ouvrir » pour ouvrir dans un nouvel onglet
+Onglet « Évoluer »
+Faire évoluer un projet existant sans tout recréer
+Ajouter de nouvelles fonctionnalités (les déjà présentes sont désactivées)
+Ajouter de nouveaux packs (les déjà présents sont désactivés)
+Décrire l'évolution souhaitée
+L'IA préserve le code existant et ajoute les nouvelles pages
+Réinstallation automatique des dépendances après évolution
+5. 📊 Fonctionnalités implémentées (détection automatique)
+Un panneau affiche quelles features sont réellement détectées dans le code généré :
+
+✅ Vert « Implémenté » : la feature est dans le code
+⚠️ Orange « Non détecté » : la feature a été sélectionnée mais n'est pas trouvée
+Détection par mots-clés : dark: + documentElement pour darkmode, recharts + Chart pour charts, framer-motion pour animations, etc.
+
+6. 📥 Téléchargement
+ZIP Source (bouton « ZIP source »)
+Code source + config + README
+~15 Ko, léger
+Lancer avec npm install && npm run dev
+ZIP Complet (bouton « ZIP complet +deps »)
+Source + node_modules + dist (build)
+~27 Mo
+Lance directement avec npm run dev — aucune installation requise
+Disponible seulement quand npm install a terminé
+Menu déroulant
+Clique sur la flèche à côté du bouton ZIP
+Choix entre « ZIP complet » (avec deps) ou « ZIP source uniquement »
+7. 📱 APK Android (bouton vert « APK »)
+Télécharge un ZIP contenant un template Android natif complet :
+
+Fichiers Android inclus
+AndroidManifest.xml — manifest avec permissions Internet
+MainActivity.java — Activity WebView qui charge l'app
+build.gradle (app + project) — config Gradle (compileSdk 34, minSdk 24)
+settings.gradle + gradle.properties
+res/values/ — styles, colors, strings
+res/drawable/ — icône vectorielle
+res/mipmap-anydpi-v26/ — icône adaptive
+Fichiers .j2 pour forge_apk_builder.py
+AndroidManifest.xml.j2 — template avec {{ package_id }}
+MainActivity.java.j2 — template avec {{ package_id }}
+Scripts de build
+build-apk.sh (Linux/Mac) — npm build → copie dist → gradlew assembleDebug
+build-apk.bat (Windows) — même chose en .bat
+BUILD_APK.md — instructions détaillées
+Comment obtenir le .apk
+bash
+
+# Méthode 1 : Script
+./build-apk.sh        # Linux/Mac
+build-apk.bat         # Windows
+
+# Méthode 2 : Android Studio
+# Ouvre android/ → Build → Build APK(s)
+
+# Méthode 3 : Script Python
+python forge_apk_builder.py --src dist --name "MonApp" --package "com.reactforge.monapp" --build
+8. 🔄 Gestion des Projets
+Galerie (sidebar)
+Liste de tous les projets avec statut (Prêt, En cours, Échec)
+Nombre de fichiers et date de création
+Supprimer un projet (corbeille au survol)
+Rafraîchir la liste
+Workflow complet
+text
+
+Nouveau projet → Configurer stack → Sélectionner features + packs → Générer
+    → Auto-install npm → Build → Aperçu live → Télécharger ZIP/APK
+    → Évoluer (ajouter features/packs) → Re-build → Re-télécharger
+9. 🛡️ Garanties Quality
+Anti-corruption
+Détection des \n corrompus en n littéral
+Réparation automatique des sauts de ligne
+Crash-test : première ligne > 300 caractères = corruption détectée
+Auto-réparation
+Imports manquants → 2ème appel LLM pour générer le composant
+Dépendances manquantes → ajout automatique au package.json (17+ packages mappés)
+Fichiers utilitaires → création auto de src/lib/utils.ts si cn() est utilisé
+Build sécurisé
+vite build directement (sans tsc --noEmit strict)
+Les erreurs de typage TypeScript ne bloquent plus le build
+Vite/esbuild compile sans vérification de types
+10. 🎨 Interface
+Design
+Thème sombre (slate-950) avec accents cyan/teal
+Responsive (mobile-first)
+Animations Framer Motion
+Custom scrollbar cyan
+Layout
+Sidebar (gauche) : galerie de projets + bouton « Nouveau projet »
+Zone principale : builder form ou workspace selon le contexte
+Footer sticky en bas
+Onglets du workspace
+Code source (arborescence + visualiseur)
+PRD (document Markdown)
+Arsenal PRD (10 documents navigables)
+Validation (rapport)
+Aperçu (iframe live)
+Évoluer (ajout de features/packs)
+React Forge est un outil complet qui couvre tout le cycle : description → génération IA → installation → build → aperçu → évolution → téléchargement (ZIP/APK).
+
+
+Text
+Pasted Content_1782640446173.txt
+TXT
+35.0 KB
+voici ce que je veut pour faire evoluer le projet : 
+J'ai lu le document complet. C'est un PRD technique détaillé pour faire évoluer React Forge vers une architecture GPU-first avec TensorRT-LLM. Voici le plan d'implémentation pour l'équipe de dev :
+
+📋 PRD d'Évolution — React Forge GPU-First
+Plan d'implémentation complet pour l'équipe de développement
+Phase 1 — Extraction du Core & API (Semaine 1-2)
+Objectif
+Séparer la logique IA du reste de l'application pour pouvoir la remplacer par un service GPU.
+
+Tâches
+1.1. Extraire prd-engine
+
+text
+
+src/lib/forge-arsenal.ts → packages/prd-engine/generator/
+src/lib/extension-parser.ts → packages/prd-engine/packs/
+Créer l'interface IPrdGenerator :
+typescript
+
+interface IPrdGenerator {
+  generate(config: ProjectConfig, packs: string[]): Promise<Arsenal>;
+}
+Implémenter ZaiPrdGenerator (actuel) qui implémente cette interface
+Créer MockPrdGenerator pour les tests
+1.2. Extraire codegen
+
+text
+
+src/app/api/projects/[id]/generate/route.ts → packages/codegen/
+src/lib/forge-templates.ts → packages/codegen/templates/
+src/lib/forge-postprocess.ts → packages/codegen/repair/
+src/lib/forge-anticorruption.ts → packages/codegen/repair/
+Créer l'interface ICodeGenerator :
+typescript
+
+interface ICodeGenerator {
+  generate(prompt: string, config: ProjectConfig): Promise<GeneratedFile[]>;
+  repair(files: GeneratedFile[], issues: string[]): Promise<GeneratedFile[]>;
+}
+1.3. Définir les contrats d'API
+
+typescript
+
+// packages/shared/types/gpu.types.ts
+interface GpuCapabilities {
+  gpuAvailable: boolean;
+  backend: "tensorrt-llm" | "webgpu" | "cpu" | "remote";
+  deviceName?: string;
+  memoryTotalMB?: number;
+  memoryFreeMB?: number;
+  supportsEmbeddings: boolean;
+  supportsCodegen: boolean;
+  supportsPRD: boolean;
+  supportsRepair: boolean;
+  fallbackMode: "cpu" | "remote";
+}
+
+type GpuMode = "auto" | "gpu-only" | "cpu-only" | "remote";
+Phase 2 — Service IA Local GPU (Semaine 3-5)
+Objectif
+Créer un service Python séparé qui utilise TensorRT-LLM sur GPU NVIDIA.
+
+Structure
+text
+
+services/local-ai-gpu/
+├── server.py              # FastAPI server
+├── engines/
+│   ├── tensorrt_engine.py # TensorRT-LLM backend
+│   ├── cpu_engine.py      # Fallback CPU (transformers)
+│   └── remote_engine.py   # Backend distant (z-ai-web-dev-sdk)
+├── models/
+│   ├── llm/               # Modèle LLM optimisé TensorRT
+│   └── embeddings/        # Modèle embeddings
+├── adapters/
+│   ├── prd_adapter.py     # Génération PRD
+│   ├── codegen_adapter.py # Génération code
+│   └── repair_adapter.py  # Réparation
+├── config/
+│   └── gpu_config.yaml
+├── requirements.txt
+└── Dockerfile
+Endpoints API à implémenter
+Endpoint
+Méthode
+Rôle
+/v1/health	GET	Statut du service
+/v1/capabilities	GET	Capacités GPU/CPU
+/v1/prd/generate	POST	Génère les 10 documents PRD
+/v1/code/generate	POST	Génère le code React
+/v1/code/repair	POST	Répare les imports/dépendances
+/v1/embeddings/prompt	POST	Embeddings pour scoring packs
+/v1/embeddings/packs	POST	Embeddings des packs PRD
+
+Logique de fallback
+python
+
+# gpu_config.yaml
+gpu_mode: auto  # auto | gpu-only | cpu-only | remote
+fallback_on_error: true
+fallback_on_oom: true
+max_gpu_memory_percent: 90
+Tâches
+Installer TensorRT-LLM + CUDA toolkit
+Charger un modèle LLM (ex: Llama 3 8B optimisé TensorRT)
+Implémenter les 7 endpoints
+Tester le fallback CPU automatique
+Mesurer les latences
+Phase 3 — Intégration dans le Core (Semaine 6-7)
+Objectif
+Le core Node.js appelle le service GPU au lieu de z-ai-web-dev-sdk directement.
+
+Changements
+typescript
+
+// packages/core/workflow/generate-workflow.ts
+class GenerateWorkflow {
+  constructor(
+    private prdGenerator: IPrdGenerator,
+    private codeGenerator: ICodeGenerator,
+    private repairEngine: IRepairEngine,
+  ) {}
+
+  async execute(config: ProjectConfig): Promise<Project> {
+    // 1. Check GPU capabilities
+    const caps = await this.aiService.getCapabilities();
+    
+    // 2. Generate PRD (GPU if available)
+    const arsenal = await this.prdGenerator.generate(config, packs);
+    
+    // 3. Generate code (GPU if available)
+    const files = await this.codeGenerator.generate(prompt, config);
+    
+    // 4. Repair (GPU or CPU)
+    const repaired = await this.repairEngine.repair(files, issues);
+    
+    // 5. Build & validate (CPU only)
+    await this.buildRunner.build(projectId);
+    
+    return project;
+  }
+}
+Configuration
+yaml
+
+# config/ai-service.yaml
+ai_service:
+  url: http://localhost:5006
+  gpu_mode: auto
+  timeout: 120000
+  retry_count: 2
+  fallback_to_zai: true  # Use z-ai-web-dev-sdk if GPU service is down
+Phase 4 — UI & Monitoring GPU (Semaine 8)
+Objectif
+Afficher le statut GPU dans l'interface.
+
+Nouveaux composants
+4.1. Badge GPU dans le header
+
+tsx
+
+<GpuBadge />
+// Affiche: 🟢 GPU NVIDIA RTX 4080 | ou 🟡 CPU Fallback | ou 🔴 Service IA indisponible
+4.2. Onglet « Performance IA » dans le workspace
+
+Latence de génération PRD (ms)
+Latence de génération code (ms)
+Taux d'utilisation GPU (%)
+Nombre de fallbacks CPU
+Throughput (tokens/s)
+Graphique temporel des performances
+4.3. Indicateur dans l'overlay de génération
+
+text
+
+⚡ Génération IA en cours...
+   Backend: TensorRT-LLM (NVIDIA RTX 4080)
+   Latence PRD: 1.2s | Latence Code: 2.5s
+Phase 5 — Multiplateforme (Semaine 9-12)
+5.1. Electron Desktop
+text
+
+apps/desktop-electron/
+├── main/
+│   ├── index.ts          # Electron main process
+│   ├── gpu-service.ts    # Lance le service GPU local
+│   └── workspace.ts      # Gestion fichiers locale
+├── preload/
+│   └── api.ts            # Bridge IPC
+└── renderer/
+    └── (React Forge UI)
+Le service GPU tourne en processus enfant
+Accès disque direct pour npm install / build / APK
+Pas de serveur web nécessaire
+5.2. Web (actuel)
+Utilise z-ai-web-dev-sdk en fallback
+WebGPU optionnel pour embeddings légers
+Mode remote par défaut
+5.3. Android APK
+Client léger vers backend distant
+Pas de TensorRT-LLM sur mobile
+Preview via WebView
+KPIs à mesurer
+KPI
+Cible
+Mesure
+Latence PRD	< 2s (GPU) / < 10s (CPU)	mean_latency_prd_ms
+Latence Code	< 5s (GPU) / < 30s (CPU)	mean_latency_codegen_ms
+Taux build réussi	> 95%	%_projects_build_success
+Taux réparation auto	> 80%	%_imports_fixed_auto
+Utilisation GPU	> 70%	gpu_usage_percent_mean
+Fallbacks CPU	< 10%	%_requests_cpu_fallback
+
+Roadmap résumée
+Phase
+Semaine
+Livrable
+1. Extraction Core	1-2	Interfaces + packages séparés
+2. Service GPU	3-5	Service Python TensorRT-LLM opérationnel
+3. Intégration	6-7	Core utilise le service GPU avec fallback
+4. UI Monitoring	8	Badge GPU + onglet Performance
+5. Electron	9-10	App desktop avec GPU local
+5. Web	11	WebGPU + mode remote
+5. APK	12	Client mobile
+
+Ce PRD est prêt à être intégré dans le projet. Veux-tu que je commence à implémenter la Phase 1 (extraction du core) ou la Phase 4 (UI monitoring GPU) dans React Forge maintenant ?
+
+je veut tout les explication pour savpir comment fonctionera l'application apres toute ces amelioration 
+🚀 React Forge GPU-First — Guide Complet de Fonctionnement
+Voici comment l'application fonctionnera après toutes les améliorations :
+
+1. 🏗️ Architecture Globale (3 couches)
+text
+
+┌─────────────────────────────────────────────────────┐
+│              COUCHE UI (React)                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │   Web    │  │ Electron │  │ Android  │          │
+│  │ (Chrome) │  │ (Desktop)│  │  (APK)   │          │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
+│       │              │              │                │
+│       └──────────────┴──────────────┘                │
+│                      │ HTTP/WebSocket                │
+├──────────────────────┼──────────────────────────────┤
+│              COUCHE CORE (Node.js)                   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+│  │Orchestre │ │ Build    │ │ Export   │            │
+│  │projet    │ │ Runner   │ │ ZIP/APK  │            │
+│  └────┬─────┘ └──────────┘ └──────────┘            │
+│       │ HTTP                                          │
+├───────┼─────────────────────────────────────────────┤
+│       │     COUCHE IA (Service GPU)                  │
+│  ┌────▼─────────────────────────────────┐           │
+│  │     TensorRT-LLM (GPU NVIDIA)        │           │
+│  │  ┌────────┐ ┌────────┐ ┌──────────┐ │           │
+│  │  │  PRD   │ │ Code   │ │ Repair   │ │           │
+│  │  │Engine  │ │Engine  │ │Engine    │ │           │
+│  │  └────────┘ └────────┘ └──────────┘ │           │
+│  │  ┌────────┐ ┌────────────────────┐  │           │
+│  │  │Embedd. │ │ Fallback CPU       │  │           │
+│  │  │Engine  │ │ (transformers)     │  │           │
+│  │  └────────┘ └────────────────────┘  │           │
+│  └──────────────────────────────────────┘           │
+└─────────────────────────────────────────────────────┘
+Comment ça marche concrètement
+Avant (aujourd'hui) :
+
+text
+
+Utilisateur clique "Générer"
+    → React envoie à Next.js API
+    → Next.js appelle z-ai-web-dev-sdk (cloud)
+    → Attend 30-60s
+    → Reçoit le code
+    → Build + preview
+Après (GPU-first) :
+
+text
+
+Utilisateur clique "Générer"
+    → React envoie au Core
+    → Core interroge le service GPU local
+    → Service GPU détecte NVIDIA RTX → utilise TensorRT-LLM
+    → Génère PRD en 1-2s (au lieu de 10s)
+    → Génère code en 3-5s (au lieu de 30s)
+    → Répare les imports en 0.5s
+    → Core build + preview
+    → Total : 8-12s (au lieu de 60s)
+2. 🖥️ Les 3 Versions de l'Application
+Version Web (navigateur)
+text
+
+┌─────────────────────────────────────┐
+│         React Forge (Web)           │
+│  ┌───────────────────────────────┐  │
+│  │  Interface React (identique)  │  │
+│  │  Builder + Workspace + Tabs   │  │
+│  └──────────┬────────────────────┘  │
+│             │ HTTP                   │
+│  ┌──────────▼────────────────────┐  │
+│  │  Backend Node.js (Next.js)    │  │
+│  │  - Gestion projets (SQLite)   │  │
+│  │  - Build Runner (npm/vite)    │  │
+│  │  - Export ZIP/APK             │  │
+│  └──────────┬────────────────────┘  │
+│             │ HTTP                   │
+│  ┌──────────▼────────────────────┐  │
+│  │  Service IA distant ou WebGPU │  │
+│  │  - z-ai-web-dev-sdk (cloud)   │  │
+│  │  - WebGPU (si navigateur OK)  │  │
+│  │  - Pas de TensorRT-LLM local  │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+Utilisation : ouvre dans le navigateur, pas d'installation.
+GPU : WebGPU (léger) ou cloud (z-ai).
+Limitation : pas d'accès disque direct, pas de build local.
+
+Version Electron (Desktop)
+text
+
+┌─────────────────────────────────────┐
+│      React Forge (Electron)         │
+│  ┌───────────────────────────────┐  │
+│  │  Interface React (identique)  │  │
+│  └──────────┬────────────────────┘  │
+│             │ IPC (Electron bridge)  │
+│  ┌──────────▼────────────────────┐  │
+│  │  Main Process (Node.js)       │  │
+│  │  - Accès disque DIRECT        │  │
+│  │  - npm install local          │  │
+│  │  - vite build local           │  │
+│  │  - APK build (Gradle)         │  │
+│  │  - Gestion projets (SQLite)   │  │
+│  └──────────┬────────────────────┘  │
+│             │ HTTP localhost:5006    │
+│  ┌──────────▼────────────────────┐  │
+│  │  Service IA GPU (Python)      │  │
+│  │  - TensorRT-LLM (NVIDIA)      │  │
+│  │  - Embeddings locaux          │  │
+│  │  - Fallback CPU automatique   │  │
+│  │  - Modèles chargés en mémoire │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+Utilisation : installe comme une app desktop (.exe / .dmg).
+GPU : TensorRT-LLM sur NVIDIA → 10x plus rapide.
+Avantages :
+
+Build APK directement sur ta machine (Gradle + Android SDK)
+Pas de serveur web à maintenir
+Accès disque direct (rapide)
+Modèle IA chargé en mémoire (pas de cold start)
+ZIP complet avec node_modules instantané
+Version Android (APK)
+text
+
+┌─────────────────────────────────────┐
+│      React Forge (Android APK)      │
+│  ┌───────────────────────────────┐  │
+│  │  WebView (React compilé)      │  │
+│  │  - Interface simplifiée       │  │
+│  │  - Liste projets              │  │
+│  │  - Aperçu des projets         │  │
+│  └──────────┬────────────────────┘  │
+│             │ HTTP (réseau local)    │
+│  ┌──────────▼────────────────────┐  │
+│  │  Backend distant (PC)         │  │
+│  │  - Service GPU sur le PC      │  │
+│  │  - Build sur le PC            │  │
+│  │  - L'utilisateur pilote depuis│  │
+│  │    son téléphone              │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+Utilisation : installe l'APK sur le téléphone.
+GPU : pas de GPU sur mobile — utilise le backend du PC.
+Cas d'usage : piloter React Forge depuis le canapé, voir les aperçus sur mobile.
+
+3. ⚡ Flux de Génération GPU-First
+Étape par étape (ce qui se passe quand tu cliques "Générer")
+text
+
+┌──────────────────────────────────────────────────────────┐
+│ 1. UTILISATEUR CLIQUE "Générer"                          │
+│    - Description: "Dashboard SaaS avec auth et charts"   │
+│    - Features: [darkmode, auth, charts, animations]      │
+│    - Packs: [saas_pack, interface_pack]                  │
+│    - Stack: Vite + React + TypeScript + Tailwind         │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│ 2. CORE REÇOIT LA REQUÊTE                                │
+│    - Vérifie les capabilities GPU                        │
+│    - GET /v1/capabilities → gpuAvailable: true           │
+│    - Décide: utiliser TensorRT-LLM (GPU)                 │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│ 3. SERVICE GPU — GÉNÉRATION PRD (1-2s)                   │
+│    POST /v1/prd/generate                                 │
+│    - Assemble le prompt (description + packs + features)  │
+│    - TensorRT-LLM génère les 10 documents PRD            │
+│    - Retourne: { documents: [...], metrics: {latencyMs} } │
+│    - UI affiche: "✅ PRD généré en 1.2s (GPU)"           │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│ 4. SERVICE GPU — GÉNÉRATION CODE (3-5s)                  │
+│    POST /v1/code/generate                                │
+│    - Assemble le prompt (arsenal PRD + stack + packs)     │
+│    - TensorRT-LLM génère les fichiers React (JSON)       │
+│    - Retourne: { files: [...], metrics: {latencyMs} }     │
+│    - UI affiche: "✅ Code généré en 3.5s (GPU)"          │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│ 5. POST-TRAITEMENT (0.5-1s)                              │
+│    POST /v1/code/repair                                  │
+│    - Scan des imports manquants                          │
+│    - Réparation par IA (GPU ou CPU)                      │
+│    - Ajout des dépendances au package.json                │
+│    - Anti-corruption des sauts de ligne                  │
+│    - Retourne: { fixedFiles, addedDependencies }          │
+│    - UI affiche: "✅ 3 imports réparés, 2 deps ajoutées"  │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│ 6. BUILD RUNNER (5-10s)                                  │
+│    - npm install (dépendances)                           │
+│    - vite build (compilation)                            │
+│    - Génération dist/                                    │
+│    - UI affiche: "📦 Installation... ✅ Build..."         │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│ 7. APERÇU + EXPORT                                       │
+│    - dist/ chargé dans l'iframe                          │
+│    - ZIP source disponible                              │
+│    - ZIP complet (avec node_modules) disponible          │
+│    - Template APK Android disponible                    │
+│    - UI affiche: "🎉 Projet prêt !"                      │
+└──────────────────────────────────────────────────────────┘
+Comparaison des performances
+Étape
+Avant (cloud)
+Après (GPU local)
+PRD	10-15s	1-2s
+Code	20-40s	3-5s
+Réparation	10-20s	0.5-1s
+Build	10-15s	5-10s (identique)
+Total	50-90s	10-18s
+
+4. 🖥️ Nouveaux Éléments UI
+Badge GPU (dans le header)
+text
+
+┌─────────────────────────────────────────┐
+│ 🟢 GPU: NVIDIA RTX 4080 | 12 Go VRAM  │
+│    Backend: TensorRT-LLM               │
+│    Mode: auto (GPU actif)              │
+└─────────────────────────────────────────┘
+Ou si pas de GPU :
+
+text
+
+┌─────────────────────────────────────────┐
+│ 🟡 CPU Mode | Fallback actif           │
+│    Backend: z-ai-web-dev-sdk (cloud)   │
+│    Installation GPU recommandée        │
+└─────────────────────────────────────────┘
+Overlay de génération amélioré
+text
+
+┌─────────────────────────────────────────┐
+│         ⚡ Forge en cours               │
+│                                         │
+│  ✅ PRD généré          1.2s  (GPU)    │
+│  ✅ Code généré         3.5s  (GPU)    │
+│  ✅ Imports réparés     0.5s  (CPU)    │
+│  📦 npm install...      en cours        │
+│  🔨 vite build...       en attente      │
+│                                         │
+│  Backend: TensorRT-LLM (RTX 4080)      │
+│  GPU usage: 73% | VRAM: 6.2/12 Go      │
+│  Tokens/s: 1,250                        │
+└─────────────────────────────────────────┘
+Nouvel onglet « Performance IA »
+text
+
+┌─────────────────────────────────────────┐
+│  📊 Performance IA                      │
+│                                         │
+│  Latence PRD:     ████████ 1.2s (avg)  │
+│  Latence Code:    ████████████ 3.5s    │
+│  Latence Repair:  ██ 0.5s              │
+│                                         │
+│  GPU utilisation: 73% (avg)            │
+│  VRAM utilisée:   6.2 / 12 Go          │
+│  Tokens/s:        1,250                │
+│                                         │
+│  Fallbacks CPU:   2 sur 15 requêtes    │
+│  Build réussi:    14/15 (93%)          │
+│                                         │
+│  Historique:                            │
+│  ┌─────────────────────────────┐       │
+│  │ Projet A | GPU | 1.2s | ✅  │       │
+│  │ Projet B | GPU | 1.5s | ✅  │       │
+│  │ Projet C | CPU | 8.0s | ✅  │       │
+│  │ Projet D | GPU | 1.1s | ❌  │       │
+│  └─────────────────────────────┘       │
+└─────────────────────────────────────────┘
+5. 🔄 Gestion des Fallbacks
+Scénarios de fallback
+text
+
+Scénario 1: GPU disponible et fonctionne
+    → TensorRT-LLM utilisé
+    → Latence: 1-2s
+    → Badge: 🟢 GPU
+
+Scénario 2: GPU disponible mais OOM (mémoire pleine)
+    → Erreur GPU détectée
+    → Bascule automatique vers CPU
+    → Latence: 8-15s
+    → Badge: 🟡 CPU (GPU OOM)
+    → Log: "GPU OOM, fallback CPU activé"
+
+Scénario 3: Pas de GPU NVIDIA
+    → Détection: pas de CUDA/TensorRT
+    → Utilise z-ai-web-dev-sdk (cloud)
+    → Latence: 30-60s
+    → Badge: 🟡 Cloud
+
+Scénario 4: Service GPU indisponible
+    → Timeout sur /v1/health
+    → Bascule vers z-ai-web-dev-sdk
+    → Latence: 30-60s
+    → Badge: 🟡 Cloud (service GPU down)
+
+Scénario 5: Mode Electron sur PC avec GPU
+    → Service GPU lancé automatiquement
+    → Modèle chargé en mémoire
+    → Pas de cold start
+    → Latence: 1-2s
+    → Badge: 🟢 GPU (Electron)
+6. 📦 Workflow Complet (version finale)
+text
+
+┌──────────────────────────────────────────────────────┐
+│  1. CRÉATION                                          │
+│  ┌────────────────────────────────────────────────┐  │
+│  │ Utilisateur décrit son app                     │  │
+│  │ Sélectionne: stack + features + packs          │  │
+│  │ Clique "Générer"                               │  │
+│  └────────────────────┬───────────────────────────┘  │
+│                       │                              │
+│  2. GÉNÉRATION IA (GPU)                              │
+│  ┌────────────────────▼───────────────────────────┐  │
+│  │ Service GPU génère:                            │  │
+│  │ → 10 documents PRD (Arsenal)    [1-2s]        │  │
+│  │ → Code React (3-8 fichiers)     [3-5s]        │  │
+│  │ → Réparation imports            [0.5s]        │  │
+│  │ → Dépendances ajoutées          [instant]     │  │
+│  └────────────────────┬───────────────────────────┘  │
+│                       │                              │
+│  3. BUILD                                            │
+│  ┌────────────────────▼───────────────────────────┐  │
+│  │ Build Runner:                                  │  │
+│  │ → npm install                   [5-10s]        │  │
+│  │ → vite build                    [2-5s]         │  │
+│  │ → dist/ généré                                 │  │
+│  └────────────────────┬───────────────────────────┘  │
+│                       │                              │
+│  4. APERÇU                                           │
+│  ┌────────────────────▼───────────────────────────┐  │
+│  │ Aperçu live dans iframe                        │  │
+│  │ → App React compilée affichée                  │  │
+│  │ → Navigation fonctionnelle                     │  │
+│  │ → Features détectées (Dark Mode ✅, etc.)     │  │
+│  └────────────────────┬───────────────────────────┘  │
+│                       │                              │
+│  5. ÉVOLUTION                                        │
+│  ┌────────────────────▼───────────────────────────┐  │
+│  │ Onglet "Évoluer":                              │  │
+│  │ → Ajouter features/packs                       │  │
+│  │ → IA préserve l'existant + ajoute              │  │
+│  │ → Re-build automatique                         │  │
+│  └────────────────────┬───────────────────────────┘  │
+│                       │                              │
+│  6. EXPORT                                           │
+│  ┌────────────────────▼───────────────────────────┐  │
+│  │ Téléchargements:                               │  │
+│  │ → ZIP source (15 Ko)                           │  │
+│  │ → ZIP complet + node_modules (27 Mo)           │  │
+│  │ → ZIP APK (template Android + scripts)         │  │
+│  │ → Build APK direct (Electron uniquement)       │  │
+│  └────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────┘
+7. 📊 Ce que l'utilisateur voit concrètement
+Avant (aujourd'hui)
+text
+
+[Utilisateur] → "Générer"
+... 60 secondes d'attente ...
+[Résultat] → Projet généré
+Après (GPU-first)
+text
+
+[Utilisateur] → "Générer"
+⚡ PRD généré en 1.2s (GPU NVIDIA RTX 4080)
+⚡ Code généré en 3.5s (GPU)
+✅ 3 imports réparés automatiquement
+📦 Installation des dépendances...
+🔨 Build...
+🎉 Projet prêt en 12s total !
+
+[Utilisateur] → clique "Aperçu"
+→ L'app s'affiche instantanément (déjà buildée)
+
+[Utilisateur] → clique "APK"
+→ Télécharge le ZIP avec template Android
+→ Lance build-apk.sh sur sa machine
+→ Obtient un vrai fichier .apk
+
+[Utilisateur] → clique "Évoluer"
+→ Ajoute "Gamification" + "Chat"
+⚡ IA génère les nouveaux composants en 2s (GPU)
+→ Code existant préservé
+→ Nouvelles pages ajoutées
+→ Re-build automatique
+8. 🎯 Bénéfices pour l'utilisateur
+Bénéfice
+Avant
+Après
+Vitesse de génération	60-90s	10-18s
+Build APK	Template à compiler soi-même	Build direct (Electron)
+Qualité du code	Bonne	Excellente (réparation GPU)
+Stabilité	Serveur dev qui crash	Service dédié (stable)
+Offline	Non (cloud requis)	Oui (GPU local)
+Multiplateforme	Web uniquement	Web + Desktop + Android
+Monitoring	Aucun	KPIs temps réel (latence, GPU, qualité)
+Évolution	Recréer le projet	Évolution chirurgicale (préserve l'existant)
+
+C'est ça la vision finale de React Forge : un générateur de projets React ultra-rapide, local, GPU-accéléré, multiplateforme, qui produit du code de qualité industrielle et un vrai APK Android.
