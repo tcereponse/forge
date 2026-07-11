@@ -12,6 +12,7 @@ import {
   FolderGit2,
   CheckCircle2,
   Zap,
+  Smartphone,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Button } from "@/components/ui/button";
@@ -118,6 +119,14 @@ export function WelcomeView() {
               <Hammer className="mr-2 h-4 w-4" />
               Créer un projet
             </Button>
+            <a
+              href="/react-forge-mobile.apk"
+              download="react-forge-mobile.apk"
+              className="inline-flex h-11 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-6 text-sm font-semibold text-emerald-300 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-500/60 hover:bg-emerald-500/20"
+            >
+              <Smartphone className="h-4 w-4" />
+              APK Mobile
+            </a>
           </div>
         </motion.div>
 
