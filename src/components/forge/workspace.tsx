@@ -19,6 +19,8 @@ import {
   Play,
   Activity,
   History,
+  Rocket,
+  Cpu,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Markdown } from "@/components/forge/markdown";
@@ -30,6 +32,8 @@ import { FeatureSummary } from "@/components/forge/feature-summary";
 import { PerfIAPanel } from "@/components/forge/perf-ia-panel";
 import { ArsenalPanel } from "@/components/forge/arsenal-panel";
 import { SnapshotsPanel } from "@/components/forge/snapshots-panel";
+import { KirovPanel } from "@/components/forge/kirov-panel";
+import { DeepseekWebview } from "@/components/forge/deepseek-webview";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -55,7 +59,7 @@ function MetaPill({ icon: Icon, label, value }: { icon: typeof Hash; label: stri
 export function Workspace() {
   const { currentProject, loadingProject, setShowBuilder, fetchProject, validation } =
     useForgeStore();
-  const [tab, setTab] = useState<"code" | "prd" | "arsenal" | "validation" | "preview" | "perf" | "snapshots">("code");
+  const [tab, setTab] = useState<"code" | "prd" | "arsenal" | "validation" | "preview" | "perf" | "snapshots" | "kirov" | "deepseek">("code");
 
   if (loadingProject && !currentProject) {
     // Structured skeleton — mirrors the real workspace layout instead of a bare spinner
@@ -362,6 +366,30 @@ export function Workspace() {
               <History className="h-3.5 w-3.5" />
               Snapshots
             </button>
+            <button
+              onClick={() => setTab("kirov")}
+              className={cn(
+                "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
+                tab === "kirov"
+                  ? "border-cyan-500 text-cyan-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              )}
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              KIROV Bridge
+            </button>
+            <button
+              onClick={() => setTab("deepseek")}
+              className={cn(
+                "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
+                tab === "deepseek"
+                  ? "border-cyan-500 text-cyan-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              )}
+            >
+              <Cpu className="h-3.5 w-3.5" />
+              DeepSeek Auto
+            </button>
           </div>
 
           {/* Tab content */}
@@ -376,6 +404,27 @@ export function Workspace() {
               <PreviewPanel projectId={p.id} />
             ) : tab === "snapshots" ? (
               <SnapshotsPanel projectId={p.id} />
+            ) : tab === "kirov" ? (
+              <KirovPanel />
+            ) : tab === "deepseek" ? (
+              <DeepseekWebview onFilesGenerated={async (generatedFiles, generatedPrd) => {
+                try {
+                  const res = await fetch(`/api/projects/${p.id}/deepseek-save`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ files: generatedFiles, prd: generatedPrd }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    toast.success(`${generatedFiles.length} fichiers sauvegardés !`);
+                    fetchProject(p.id);
+                  } else {
+                    toast.error("Échec de la sauvegarde");
+                  }
+                } catch {
+                  toast.error("Erreur réseau");
+                }
+              }} />
             ) : tab === "validation" ? (
               <div className="custom-scroll h-full overflow-y-auto p-4 sm:p-6">
                 <div className="mx-auto max-w-3xl">

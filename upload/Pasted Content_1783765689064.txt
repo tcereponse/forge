@@ -1,0 +1,1519 @@
+# -*- coding: utf-8 -*-
+"""
+💎 REACT FORGE MOBILE - MASTER BRIDGE SERVER
+=======================================================
+Serveur pont Flask souverain pour faire fonctionner React Forge sur mobile.
+Gère la base de données SQLite locale et compile les APK par suture ZIP (sans SDK Android ni JDK).
+=======================================================
+"""
+import os
+import sys
+import time
+import json
+import sqlite3
+import subprocess
+import threading
+import shutil
+import zipfile
+import hashlib
+import base64
+import tempfile
+from pathlib import Path
+from flask import Flask, request, jsonify, Response, send_from_directory
+
+app = Flask(__name__)
+
+# Configurer l'encodage console pour éviter les plantages
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except AttributeError:
+        pass
+
+# --- CONSTANTES ET CHEMINS DE CONTEXTE ---
+# Sur Android (Chaquopy), FORGE_BASE_DIR est injecté par MainActivity.kt
+# Sur PC (dev), on utilise le cwd()
+BASE_DIR = os.environ.get("FORGE_BASE_DIR", os.getcwd())
+FLASK_PORT = int(os.environ.get("FLASK_PORT", "3000"))
+
+DB_DIR = os.path.join(BASE_DIR, "db")
+os.makedirs(DB_DIR, exist_ok=True)
+DB_PATH = os.path.join(DB_DIR, "custom.db")
+ARSENAL_DIR = os.path.join(BASE_DIR, "arsenal")
+CORE_DIR = os.path.join(BASE_DIR, "core")
+
+
+KEYSTORE_PATH = os.path.join(CORE_DIR, "elite_prod.p12")
+KS_PASSWORD = "qodmax"
+KS_ALIAS = "elite"
+
+SHELL_REACT = os.path.join(ARSENAL_DIR, "coquille_react.apk")
+SHELL_FULLSTACK = os.path.join(ARSENAL_DIR, "coquille_fullstack.apk")
+SHELL_VIDE = os.path.join(ARSENAL_DIR, "coquille_vide.apk")
+
+# Statut des processus en cours d'exécution (install, build, apk)
+process_statuses = {}
+
+def log(msg):
+    t = time.strftime("%H:%M:%S")
+    print(f"[{t}] {msg}", flush=True)
+
+# --- Extraction automatique de app_ui.zip si present ---
+try:
+    ui_zip_path = os.path.join(BASE_DIR, "app_ui.zip")
+    out_dir = os.path.join(BASE_DIR, "out")
+    if os.path.exists(ui_zip_path):
+        log(f"📦 Extraction automatique de {ui_zip_path} vers {out_dir}...")
+        # Vider d'abord le dossier out pour eviter les melanges
+        if os.path.exists(out_dir):
+            shutil.rmtree(out_dir, ignore_errors=True)
+        os.makedirs(out_dir, exist_ok=True)
+        with zipfile.ZipFile(ui_zip_path, 'r') as zip_ref:
+            zip_ref.extractall(out_dir)
+        log("✅ Extraction UI terminee avec succes.")
+except Exception as e:
+    log(f"⚠️ Erreur lors de l'extraction de app_ui.zip: {e}")
+
+def build_template_files(config):
+    ts_ext = "tsx" if config["typescript"] else "jsx"
+    ts_or_js = "ts" if config["typescript"] else "js"
+    files = []
+
+    deps = {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    }
+    dev_deps = {}
+
+    if config["routing"] == "router":
+        deps["react-router-dom"] = "^6.26.0"
+    if config["stateMgmt"] == "zustand":
+        deps["zustand"] = "^4.5.4"
+
+    features = config["features"]
+    if "forms" in features:
+        deps["react-hook-form"] = "^7.53.0"
+        deps["@hookform/resolvers"] = "^3.9.0"
+        deps["zod"] = "^3.23.8"
+    if "charts" in features:
+        deps["recharts"] = "^2.12.7"
+    if "animations" in features:
+        deps["framer-motion"] = "^11.3.24"
+    if "i18n" in features:
+        deps["react-i18next"] = "^15.0.1"
+        deps["i18next"] = "^23.14.0"
+    if "api" in features:
+        deps["axios"] = "^1.7.5"
+    if "tests" in features:
+        dev_deps["vitest"] = "^2.0.5"
+        dev_deps["@testing-library/react"] = "^16.0.1"
+        dev_deps["@testing-library/jest-dom"] = "^6.4.8"
+        dev_deps["jsdom"] = "^25.0.0"
+    if "pwa" in features:
+        dev_deps["vite-plugin-pwa"] = "^0.20.5"
+    if "auth" in features:
+        deps["lucide-react"] = "^0.439.0"
+
+    if config["stateMgmt"] == "redux":
+        deps["@reduxjs/toolkit"] = "^2.2.7"
+        deps["react-redux"] = "^9.1.2"
+    if config["uiLib"] == "mui":
+        deps["@mui/material"] = "^5.16.7"
+        deps["@emotion/react"] = "^11.13.3"
+        deps["@emotion/styled"] = "^11.13.0"
+        deps["@mui/icons-material"] = "^5.16.7"
+
+    if config["styling"] == "tailwind":
+        dev_deps["tailwindcss"] = "^3.4.10"
+        dev_deps["postcss"] = "^8.4.41"
+        dev_deps["autoprefixer"] = "^10.4.20"
+
+    if config["stack"] == "vite":
+        dev_deps["@vitejs/plugin-react"] = "^4.3.1"
+        dev_deps["vite"] = "^5.4.0"
+    if config["typescript"]:
+        dev_deps["typescript"] = "^5.5.4"
+        dev_deps["@types/react"] = "^18.3.5"
+        dev_deps["@types/react-dom"] = "^18.3.0"
+
+    scripts = {
+        "verifySyntax": "tsc --noEmit --skipLibCheck --noImplicitAny false --strict false 2>&1 || true" if config["typescript"] and config["stack"] == "vite" else "echo \"verify-syntax: skipped\"",
+        "dev": "vite" if config["stack"] == "vite" else "next dev",
+        "build": "vite build" if config["stack"] == "vite" else "next build",
+        "preview": "vite preview" if config["stack"] == "vite" else "next preview"
+    }
+
+    if "tests" in features:
+        scripts["test"] = "vitest"
+        scripts["test:run"] = "vitest run"
+
+    import re
+    safe_name = re.sub(r'[^a-z0-9-]', '-', config["name"].lower())
+    package_json = {
+        "name": safe_name,
+        "private": True,
+        "version": "0.1.0",
+        "type": "module",
+        "scripts": scripts,
+        "dependencies": deps,
+        "devDependencies": dev_deps
+    }
+
+    files.append({
+        "path": "package.json",
+        "language": "json",
+        "content": json.dumps(package_json, indent=2) + "\n"
+    })
+
+    files.append({
+        "path": ".gitignore",
+        "language": "text",
+        "content": "node_modules\ndist\ndist-ssr\n*.local\nlogs\n*.log\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\npnpm-debug.log*\n.vscode/*\n!.vscode/extensions.json\n.idea\n.DS_Store\n*.suo\n*.ntvs*\n*.njsproj\n*.sln\n*.sw?\n.env\n.env.local\n.env.*.local\ncoverage\n.cache\n.temp\n"
+    })
+
+    features_list = "\n".join([f"- \u2705 {f}" for f in features]) if features else "- (aucune feature supplementaire)"
+    readme_content = f"""# {config["name"]}
+
+{config["description"]}
+
+## \ud83d\ude80 Demarrage rapide
+
+```bash
+npm install
+npm run dev
+```
+
+Le serveur de developpement demarre sur http://localhost:5173
+
+## \ud83d\udcdc Scripts disponibles
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Demarre le serveur de developpement |
+| `npm run build` | Build de production |
+| `npm run preview` | Previsualise le build |
+{"| `npm test` | Lance les tests (Vitest) |" if "tests" in features else ""}
+
+## \ud83d\udee0 Stack technique
+
+- **React** 18
+- **Build tool**: {config["stack"]}
+{"- **TypeScript** 5" if config["typescript"] else ""}
+- **Styling**: {config["styling"]}
+{"- **Routing**: React Router DOM v6 (HashRouter)" if config["routing"] == "router" else ""}
+{"- **State**: " + config["stateMgmt"] if config["stateMgmt"] != "none" else ""}
+{"- **UI Library**: " + config["uiLib"] if config["uiLib"] != "none" else ""}
+
+## \u2728 Fonctionnalites
+
+{features_list}
+
+G\u00e9n\u00e9r\u00e9 par **React Forge Mobile** le {time.strftime('%d/%m/%Y')}
+"""
+    files.append({
+        "path": "README.md",
+        "language": "markdown",
+        "content": readme_content
+    })
+
+    if config["stack"] == "vite":
+        files.append({
+            "path": "index.html",
+            "language": "html",
+            "content": f"""<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{config["name"]}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.{ts_ext}"></script>
+  </body>
+</html>
+"""
+        })
+
+    main_content = f"""import React from 'react'
+import {{ createRoot }} from 'react-dom/client'
+import App from './App.{ts_ext}'
+import './index.css'
+
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+"""
+    files.append({
+        "path": f"src/main.{ts_ext}",
+        "language": ts_ext,
+        "content": main_content
+    })
+
+    if config["stack"] == "vite":
+        files.append({
+            "path": f"vite.config.{ts_or_js}",
+            "language": ts_or_js,
+            "content": f"""import {{ defineConfig }} from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({{
+  plugins: [react()],
+  base: './',
+  build: {{
+    crossOriginLoading: false,
+  }},
+}})
+"""
+        })
+
+    if config["typescript"]:
+        files.append({
+            "path": "tsconfig.json",
+            "language": "json",
+            "content": """{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+"""
+        })
+        files.append({
+            "path": "tsconfig.node.json",
+            "language": "json",
+            "content": """{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+"""
+        })
+
+    if config["styling"] == "tailwind":
+        files.append({
+            "path": f"tailwind.config.{ts_or_js}",
+            "language": ts_or_js,
+            "content": """/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        border: "rgb(var(--border) / <alpha-value>)",
+        input: "rgb(var(--input) / <alpha-value>)",
+        ring: "rgb(var(--ring) / <alpha-value>)",
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
+        primary: {
+          DEFAULT: "rgb(var(--primary) / <alpha-value>)",
+          foreground: "rgb(var(--primary-foreground) / <alpha-value>)",
+        },
+        secondary: {
+          DEFAULT: "rgb(var(--secondary) / <alpha-value>)",
+          foreground: "rgb(var(--secondary-foreground) / <alpha-value>)",
+        },
+        muted: {
+          DEFAULT: "rgb(var(--muted) / <alpha-value>)",
+          foreground: "rgb(var(--muted-foreground) / <alpha-value>)",
+        },
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          foreground: "rgb(var(--accent-foreground) / <alpha-value>)",
+        },
+        destructive: {
+          DEFAULT: "rgb(var(--destructive) / <alpha-value>)",
+          foreground: "rgb(var(--destructive-foreground) / <alpha-value>)",
+        },
+        card: {
+          DEFAULT: "rgb(var(--card) / <alpha-value>)",
+          foreground: "rgb(var(--card-foreground) / <alpha-value>)",
+        },
+        popover: {
+          DEFAULT: "rgb(var(--popover) / <alpha-value>)",
+          foreground: "rgb(var(--popover-foreground) / <alpha-value>)",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+    },
+  },
+  plugins: [],
+}
+"""
+        })
+        files.append({
+            "path": "postcss.config.js",
+            "language": "javascript",
+            "content": """export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+"""
+        })
+
+    return files
+
+def build_fallback_files(config, ts_ext):
+    files = []
+    
+    routing = config["routing"]
+    if routing == "router":
+        app_content = f"""import React from 'react'
+import {{ HashRouter, Routes, Route, Link }} from 'react-router-dom'
+import MainComponent from './components/MainComponent'
+
+const About = () => (
+  <div className="p-8 max-w-md mx-auto bg-card rounded-lg shadow-lg border border-border mt-10 text-center">
+    <h2 className="text-2xl font-bold text-primary mb-4">\u00c0 propos</h2>
+    <p className="text-muted-foreground mb-6">Projet "{config["name"]}" g\u00e9n\u00e9r\u00e9 par React Forge Mobile.</p>
+    <Link to="/" className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition">
+      Retour \u00e0 l'accueil
+    </Link>
+  </div>
+);
+
+function App() {{
+  return (
+    <HashRouter>
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <header className="border-b border-border bg-card py-4 px-6 flex justify-between items-center shadow-sm">
+          <Link to="/" className="text-xl font-black tracking-tight text-primary flex items-center gap-2">
+            <span>\ud83d\udee0\ufe0f</span> {config["name"]}
+          </Link>
+          <nav className="flex gap-4">
+            <Link to="/" className="text-sm font-medium hover:text-primary transition">Accueil</Link>
+            <Link to="/about" className="text-sm font-medium hover:text-primary transition">\u00c0 propos</Link>
+          </nav>
+        </header>
+        <main className="flex-1">
+          <Routes>
+            <Route path="/" element={{<MainComponent />}} />
+            <Route path="/about" element={{<About />}} />
+          </Routes>
+        </main>
+      </div>
+    </HashRouter>
+  );
+}}
+
+export default App;
+"""
+    else:
+        app_content = f"""import React from 'react'
+import MainComponent from './components/MainComponent'
+
+function App() {{
+  return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <header className="border-b border-border bg-card py-4 px-6 shadow-sm">
+        <h1 className="text-xl font-black tracking-tight text-primary flex items-center gap-2">
+          <span>\ud83d\udee0\ufe0f</span> {config["name"]}
+        </h1>
+      </header>
+      <main className="flex-1">
+        <MainComponent />
+      </main>
+    </div>
+  );
+}}
+
+export default App;
+"""
+    files.append({
+        "path": f"src/App.{ts_ext}",
+        "language": ts_ext,
+        "content": app_content
+    })
+
+    if config["styling"] == "tailwind":
+        index_css = """@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
+    --primary: 79 70 229;
+    --primary-foreground: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 15 23 42;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --accent: 241 245 249;
+    --accent-foreground: 15 23 42;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --border: 226 232 240;
+    --input: 226 232 240;
+    --ring: 79 70 229;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: rgb(var(--border));
+  }
+  body {
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+}
+"""
+    else:
+        index_css = """body {
+  font-family: system-ui, sans-serif;
+  padding: 2rem;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+"""
+    files.append({
+        "path": "src/index.css",
+        "language": "css",
+        "content": index_css
+    })
+
+    main_component = """import React, { useState } from 'react'
+
+export default function MainComponent() {
+  const [tasks, setTasks] = useState([
+    { id: 1, text: "Découvrir React Forge Mobile", completed: true },
+    { id: 2, text: "Forger l'application sous Android", completed: false },
+    { id: 3, text: "Profiter du Cockpit Souverain", completed: false }
+  ]);
+  const [newText, setNewText] = useState("");
+
+  const toggleTask = (id) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const addTask = (e) => {
+    e.preventDefault();
+    if (!newText.trim()) return;
+    setTasks([...tasks, { id: Date.now(), text: newText.trim(), completed: false }]);
+    setNewText("");
+  };
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-8 text-white mb-8 shadow-xl">
+        <h2 className="text-3xl font-extrabold mb-2">__PROJECT_NAME__</h2>
+        <p className="text-indigo-100 max-w-2xl font-light">__PROJECT_DESC__</p>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2 bg-card rounded-2xl p-6 shadow-md border border-border">
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
+            <span>⚡</span> Widget Interactif
+          </h3>
+          <form onSubmit={addTask} className="flex gap-2 mb-6">
+            <input
+              type="text"
+              placeholder="Ajouter une tâche ou idée..."
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              className="flex-1 px-4 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition"
+            />
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:opacity-90 transition">
+              Ajouter
+            </button>
+          </form>
+
+          <div className="space-y-3">
+            {tasks.map(t => (
+              <div
+                key={t.id}
+                onClick={() => toggleTask(t.id)}
+                className={`p-4 rounded-xl border flex items-center gap-3 cursor-pointer select-none transition ${
+                  t.completed
+                    ? "bg-muted/30 border-muted text-muted-foreground line-through"
+                    : "bg-card border-border hover:border-indigo-600 hover:shadow-sm"
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition ${
+                  t.completed ? "bg-indigo-600 border-indigo-600 text-white" : "border-input"
+                }`}>
+                  {t.completed && <span>✓</span>}
+                </div>
+                <span className="flex-1 font-medium">{t.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-card rounded-2xl p-6 shadow-md border border-border flex flex-col justify-between">
+          <div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
+              <span>🔧</span> Spécifications
+            </h3>
+            <div className="space-y-4 text-sm">
+              <div className="flex justify-between pb-2 border-b border-border">
+                <span className="text-muted-foreground">Stack principal :</span>
+                <span className="font-semibold text-foreground uppercase">__STACK__</span>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-border">
+                <span className="text-muted-foreground">Langage :</span>
+                <span className="font-semibold text-foreground">__LANG__</span>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-border">
+                <span className="text-muted-foreground">Style :</span>
+                <span className="font-semibold text-foreground uppercase">__STYLING__</span>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-border">
+                <span className="text-muted-foreground">Routing :</span>
+                <span className="font-semibold text-foreground uppercase">__ROUTING__</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-8 p-4 bg-muted/20 border border-border rounded-xl text-center">
+            <p className="text-xs text-muted-foreground">
+              Previsualisation fonctionnelle de l'interface en mode Souveraineté Mobile.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+"""
+    main_component = (main_component
+                      .replace("__PROJECT_NAME__", config["name"])
+                      .replace("__PROJECT_DESC__", config["description"])
+                      .replace("__STACK__", config["stack"])
+                      .replace("__LANG__", "TypeScript" if config["typescript"] else "JavaScript")
+                      .replace("__STYLING__", config["styling"])
+                      .replace("__ROUTING__", config["routing"]))
+    files.append({
+        "path": f"src/components/MainComponent.{ts_ext}",
+        "language": ts_ext,
+        "content": main_component
+    })
+
+    return files
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def get_status(project_id):
+    if project_id not in process_statuses:
+        process_statuses[project_id] = {
+            "install": "pending",
+            "build": "pending",
+            "apk": "pending",
+            "installLog": "",
+            "buildLog": "",
+            "apkLog": ""
+        }
+    return process_statuses[project_id]
+
+# --- HOOK CORS UNIVERSEL ---
+@app.after_request
+def after_request(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+    return response
+
+@app.route('/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return jsonify({"status": "ok"}), 200
+
+# --- ROUTES APIS PROJETS (DUPLICATION DES APIS NEXT.JS) ---
+
+@app.route('/api/projects', methods=['GET'])
+def list_projects():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Project ORDER BY createdAt DESC")
+    rows = cursor.fetchall()
+    projects = []
+    for r in rows:
+        p = dict(r)
+        try:
+            p["features"] = json.loads(p.get("features", "[]"))
+        except:
+            p["features"] = []
+        try:
+            p["selectedPacks"] = json.loads(p.get("selectedPacks", "[]"))
+        except:
+            p["selectedPacks"] = []
+        projects.append(p)
+    conn.close()
+    return jsonify({"success": True, "projects": projects})
+
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    try:
+        data = request.get_json(silent=True) or {}
+        name = data.get("name", "").strip() if data.get("name") else ""
+        description = data.get("description", "").strip() if data.get("description") else ""
+        
+        if not name:
+            return jsonify({"success": False, "error": "Le nom du projet est requis"}), 400
+        if not description or len(description) < 10:
+            return jsonify({"success": False, "error": "Decris ton application (10 caracteres min.)"}), 400
+            
+        import uuid
+        pid = "c" + uuid.uuid4().hex[:24]
+        
+        # Nettoyer et construire le slug
+        import re
+        slug = name.lower().replace(" ", "-").replace("/", "-")
+        slug = re.sub(r'[^a-z0-9\-]', '', slug)
+        if not slug:
+            slug = "app"
+            
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # S'assurer d'abord que la table Project existe au cas ou
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS "Project" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "name" TEXT NOT NULL,
+                "slug" TEXT NOT NULL UNIQUE,
+                "description" TEXT NOT NULL,
+                "stack" TEXT NOT NULL DEFAULT 'vite',
+                "typescript" INTEGER NOT NULL DEFAULT 1,
+                "styling" TEXT NOT NULL DEFAULT 'tailwind',
+                "routing" TEXT NOT NULL DEFAULT 'router',
+                "stateMgmt" TEXT NOT NULL DEFAULT 'none',
+                "uiLib" TEXT NOT NULL DEFAULT 'none',
+                "features" TEXT NOT NULL DEFAULT '[]',
+                "selectedPacks" TEXT NOT NULL DEFAULT '[]',
+                "prd" TEXT NOT NULL DEFAULT '',
+                "arsenalJson" TEXT NOT NULL DEFAULT '',
+                "filesJson" TEXT NOT NULL DEFAULT '[]',
+                "fileCount" INTEGER NOT NULL DEFAULT 0,
+                "validationJson" TEXT NOT NULL DEFAULT '',
+                "installStatus" TEXT NOT NULL DEFAULT 'pending',
+                "buildStatus" TEXT NOT NULL DEFAULT 'pending',
+                "status" TEXT NOT NULL DEFAULT 'draft',
+                "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" DATETIME NOT NULL
+            )
+        ''')
+        
+        # Verifier si le slug existe deja et le rendre unique
+        unique_slug = slug
+        n = 1
+        while True:
+            cursor.execute("SELECT id FROM Project WHERE slug = ?", (unique_slug,))
+            if not cursor.fetchone():
+                break
+            unique_slug = f"{slug}-{n}"
+            n += 1
+            
+        cursor.execute(
+            "INSERT INTO Project (id, name, slug, description, stack, typescript, styling, routing, stateMgmt, uiLib, features, selectedPacks, installStatus, buildStatus, status, createdAt, updatedAt) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pid, name, unique_slug, description, data.get("stack", "vite"), 
+             int(data.get("typescript", True)), data.get("styling", "tailwind"), data.get("routing", "router"),
+             data.get("stateMgmt", "none"), data.get("uiLib", "none"), json.dumps(data.get("features", [])), 
+             json.dumps(data.get("selectedPacks", [])), "pending", "pending", "draft", int(time.time()*1000), int(time.time()*1000))
+        )
+        conn.commit()
+        conn.close()
+        
+        project = {
+            "id": pid,
+            "name": name,
+            "slug": unique_slug,
+            "description": description,
+            "stack": data.get("stack", "vite"),
+            "typescript": data.get("typescript", True),
+            "styling": data.get("styling", "tailwind"),
+            "routing": data.get("routing", "router"),
+            "stateMgmt": data.get("stateMgmt", "none"),
+            "uiLib": data.get("uiLib", "none"),
+            "features": data.get("features", []),
+            "selectedPacks": data.get("selectedPacks", []),
+            "fileCount": 0,
+            "status": "draft",
+            "createdAt": int(time.time()*1000),
+            "updatedAt": int(time.time()*1000)
+        }
+        return jsonify({"success": True, "project": project})
+    except Exception as e:
+        import traceback
+        log(f"ERREUR CREATE PROJECT: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": f"Erreur serveur : {str(e)}"}), 500
+
+@app.route('/api/projects/<id>', methods=['GET'])
+def get_project(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Project WHERE id = ?", (id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"success": False, "error": "Projet introuvable"}), 404
+    p = dict(row)
+    try:
+        p["features"] = json.loads(p.get("features", "[]"))
+    except:
+        p["features"] = []
+    try:
+        p["selectedPacks"] = json.loads(p.get("selectedPacks", "[]"))
+    except:
+        p["selectedPacks"] = []
+    return jsonify({"success": True, "project": p, "validation": None})
+
+@app.route('/api/projects/<id>/generate', methods=['POST'])
+def generate_project_files(id):
+    try:
+        log(f"⚡ Lancement de la generation du projet {id}...")
+        
+        # 1. Recuperer le projet de la base de donnees
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Project WHERE id = ?", (id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"success": False, "error": "Projet introuvable"}), 404
+            
+        p = dict(row)
+        
+        # 2. Reconstruire la config du projet
+        config = {
+            "name": p.get("name", "app"),
+            "description": p.get("description", ""),
+            "stack": p.get("stack", "vite"),
+            "typescript": bool(p.get("typescript", 1)),
+            "styling": p.get("styling", "tailwind"),
+            "routing": p.get("routing", "none"),
+            "stateMgmt": p.get("stateMgmt", "none"),
+            "uiLib": p.get("uiLib", "none"),
+            "features": [],
+            "selectedPacks": []
+        }
+        
+        try:
+            config["features"] = json.loads(p.get("features", "[]"))
+        except:
+            pass
+        try:
+            config["selectedPacks"] = json.loads(p.get("selectedPacks", "[]"))
+        except:
+            pass
+            
+        ts_ext = "tsx" if config["typescript"] else "jsx"
+        
+        # 3. Charger la cle API et le base_url
+        api_key = "sk-f211e692fb12435dbea7b82d2c576d1a"
+        base_url = "https://api.deepseek.com/v1"
+        
+        # Scanner les configs possibles
+        for cf in [os.path.join(BASE_DIR, ".z-ai-config"), os.path.join(BASE_DIR, "forge_config.json")]:
+            if os.path.exists(cf):
+                try:
+                    with open(cf, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                        if cfg.get("apiKey"):
+                            api_key = cfg.get("apiKey")
+                        if cfg.get("baseUrl"):
+                            base_url = cfg.get("baseUrl")
+                        log(f"🔑 Cle API chargee depuis {os.path.basename(cf)}")
+                except:
+                    pass
+                    
+        # 4. Preparer le prompt pour l'IA
+        styling_rule = "Utilise des classes Tailwind pour TOUT le style. N'utilise PAS @apply." if config["styling"] == "tailwind" else "Utilise des classes CSS normales."
+        routing_rule = "Integre react-router-dom v6 : utilise HashRouter dans App.tsx avec 2 routes." if config["routing"] == "router" else "Pas de routing. App.tsx affiche directement MainComponent."
+        
+        code_prompt = f"""Génère UNIQUEMENT 3 fichiers React pour l'application décrite. Réponds UNIQUEMENT avec du JSON valide, AUCUN texte autour, AUCUN markdown.
+        
+Application : "{config['name']}"
+Description : "{config['description']}"
+Stack : {config['stack']} (React, TypeScript: {config['typescript']})
+
+Génère EXACTEMENT ces 3 fichiers :
+1. "src/App.{ts_ext}" — composant racine. {routing_rule} Importe MainComponent.
+2. "src/components/MainComponent.{ts_ext}" — le composant MÉTIER principal avec VRAIE logique liée à l'app (todo, dashboard, etc.). Doit avoir un état React (useState) et des interactions fonctionnelles.
+3. "src/index.css" — styles globaux.
+
+RÈGLES CRITIQUES :
+- {'TypeScript : interfaces pour les props et le state, typage explicite.' if config['typescript'] else 'JavaScript ES6+.'}
+- {styling_rule}
+- Composants PascalCase. Imports relatifs sans extension.
+- NE génère PAS package.json, index.html, main.tsx, vite.config, tsconfig, tailwind.config, postcss.config.
+- Échappe les guillemets dans le JSON (utilise \\" pour les guillemets dans le code).
+
+Format JSON EXACT :
+{{"files":[{{"path":"src/App.{ts_ext}","content":"...","language":"{ts_ext}"}},{{"path":"src/components/MainComponent.{ts_ext}","content":"...","language":"{ts_ext}"}},{{"path":"src/index.css","content":"...","language":"css"}}]}}
+Réponds MAINTENANT avec uniquement l'objet JSON."""
+
+        # 5. Executer l'appel API ou Fallback
+        generated_files = []
+        fallback_files = build_fallback_files(config, ts_ext)
+        
+        import urllib.request
+        import urllib.error
+        import urllib.parse
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        req_body = {
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Tu es un générateur de composants React expert. Tu réponds UNIQUEMENT par du JSON valide, jamais de texte autour, jamais de markdown. Tu ne génères que du code de composants, jamais de fichiers de configuration."
+                },
+                {"role": "user", "content": code_prompt}
+            ],
+            "thinking": {"type": "disabled"}
+        }
+        
+        try:
+            log(f"🧠 Appel a DeepSeek ({base_url}) pour le projet {config['name']}...")
+            data = json.dumps(req_body).encode("utf-8")
+            req = urllib.request.Request(
+                f"{base_url}/chat/completions",
+                data=data,
+                headers=headers,
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=40) as response:
+                res_body = response.read().decode("utf-8")
+                res_json = json.loads(res_body)
+                raw_content = res_json["choices"][0]["message"]["content"]
+                
+                # Extraction clinique du JSON
+                cleaned_content = raw_content.strip()
+                if "```" in cleaned_content:
+                    import re
+                    match = re.search(r"```(?:json)?\s*([\s\S]*?)```", cleaned_content)
+                    if match:
+                        cleaned_content = match.group(1).strip()
+                        
+                parsed_res = json.loads(cleaned_content)
+                if parsed_res.get("files"):
+                    generated_files = parsed_res["files"]
+                    log(f"✅ DeepSeek a genere {len(generated_files)} fichiers avec succes.")
+        except urllib.error.HTTPError as http_err:
+            try:
+                err_text = http_err.read().decode("utf-8")
+            except:
+                err_text = ""
+            log(f"⚠️ Requete DeepSeek echouee (HTTP {http_err.code}): {err_text[:300]}")
+        except Exception as api_err:
+            log(f"⚠️ Erreur lors de l'appel API DeepSeek: {api_err}. Utilisation des fichiers de repli.")
+            
+        if not generated_files:
+            log("ℹ️ Utilisation des fichiers de repli hors-ligne.")
+            generated_files = fallback_files
+            
+        # 6. Generer les fichiers de template deterministes
+        template_files = build_template_files(config)
+        
+        # 7. Fusionner les fichiers (les fichiers generes ecrasent les templates)
+        final_files_map = {}
+        for tf in template_files:
+            final_files_map[tf["path"]] = tf
+        for gf in generated_files:
+            final_files_map[gf["path"]] = gf
+            
+        final_files = list(final_files_map.values())
+        
+        # 8. Ecrire les fichiers dans le dossier production
+        project_dir = os.path.join(BASE_DIR, "production", id)
+        shutil.rmtree(project_dir, ignore_errors=True)
+        os.makedirs(project_dir, exist_ok=True)
+        
+        for f in final_files:
+            fpath = os.path.join(project_dir, f["path"])
+            os.makedirs(os.path.dirname(fpath), exist_ok=True)
+            with open(fpath, "w", encoding="utf-8") as file:
+                file.write(f["content"])
+                
+        # 9. Mettre a jour la base de donnees
+        cursor.execute(
+            "UPDATE Project SET filesJson = ?, fileCount = ?, status = ?, updatedAt = ? WHERE id = ?",
+            (json.dumps(final_files), len(final_files), "ready", int(time.time()*1000), id)
+        )
+        conn.commit()
+        
+        cursor.execute("SELECT * FROM Project WHERE id = ?", (id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        p_updated = dict(row) if row else {}
+        try:
+            p_updated["features"] = json.loads(p_updated.get("features", "[]"))
+        except:
+            p_updated["features"] = []
+        try:
+            p_updated["selectedPacks"] = json.loads(p_updated.get("selectedPacks", "[]"))
+        except:
+            p_updated["selectedPacks"] = []
+            
+        log(f"🏆 Projet {config['name']} genere et enregistre avec succes ({len(final_files)} fichiers) !")
+        return jsonify({"success": True, "project": p_updated})
+    except Exception as e:
+        import traceback
+        log(f"ERREUR GENERATE PROJECT: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": f"Erreur serveur : {str(e)}"}), 500
+
+@app.route('/api/projects/<id>/status', methods=['GET'])
+def get_project_status(id):
+    s = get_status(id)
+    project_dir = os.path.join(BASE_DIR, "production", id)
+    
+    if os.path.exists(project_dir):
+        if os.path.exists(os.path.join(project_dir, "node_modules")) and s["install"] == "pending":
+            s["install"] = "installed"
+        if os.path.exists(os.path.join(project_dir, "dist")) and s["build"] == "pending":
+            s["build"] = "built"
+            
+        # Détection d'un APK existant
+        apk_found = False
+        try:
+            for entry in os.listdir(project_dir):
+                if entry.endswith(".apk"):
+                    apk_found = True
+                    break
+        except:
+            pass
+        if apk_found and s["apk"] == "pending":
+            s["apk"] = "built"
+            
+    return jsonify({
+        "success": True,
+        "install": {"status": s["install"], "log": s["installLog"]},
+        "build": {"status": s["build"], "log": s["buildLog"]},
+        "apk": {"status": s["apk"], "log": s["apkLog"]}
+    })
+
+@app.route('/api/projects/<id>/install', methods=['POST'])
+def run_install_task(id):
+    s = get_status(id)
+    if s["install"] == "installing":
+        return jsonify({"success": True})
+        
+    s["install"] = "installing"
+    s["installLog"] = "$ pnpm install\n"
+    project_dir = os.path.join(BASE_DIR, "production", id)
+    
+    def _run():
+        try:
+            proc = subprocess.Popen(
+                "pnpm install", cwd=project_dir, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+            for line in proc.stdout:
+                s["installLog"] += line
+            proc.wait()
+            if proc.returncode == 0:
+                s["install"] = "installed"
+                s["installLog"] += "\n✅ Dépendances installées avec succès.\n"
+            else:
+                s["install"] = "failed"
+                s["installLog"] += f"\n❌ Échec de l'installation (code {proc.returncode}).\n"
+        except Exception as e:
+            s["install"] = "failed"
+            s["installLog"] += f"\n❌ Erreur inattendue : {e}\n"
+            
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"success": True})
+
+@app.route('/api/projects/<id>/build', methods=['POST'])
+def run_build_task(id):
+    s = get_status(id)
+    if s["build"] == "building":
+        return jsonify({"success": True})
+        
+    s["build"] = "building"
+    s["buildLog"] = "$ pnpm build\n"
+    project_dir = os.path.join(BASE_DIR, "production", id)
+    
+    def _run():
+        try:
+            proc = subprocess.Popen(
+                "pnpm build", cwd=project_dir, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+            for line in proc.stdout:
+                s["buildLog"] += line
+            proc.wait()
+            if proc.returncode == 0:
+                s["build"] = "built"
+                s["buildLog"] += "\n✅ Build Web terminé avec succès.\n"
+            else:
+                s["build"] = "failed"
+                s["buildLog"] += f"\n❌ Échec du build (code {proc.returncode}).\n"
+        except Exception as e:
+            s["build"] = "failed"
+            s["buildLog"] += f"\n❌ Erreur inattendue : {e}\n"
+            
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"success": True})
+
+# --- COMPILATION DE SUTURE D'APK SOUVERAIN (SANS JDK NI SDK ANDROID) ---
+
+def _rebuild_apk_with_patches(shell_apk, output_apk, assets_dir, authority):
+    shell_entries = {}
+    with zipfile.ZipFile(shell_apk, 'r') as zin:
+        for item in zin.infolist():
+            shell_entries[item.filename] = zin.read(item.filename)
+
+    # file_paths.xml d'autorisation locale
+    file_paths_xml = """<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="external_files" path="." />
+    <files-path name="internal_files" path="." />
+    <cache-path name="cache_files" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <external-files-path name="external_app_files" path="." />
+</paths>"""
+    shell_entries['res/xml/file_paths.xml'] = file_paths_xml.encode('utf-8')
+
+    # Remplacement de l'autorité FileProvider dans AndroidManifest.xml binaire
+    if 'AndroidManifest.xml' in shell_entries:
+        manifest_bytes = shell_entries['AndroidManifest.xml']
+        new_auth_bytes = authority.encode('utf-16-le')
+        OLD_AUTHORITIES = [
+            b"com.elite.bestmode.provider",
+            b"com.elite.app.provider",
+            b"com.elite.provider",
+        ]
+        for old_auth in OLD_AUTHORITIES:
+            old_auth_utf16 = old_auth.decode('ascii').encode('utf-16-le')
+            if old_auth_utf16 in manifest_bytes:
+                if len(new_auth_bytes) <= len(old_auth_utf16):
+                    padded = new_auth_bytes + b'\x00\x00' * ((len(old_auth_utf16) - len(new_auth_bytes)) // 2)
+                    manifest_bytes = manifest_bytes.replace(old_auth_utf16, padded, 1)
+                else:
+                    manifest_bytes = manifest_bytes.replace(old_auth_utf16, new_auth_bytes[:len(old_auth_utf16)], 1)
+                break
+        shell_entries['AndroidManifest.xml'] = manifest_bytes
+
+    # Injecter les nouveaux assets Web du projet (dist/)
+    for root, _, files in os.walk(assets_dir):
+        for fname in sorted(files):
+            full_path = os.path.join(root, fname)
+            rel = os.path.relpath(full_path, assets_dir).replace('\\', '/')
+            arc = f'assets/www/{rel}'
+            with open(full_path, 'rb') as fp:
+                shell_entries[arc] = fp.read()
+
+    # Réassemblage
+    out_buf = tempfile.SpooledTemporaryFile(max_size=100 * 1024 * 1024)
+    with zipfile.ZipFile(out_buf, 'w') as zout:
+        sorted_entries = sorted(shell_entries.items(), key=lambda x: 0 if x[0] == 'resources.arsc' else 1)
+        for arc_name, data in sorted_entries:
+            zinfo = zipfile.ZipInfo(arc_name)
+            zinfo.compress_type = zipfile.ZIP_STORED if (
+                arc_name == 'AndroidManifest.xml' or 
+                arc_name == 'resources.arsc' or 
+                arc_name.endswith('.png') or 
+                arc_name.endswith('.jpg')
+            ) else zipfile.ZIP_DEFLATED
+            
+            # Zipalign 4 octets
+            if zinfo.compress_type == zipfile.ZIP_STORED:
+                offset = out_buf.tell()
+                header_size = 30 + len(zinfo.filename.encode('utf-8')) + len(zinfo.extra)
+                padding = (4 - ((offset + header_size) % 4)) % 4
+                if padding > 0:
+                    padding += 4
+                    zinfo.extra += b'\x35\xd9' + (padding - 4).to_bytes(2, 'little') + (b'\x00' * (padding - 4))
+            
+            zout.writestr(zinfo, data)
+
+    out_buf.seek(0)
+    with open(output_apk, 'wb') as fout:
+        fout.write(out_buf.read())
+    out_buf.close()
+
+def sign_apk_python(unsigned_apk, signed_apk):
+    # Signature cryptographique V1 par script stdlib avec openssl
+    # (Copie le processus de bestmode)
+    import base64, hashlib, tempfile
+    
+    # Éléments de signature
+    KS_ALIAS_BYTES = KS_ALIAS.encode()
+    
+    # 1. Construction du Manifest
+    file_digests = {}
+    with zipfile.ZipFile(unsigned_apk, "r") as zin:
+        file_list = [n for n in zin.namelist() if not n.startswith("META-INF/")]
+        for name in file_list:
+            data = zin.read(name)
+            file_digests[name] = base64.b64encode(hashlib.sha256(data).digest()).decode()
+
+    manifest_lines = ["Manifest-Version: 1.0\r\nCreated-By: React-Forge-Mobile\r\n\r\n"]
+    for name, digest in sorted(file_digests.items()):
+        manifest_lines.append(f"Name: {name}\r\nSHA-256-Digest: {digest}\r\n\r\n")
+    manifest_content = "".join(manifest_lines).encode("utf-8")
+
+    # 2. Construction Signature File (.SF)
+    manifest_digest = base64.b64encode(hashlib.sha256(manifest_content).digest()).decode()
+    sf_lines = [
+        "Signature-Version: 1.0\r\n",
+        "Created-By: React-Forge-Mobile\r\n",
+        f"SHA-256-Digest-Manifest: {manifest_digest}\r\n\r\n"
+    ]
+    for name, digest in sorted(file_digests.items()):
+        entry = f"Name: {name}\r\nSHA-256-Digest: {digest}\r\n\r\n"
+        entry_digest = base64.b64encode(hashlib.sha256(entry.encode("utf-8")).digest()).decode()
+        sf_lines.append(f"Name: {name}\r\nSHA-256-Digest: {entry_digest}\r\n\r\n")
+    sf_content = "".join(sf_lines).encode("utf-8")
+
+    # 3. Extraction Clé/Certificat via openssl
+    tmp_key = tempfile.mktemp(suffix=".key.pem")
+    tmp_cert = tempfile.mktemp(suffix=".cert.pem")
+    tmp_certder = tempfile.mktemp(suffix=".cert.der")
+    
+    try:
+        r1 = subprocess.run(["openssl", "pkcs12", "-in", KEYSTORE_PATH, "-nocerts", "-nodes", "-passin", f"pass:{KS_PASSWORD}", "-out", tmp_key], capture_output=True)
+        r2 = subprocess.run(["openssl", "pkcs12", "-in", KEYSTORE_PATH, "-nokeys", "-clcerts", "-passin", f"pass:{KS_PASSWORD}", "-out", tmp_cert], capture_output=True)
+        r3 = subprocess.run(["openssl", "x509", "-in", tmp_cert, "-outform", "DER", "-out", tmp_certder], capture_output=True)
+        
+        if r1.returncode != 0 or r2.returncode != 0 or r3.returncode != 0:
+            raise Exception("Erreur lors de l'extraction des cles cryptographiques via openssl.")
+            
+        with open(tmp_key, "rb") as f: pkey_pem = f.read()
+        with open(tmp_certder, "rb") as f: cert_der = f.read()
+    finally:
+        for tmp in [tmp_key, tmp_cert, tmp_certder]:
+            if os.path.exists(tmp): os.remove(tmp)
+
+    # 4. Signature avec clé privée
+    tmp_sf = tempfile.mktemp(suffix=".sf")
+    tmp_sig = tempfile.mktemp(suffix=".sig")
+    try:
+        with open(tmp_sf, "wb") as f: f.write(sf_content)
+        tmp_key_f = tempfile.mktemp(suffix=".pem")
+        with open(tmp_key_f, "wb") as f: f.write(pkey_pem)
+        
+        r_sign = subprocess.run(["openssl", "dgst", "-sha256", "-sign", tmp_key_f, "-out", tmp_sig, tmp_sf], capture_output=True)
+        if r_sign.returncode != 0:
+            raise Exception(f"Echec signature openssl : {r_sign.stderr.decode(errors='replace')}")
+            
+        with open(tmp_sig, "rb") as f: raw_sig = f.read()
+    finally:
+        for tmp in [tmp_sf, tmp_sig, tmp_key_f]:
+            if os.path.exists(tmp): os.remove(tmp)
+
+    # 5. Construction du bloc DER signature PKCS7 (CERT.RSA)
+    def der_len(n):
+        if n < 0x80: return bytes([n])
+        nb = (n.bit_length() + 7) // 8
+        return bytes([0x80 | nb]) + n.to_bytes(nb, 'big')
+    def der_tlv(tag, content):
+        return bytes([tag]) + der_len(len(content)) + content
+    def der_seq(content): return der_tlv(0x30, content)
+    def der_set(content): return der_tlv(0x31, content)
+    def der_int(n): b = n.to_bytes((n.bit_length()+15)//8,'big'); return der_tlv(0x02, (b'\x00'+b if b[0]>=0x80 else b))
+    def der_oid(oid_bytes): return der_tlv(0x06, oid_bytes)
+    def der_octet(content): return der_tlv(0x04, content)
+
+    OID_SHA256 = bytes.fromhex("608648016503040201")
+    OID_RSA = bytes.fromhex("2a864886f70d010101")
+    OID_PKCS7_DATA = bytes.fromhex("2a864886f70d010701")
+    OID_SIGNED_DATA = bytes.fromhex("2a864886f70d010702")
+
+    sha256_alg = der_seq(der_oid(OID_SHA256) + der_tlv(0x05, b''))
+    rsa_alg = der_seq(der_oid(OID_RSA) + der_tlv(0x05, b''))
+
+    signer_info = der_seq(
+        der_int(1) +
+        der_seq(cert_der[7:7+cert_der[7+1]+2] if len(cert_der)>9 else cert_der) +
+        sha256_alg +
+        rsa_alg +
+        der_octet(raw_sig)
+    )
+    content_info = der_seq(der_oid(OID_PKCS7_DATA))
+    signed_data = der_seq(
+        der_int(1) +
+        der_set(sha256_alg) +
+        content_info +
+        der_tlv(0xa0, cert_der) +
+        der_set(signer_info)
+    )
+    pkcs7_der = der_seq(der_oid(OID_SIGNED_DATA) + der_tlv(0xa0, signed_data))
+
+    # Assembler l'APK signé final
+    out_buf = tempfile.SpooledTemporaryFile(max_size=100 * 1024 * 1024)
+    with zipfile.ZipFile(unsigned_apk, "r") as zin:
+        with zipfile.ZipFile(out_buf, "w", compression=zipfile.ZIP_STORED) as zout:
+            for item in zin.infolist():
+                if item.filename.startswith("META-INF/"):
+                    continue
+                zout.writestr(item, zin.read(item.filename))
+            zout.writestr("META-INF/MANIFEST.MF", manifest_content)
+            zout.writestr("META-INF/CERT.SF", sf_content)
+            zout.writestr("META-INF/CERT.RSA", pkcs7_der)
+
+    out_buf.seek(0)
+    with open(signed_apk, "wb") as f:
+        f.write(out_buf.read())
+    out_buf.close()
+
+@app.route('/api/projects/<id>/apk/build', methods=['POST'])
+def run_apk_build_suture(id):
+    s = get_status(id)
+    if s["apk"] == "building":
+        return jsonify({"success": True})
+
+    s["apk"] = "building"
+    s["apkLog"] = "⚙️ Début de la compilation par suture ZIP (souveraine)...\n"
+
+    # Charger le projet depuis SQLite pour avoir son nom exact
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Project WHERE id = ?", (id,))
+    project = cursor.fetchone()
+    conn.close()
+
+    if not project:
+        s["apk"] = "failed"
+        s["apkLog"] += "❌ Projet introuvable dans la base de données.\n"
+        return jsonify({"success": False, "error": "Projet introuvable"}), 404
+
+    project_name = project["name"]
+    project_dir = os.path.join(BASE_DIR, "production", id)
+
+    def _run():
+        try:
+            s["apkLog"] += f"🔍 Chargement de l'environnement pour {project_name}...\n"
+            
+            # Paramétrer le package et l'autorité
+            pkg_name = f"com.reactforge.{project_name.lower().replace(' ', '').replace('-', '')}"
+            authority = f"{pkg_name}.provider"
+            
+            unsigned_apk = os.path.join(project_dir, "app-unsigned.apk")
+            final_apk = os.path.join(project_dir, f"{project_name}.apk")
+            
+            s["apkLog"] += f"💉 Suture ZIP : Injection de production/{id}/dist dans la coquille...\n"
+            _rebuild_apk_with_patches(
+                shell_apk=SHELL_REACT,
+                output_apk=unsigned_apk,
+                assets_dir=os.path.join(project_dir, "dist"),
+                authority=authority
+            )
+            s["apkLog"] += "✅ Fichiers injectés et FileProvider patché dans le binaire.\n"
+
+            s["apkLog"] += "🔏 Signature cryptographique PKCS12 de l'APK...\n"
+            sign_apk_python(unsigned_apk, final_apk)
+            
+            # Supprimer l'APK intermédiaire non signé
+            if os.path.exists(unsigned_apk):
+                os.remove(unsigned_apk)
+                
+            s["apk"] = "built"
+            s["apkLog"] += f"\n🎉 BUILD RÉUSSI ! Votre APK souverain est disponible sous le nom : {project_name}.apk\n"
+        except Exception as e:
+            s["apk"] = "failed"
+            s["apkLog"] += f"\n❌ Échec du build par suture : {e}\n"
+            
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"success": True})
+
+@app.route('/api/projects/<id>/apk/download', methods=['GET'])
+def download_apk_suture(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Project WHERE id = ?", (id,))
+    project = cursor.fetchone()
+    conn.close()
+    
+    if not project:
+        return jsonify({"error": "Projet introuvable"}), 404
+        
+    project_dir = os.path.join(BASE_DIR, "production", id)
+    apk_name = f"{project['name']}.apk"
+    apk_path = os.path.join(project_dir, apk_name)
+    
+    if not os.path.exists(apk_path):
+        return jsonify({"error": "APK non encore généré"}), 404
+        
+    return send_from_directory(project_dir, apk_name, as_attachment=True)
+
+# --- STATIQUES (UI & EXTENSIONS) ---
+
+FEATURE_PACK_MAP = {
+    "darkmode": ["interface_pack", "layout_pack"],
+    "auth": ["saas_pack", "auth_mobile_pack"],
+    "api": ["saas_pack", "ia_pack"],
+    "forms": ["forms_inputs_pack", "formulaire_pack"],
+    "charts": ["productivity_pack", "interface_pack"],
+    "tables": ["productivity_pack", "interface_pack"],
+    "pwa": ["mobile_pack", "mobile_web_pack"],
+    "i18n": ["texte_pack"],
+    "tests": ["productivity_pack"],
+    "animations": ["interface_pack", "widget_pack"],
+}
+
+def get_extension_packs_summary():
+    import re
+    ext_dir = os.path.join(BASE_DIR, "extensions")
+    packs = []
+    if not os.path.exists(ext_dir):
+        return packs
+    try:
+        entries = os.listdir(ext_dir)
+        for entry in entries:
+            pack_dir = os.path.join(ext_dir, entry)
+            if not os.path.isdir(pack_dir):
+                continue
+            if not entry.endswith("_pack") and entry != "interface_pack":
+                continue
+                
+            manifest_path = os.path.join(pack_dir, "manifest.json")
+            if not os.path.exists(manifest_path):
+                continue
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+                name = manifest.get("name", entry)
+                description = manifest.get("description", "")
+            except:
+                continue
+                
+            inject_files = [f for f in os.listdir(pack_dir) if f.startswith("inject_") and f.endswith(".js")]
+            if not inject_files:
+                continue
+                
+            inject_path = os.path.join(pack_dir, inject_files[0])
+            prd_count = 0
+            try:
+                with open(inject_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                matches = re.findall(r"(\w+):\s*`([\s\S]*?)`", content)
+                for key, val in matches:
+                    if key.startswith("prd_") or "CONTEXTE" in val or "MISSION" in val:
+                        prd_count += 1
+            except Exception as e:
+                log(f"Error parsing inject file: {e}")
+                continue
+                
+            if prd_count > 0:
+                packs.append({
+                    "id": entry,
+                    "name": name,
+                    "description": description,
+                    "prdCount": prd_count
+                })
+    except Exception as e:
+        log(f"Error getting extensions: {e}")
+    return packs
+
+@app.route('/api/extensions', methods=['GET'])
+def list_extensions():
+    packs = get_extension_packs_summary()
+    return jsonify({
+        "success": True,
+        "packs": packs,
+        "featureMap": FEATURE_PACK_MAP,
+        "totalPacks": len(packs),
+        "totalPRDs": sum(p["prdCount"] for p in packs)
+    })
+
+@app.route('/api/extension-files', methods=['GET'])
+def list_extension_files():
+    # Scan des extensions
+    ext_dir = os.path.join(BASE_DIR, "extensions")
+    files = []
+    try:
+        for root, _, filenames in os.walk(ext_dir):
+            for f in filenames:
+                full = os.path.join(root, f)
+                rel = os.path.relpath(full, ext_dir).replace('\\', '/')
+                files.append(rel)
+    except:
+        pass
+    return jsonify(files)
+
+@app.route('/api/gpu-status', methods=['GET'])
+def gpu_status():
+    return jsonify({
+        "success": True,
+        "available": True,
+        "backend": "tensorrt-llm",
+        "deviceName": "Mobile GPU (On-Device Local)",
+        "mode": "auto",
+        "active": True,
+        "totalRequests": 0,
+        "gpuRequests": 0,
+        "cpuFallbacks": 0,
+    })
+
+# Servir l'application React Forge static UI (généré dans out/)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_spa(path):
+    out_dir = os.path.join(BASE_DIR, "out")
+    if not path or path == "/":
+        return send_from_directory(out_dir, 'index.html')
+    
+    # Tester si le fichier exact existe
+    if os.path.exists(os.path.join(out_dir, path)):
+        return send_from_directory(out_dir, path)
+    
+    # Ajouter .html si nécessaire (routage Next.js statique)
+    if os.path.exists(os.path.join(out_dir, path + ".html")):
+        return send_from_directory(out_dir, path + ".html")
+        
+    # Fallback pour le routage SPA Next.js
+    return send_from_directory(out_dir, 'index.html')
+
+if __name__ == '__main__':
+    # Lance le serveur — port configurable via env FLASK_PORT (défaut: 3000)
+    log(f"📡 Lancement du Serveur Pont Mobile sur le port {FLASK_PORT}...")
+    # Sur Android, on lie sur localhost uniquement
+    host = '127.0.0.1' if os.environ.get("FORGE_BASE_DIR") else '0.0.0.0'
+    app.run(host=host, port=FLASK_PORT, debug=False, threaded=True)
+
+
+def main():
+    """Point d'entrée appelé par Chaquopy (MainActivity.kt)."""
+    log(f"📡 Démarrage Flask sur 127.0.0.1:{FLASK_PORT}...")
+    app.run(host='127.0.0.1', port=FLASK_PORT, debug=False, threaded=True)
+
