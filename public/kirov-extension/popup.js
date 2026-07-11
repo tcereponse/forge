@@ -1,12 +1,28 @@
-const SERVER_URL = "http://localhost:3000";
+const SERVER_URLS = [
+    'http://localhost:5005',
+    'http://localhost:3000',
+    'https://preview-chat-f2f839ba-f732-4613-9010-8f458d16225c.space-z.ai'
+];
+
+let activeServer = null;
+
+async function detectServer() {
+    for (const url of SERVER_URLS) {
+        try {
+            const res = await fetch(`${url}/api/bridge/health`, { signal: AbortSignal.timeout(3000) });
+            if (res.ok) { activeServer = url; return url; }
+        } catch {}
+    }
+    return null;
+}
 
 async function updateUI() {
+    if (!activeServer) await detectServer();
     try {
-        const res = await fetch(`${SERVER_URL}/v1/bridge/poll`);
+        const res = await fetch(`${activeServer}/api/bridge/mission/status`);
         const data = await res.json();
-        const phase = data.phase_num || 1;
+        const phase = data.phase || 0;
         
-        // Update LEDs
         for(let i=1; i<=6; i++) {
             const led = document.getElementById(`led-${i}`);
             if (i <= phase) led.classList.add('active');
@@ -14,40 +30,32 @@ async function updateUI() {
         }
 
         const statusText = document.getElementById('status-text');
-        statusText.innerText = `PHASE ${phase} : ${data.status.toUpperCase()}`;
+        if (phase === 0) {
+            statusText.innerText = "Pret";
+        } else {
+            statusText.innerText = `PHASE ${phase} : ${data.status?.toUpperCase() || 'ACTIVE'}`;
+        }
     } catch (e) {
         document.getElementById('status-text').innerText = "Bridge Hors-ligne";
     }
 }
 
-document.getElementById('oneshot-btn').addEventListener('click', async () => {
-    const name = prompt("Nom du nouveau projet KIROV-LIKE :");
+document.getElementById('oneshot-btn')?.addEventListener('click', async () => {
+    if (!activeServer) await detectServer();
+    if (!activeServer) { alert("Bridge hors-ligne"); return; }
+    
+    const name = prompt("Nom du nouveau projet :");
     if (!name) return;
 
     try {
-        await fetch(`${SERVER_URL}/v1/mission/start`, {
+        await fetch(`${activeServer}/api/bridge/mission/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                name: name,
-                prompt: "Créer une application identique à KIROV3 (Monorepo pnpm, React Client, Hono Server).",
-                stack: "react-pnpm",
-                arch: "monorepo"
-            })
+            body: JSON.stringify({ name, prompt: name, stack: "react-vite" })
         });
-        alert("🚀 Mission One-Shot Lancée !");
+        alert("Mission lancee !");
     } catch (e) {
-        alert("❌ Erreur lancement mission.");
-    }
-});
-
-document.getElementById('p6-btn').addEventListener('click', async () => {
-    const promptP6 = `En tant que Senior Fullstack Engineer, ta mission est d'ajouter de nouvelles fonctionnalités (Phase P6) TOUT EN MAINTENANT STRICTEMENT l'Architecture Plate (Flat Structure) de la Forge Diamond. Tous les fichiers de configuration (vite.config.ts, package.json, postcss.config.js, tailwind.config.js, .npmrc, index.html) DOIVENT rester à la RACINE absolue. Le code source est uniquement dans un dossier src/. Ne crée jamais de monorepo (app/, server/). MISSION ACTUELLE : `;
-    try {
-        await navigator.clipboard.writeText(promptP6);
-        alert("✅ Protocole P6 copié dans le presse-papier !\n\nCollez-le dans l'interface de chat IA, ajoutez votre demande, et envoyez !");
-    } catch (err) {
-        alert("❌ Impossible de copier dans le presse-papier.");
+        alert("Erreur: " + e.message);
     }
 });
 
