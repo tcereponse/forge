@@ -54,9 +54,21 @@ export function KirovLauncher() {
     } catch {}
   }, [phase]);
 
+  const [bridgeOnline, setBridgeOnline] = useState(false);
+  const [extStatus, setExtStatus] = useState("");
+
   useEffect(() => {
     refreshStatus();
-    const interval = setInterval(refreshStatus, 3000);
+    // Check bridge health
+    fetch(`/api/bridge/health`).then(r => r.json()).then(d => {
+      setBridgeOnline(d.status === "online");
+    }).catch(() => setBridgeOnline(false));
+    const interval = setInterval(() => {
+      refreshStatus();
+      fetch(`/api/bridge/health`).then(r => r.json()).then(d => {
+        setBridgeOnline(d.status === "online");
+      }).catch(() => setBridgeOnline(false));
+    }, 3000);
     return () => clearInterval(interval);
   }, [refreshStatus]);
 
@@ -233,6 +245,33 @@ export function KirovLauncher() {
           </div>
 
           {/* Progress bar */}
+          {/* Bridge status */}
+          <div className={cn("mb-4 flex items-center justify-between rounded-xl border p-3", bridgeOnline ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5")}>
+            <div className="flex items-center gap-2">
+              <div className={cn("h-2 w-2 rounded-full", bridgeOnline ? "bg-emerald-400 animate-pulse" : "bg-rose-400")} />
+              <span className={cn("text-xs font-semibold", bridgeOnline ? "text-emerald-300" : "text-rose-300")}>
+                Bridge {bridgeOnline ? "Online" : "Offline"}
+              </span>
+              {currentPhase > 0 && <span className="text-[10px] text-slate-500">— Phase {currentPhase} active, prompt pret</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <a href="https://chat.deepseek.com/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-500/20">
+                <ExternalLink className="h-3 w-3" /> Ouvrir DeepSeek
+              </a>
+            </div>
+          </div>
+
+          {/* Extension status warning */}
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+            <p className="text-[11px] font-semibold text-amber-300">⚠️ Le prompt ne s injecte pas dans DeepSeek ?</p>
+            <ol className="mt-1 space-y-0.5 text-[10px] text-slate-400">
+              <li>1. Ouvre <code className="rounded bg-slate-800 px-1">chrome://extensions/</code></li>
+              <li>2. Clique <strong>Actualiser</strong> sur l extension KIROV3</li>
+              <li>3. Recharge <code className="rounded bg-slate-800 px-1">chat.deepseek.com</code> (Ctrl+Shift+R)</li>
+              <li>4. La console doit afficher : <code className="rounded bg-slate-800 px-1">Server detecte: https://preview-chat-xxx.space-z.ai</code></li>
+            </ol>
+          </div>
+
           {currentPhase > 0 && currentPhase < 5 && (
             <div className="mb-4 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4">
               <div className="mb-2 flex items-center justify-between">
