@@ -21,6 +21,7 @@ import {
   History,
   Rocket,
   Cpu,
+  Zap,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Markdown } from "@/components/forge/markdown";
@@ -33,6 +34,7 @@ import { PerfIAPanel } from "@/components/forge/perf-ia-panel";
 import { ArsenalPanel } from "@/components/forge/arsenal-panel";
 import { SnapshotsPanel } from "@/components/forge/snapshots-panel";
 import { KirovPanel } from "@/components/forge/kirov-panel";
+import { KirovLauncher } from "@/components/forge/kirov-launcher";
 import { DeepseekWebview } from "@/components/forge/deepseek-webview";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +61,7 @@ function MetaPill({ icon: Icon, label, value }: { icon: typeof Hash; label: stri
 export function Workspace() {
   const { currentProject, loadingProject, setShowBuilder, fetchProject, validation } =
     useForgeStore();
-  const [tab, setTab] = useState<"code" | "prd" | "arsenal" | "validation" | "preview" | "perf" | "snapshots" | "kirov" | "deepseek">("code");
+  const [tab, setTab] = useState<"code" | "prd" | "arsenal" | "validation" | "preview" | "perf" | "snapshots" | "kirov" | "launcher" | "deepseek">("code");
 
   if (loadingProject && !currentProject) {
     // Structured skeleton — mirrors the real workspace layout instead of a bare spinner
@@ -379,6 +381,18 @@ export function Workspace() {
               KIROV Bridge
             </button>
             <button
+              onClick={() => setTab("launcher")}
+              className={cn(
+                "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
+                tab === "launcher"
+                  ? "border-cyan-500 text-cyan-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              )}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Launcher
+            </button>
+            <button
               onClick={() => setTab("deepseek")}
               className={cn(
                 "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition",
@@ -406,6 +420,8 @@ export function Workspace() {
               <SnapshotsPanel projectId={p.id} />
             ) : tab === "kirov" ? (
               <KirovPanel />
+            ) : tab === "launcher" ? (
+              <KirovLauncher />
             ) : tab === "deepseek" ? (
               <DeepseekWebview onFilesGenerated={async (generatedFiles, generatedPrd) => {
                 try {

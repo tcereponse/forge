@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Agent Tiger — Diamond Control</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Literata:wght@400;700;900&family=Nunito+Sans:wght@300;400;700&display=swap');
+:root {
+    --bg: #faf6f0;
+    --s1: #ffffff;
+    --cyan: #4a7c59;
+    --text: #2e3230;
+    --msg-bg: #e4e0d8;
+    --msg-border: #c4c8bc;
+}
+/* Theme Cyberpunk */
+[data-theme="cyberpunk"] {
+    --bg: #050014;
+    --s1: #1a0b2e;
+    --cyan: #ff00ff;
+    --text: #00ffff;
+    --msg-bg: rgba(255,0,255,.1);
+    --msg-border: rgba(255,0,255,.5);
+}
+/* Theme Slate */
+[data-theme="slate"] {
+    --bg: #1e293b;
+    --s1: #0f172a;
+    --cyan: #38bdf8;
+    --text: #f8fafc;
+    --msg-bg: rgba(56,189,248,.1);
+    --msg-border: rgba(56,189,248,.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Nunito Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s; padding-top: 0; }
+.controls { display: flex; gap: 5px; margin-left: auto; }
+select { background: #ffffff; border: 1px solid #c4c8bc; color: #2e3230; padding: 5px; border-radius: 8px; font-size: 10px; font-family: 'Nunito Sans', sans-serif; }
+.chat-box { flex: 1; padding: 20px 15px 15px 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; position: relative; }
+.msg { padding: 12px 15px; max-width: 85%; font-size: 14px; line-height: 1.5; white-space: pre-wrap; font-family: 'Nunito Sans', sans-serif; }
+.msg.user { background: #78a886; color: #ffffff; align-self: flex-end; border: 1px solid #4a7c59; border-radius: 16px 16px 4px 16px; }
+.msg.ai { background: #f0e8db; color: #2e3230; align-self: flex-start; border: 1px solid #c4c8bc; border-radius: 16px 16px 16px 4px; }
+.msg.sys { background: #f5f1ea; color: #705c30; align-self: center; border: 1px dashed #dcc48e; font-size: 12px; width: 100%; text-align: center; border-radius: 8px; }
+.input-area{padding:20px;background:#f5f0e8;border-top:1px solid #c4c8bc;display:flex;gap:10px}
+input{flex:1;background:#ffffff;border:1px solid #c4c8bc;padding:15px;border-radius:30px;color:#2e3230;outline:none;font-family: 'Nunito Sans', sans-serif;}
+button{background:#4a7c59;color:#ffffff;border:none;width:50px;height:50px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px}
+.btn-subtle {
+    background: #ffffff;
+    color: #2e3230;
+    border: 1px solid #c4c8bc;
+    width: auto !important;
+    height: auto !important;
+    border-radius: 8px !important;
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+}
+.btn-subtle:active {
+    background: #e4e0d8;
+}
+
+/* LAYOUT STRUCTURE ET BARRE LATÉRALE DE CONTRÔLES */
+.main-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* 📺 PANNEAU PREVIEW DIRECT (CENTRAL ET TRANSITIONNEL) */
+.preview-panel {
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    background: var(--bg);
+    border-left: 1px solid var(--msg-border);
+    border-right: 1px solid var(--msg-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 80;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.preview-panel.active {
+    flex: 1.6; /* Prend la part du lion au centre ! */
+    width: auto;
+    opacity: 1;
+}
+.preview-header {
+    background: var(--s1);
+    border-bottom: 1px solid var(--msg-border);
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.preview-iframe {
+    flex: 1;
+    border: none;
+    background: #ffffff;
+}
+@media(max-width: 1024px) {
+    .preview-panel {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: -100%;
+        width: 100%;
+        z-index: 100;
+        border: none;
+    }
+    .preview-panel.active {
+        right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        opacity: 1 !important;
+    }
+}
+
+/* 📂 PANNEAU WORKSPACE NATIVE */
+.workspace-panel {
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    background: var(--s1);
+    border-left: 1px solid var(--msg-border);
+    border-right: 1px solid var(--msg-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 80;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.workspace-panel.active {
+    width: 1100px;
+    max-width: 80vw;
+    opacity: 1;
+}
+.workspace-header {
+    background: var(--bg);
+    border-bottom: 1px solid var(--msg-border);
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.workspace-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+}
+@media(max-width: 1024px) {
+    .workspace-panel {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -100%;
+        width: 100%;
+        z-index: 100;
+        border: none;
+    }
+    .workspace-panel.active {
+        left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        opacity: 1 !important;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="main-wrapper">
+    <div class="chat-container">
+        <div class="chat-box" id="chat">
+            <div class="msg ai">Bonjour Maître. Je suis Hermès, l'orchestrateur de votre Forge Diamond. Comment puis-je vous aider aujourd'hui ?</div>
+        </div>
+        <div class="input-area">
+            <input id="inp" onkeypress="if(event.key=='Enter')send()" placeholder="Demandez n'importe quoi..." type="text"/>
+            <button class="send-button" onclick="send()">🛰️</button>
+        </div>
+    </div>
+    
+    <!-- 📂 PANNEAU CENTRAL WORKSPACE EXPLORER (DIAMOND EXPLORER INTÉGRÉ VIA IFRAME) -->
+    <div id="workspace-panel" class="workspace-panel">
+        <iframe src="workspace.html" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    
+    <!-- 📺 PANNEAU CENTRAL DE PREVIEW LIVE -->
+    <div id="preview-panel" class="preview-panel">
+        <div id="viewport-wrapper" style="flex: 1; overflow: hidden; position: relative; width: 100%; height: 100%; background: #e4e0d8;">
+            <!-- Overlay invisible qui intercepte les gestures tactiles -->
+            <div id="gesture-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: none; background: rgba(0,0,0,0.01);"></div>
+            <iframe id="preview-frame" class="preview-iframe" src="about:blank" style="width: 100%; height: 100%; border: none; transform-origin: 0 0; position: absolute; top: 0; left: 0;"></iframe>
+        </div>
+    </div>
+    
+</div>
+
+<script>
+    // Purge BRIDGE_IP pour éviter tout conflit avec l'IP mobile
+    localStorage.removeItem('BRIDGE_IP');
+    const currentHost = window.location.hostname || 'localhost';
+    const API = `http://${currentHost}:5005/v1`;
+    let projectCache = {};
+
+function getActiveProject() {
+    let pid = '';
+    try {
+        pid = localStorage.getItem('ACTIVE_PROJECT');
+    } catch(e) {}
+    if (!pid) {
+        try {
+            if (window.parent && window.parent.document) {
+                const select = window.parent.document.getElementById('proj-context');
+                if (select) pid = select.value;
+            }
+        } catch(e) {}
+    }
+    return pid || '';
+}
+
+async function loadProjects() {
+    // Handling is delegated to index.html parent navbar
+}
+
+async function getProjectContext(projectName) {
+    if(!projectName) return "";
+    if(projectCache[projectName]) return projectCache[projectName];
+    
+    addMsg(`Lecture de l'architecture de ${projectName} en cours...`, 'sys');
+    try {
+        const r = await fetch(API + '/projects/'+projectName+'/tree');
+        const tree = await r.json();
+        
+        let fileList = [];
+        function traverse(nodes) {
+            if(!nodes) return;
+            // Si c'est un tableau de nodes
+            if(Array.isArray(nodes)) {
+                nodes.forEach(node => {
+                    if(node.type === 'file') {
+                        fileList.push(node);
+                    } else if(node.type === 'folder' && node.children) {
+                        traverse(node.children);
+                    }
+                });
+            } else {
+                // Si c'est un node racine unique
+                if(nodes.type === 'file') {
+                    fileList.push(nodes);
+                } else if(nodes.type === 'folder' && nodes.children) {
+                    traverse(nodes.children);
+                }
+            }
+        }
+        traverse(tree);
+        
+        let context = `\n\n=== CODE SOURCE DU PROJET '${projectName}' ===\n`;
+        let count = 0;
+        
+        for(const f of fileList) {
+            const ext = f.name.split('.').pop().toLowerCase();
+            const allowedExts = ['md', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'py', 'json', 'bat', 'sh', 'npmrc'];
+            if(allowedExts.includes(ext)) {
+                if(f.path.includes('node_modules') || f.path.includes('.git') || f.name.includes('lock') || f.name.endsWith('.zip')) continue;
+                
+                try {
+                    const fr = await fetch(API + '/projects/'+projectName+'/read?path='+encodeURIComponent(f.path));
+                    const fd = await fr.json();
+                    if(fd.content) {
+                        context += `\n[FILE: ${f.path}]\n${fd.content}\n[/FILE]\n`;
+                        count++;
+                    }
+                } catch(e) {}
+            }
+        }
+        
+        addMsg(`✓ Architecture chargée : ${count} fichiers sources lus.`, 'sys');
+        projectCache[projectName] = context;
+        return context;
+    } catch(e) {
+        return "\n\n(Erreur de lecture de l'architecture du projet)";
+    }
+}
+
+let conversationHistory = [];
+
+async function send(autoReply = null){
+    const i=document.getElementById('inp');
+    const txt = autoReply || i.value.trim();
+    if(!txt)return;
+    
+    if(!autoReply) {
+        addMsg(txt, 'user');
+        conversationHistory.push({role: "user", content: txt});
+    } else {
+        addMsg("⚙️ Système : " + txt, 'sys');
+        conversationHistory.push({role: "user", content: "[SYSTEM REPORT]: " + txt});
+    }
+    
+    i.value='';
+    
+    const projName = getActiveProject();
+    const btn = document.querySelector('button');
+    btn.disabled = true;
+    
+    try{
+        const urlParams = new URLSearchParams(window.location.search);
+        const engine = urlParams.get('engine') || 'deepseek';
+        
+        let apiKey = '';
+        let url = '';
+        let payload = {};
+        let headers = {'Content-Type': 'application/json'};
+
+        // 1. Fetch Local Knowledge Base (PRD Library)
+        let localKnowledge = "";
+        try {
+            const klRes = await fetch(API + '/knowledge');
+            const klData = await klRes.json();
+            if(klData.status === "ok" && klData.data) {
+                localKnowledge = "\nBASE DE CONNAISSANCES LOCALE (PRD_LIBRARY):\n" + klData.data;
+            }
+        } catch(e) {}
+
+        const projContext = await getProjectContext(projName);
+        const memory = localStorage.getItem('hermes_memory') || "(Aucun souvenir enregistré)";
+        
+        const sysPrompt = `Tu es Hermès, l'Agent Autonome Souverain du Cockpit G11. Tu aides le développeur à gérer ses projets.
+TU AS DES SUPER POUVOIRS. Pour les utiliser, tu DOIS inclure exactement l'une de ces balises :
+1. [RUN_CMD: <ta_commande>] -> Exécute une commande terminal.
+2. [REMEMBER: <information>] -> Sauvegarde une information à vie.
+3. [KANBAN: <colonne> | <tâche>] -> Ex: [KANBAN: TODO | Créer la DB].
+4. [GRANT_XP: <montant>] -> Donne de l'XP.
+5. [UNLOCK: <nom_badge>] -> Débloque un trophée.
+6. [GENERATE_IMAGE: <description>] -> Fait appel à l'Agent Visuel Gemini pour générer et afficher une UI/image dans le chat.
+7. [WRITE_FILE: <chemin_relatif_au_projet>] <contenu_complet_du_fichier> [/WRITE_FILE] -> SUPER-POUVOIR CRITIQUE : Écrit ou modifie directement un fichier de code source du projet actuellement sélectionné (${projName || 'aucun sélectionné'}). Tu dois toujours réécrire l'intégralité du contenu corrigé ou créé dans la balise pour éviter les troncatures.
+8. [CREATE_PROJECT: <nom_unique_sans_espaces> | <description_detaillée>] -> Lance l'usine autonome Zero-Touch Forge. Elle va créer le projet de A à Z (Phase 1 à 5). Utilise-la si l'utilisateur veut créer une nouvelle application !
+
+RÈGLE : Si tu génères du HTML complet, injecte: <script src="https://cdn.jsdelivr.net/npm/page-agent@1.8.0/dist/iife/page-agent.demo.js" crossorigin="true"><\/script> avant </body>.
+
+${localKnowledge}
+
+Souvenirs :
+${memory}
+${projContext}`;
+
+        let messages = [{role: "system", content: sysPrompt}];
+        messages = messages.concat(conversationHistory);
+
+        if (engine === 'deepseek') {
+            apiKey = localStorage.getItem('API_KEY_DEEPSEEK');
+            if(!apiKey) { addMsg("Veuillez d'abord enregistrer votre clé API DeepSeek dans les paramètres.", 'ai'); btn.disabled = false; return; }
+            url = 'https://api.deepseek.com/v1/chat/completions';
+            headers['Authorization'] = `Bearer ${apiKey}`;
+            payload = { model: 'deepseek-chat', messages: messages };
+        } else if (engine === 'openai') {
+            apiKey = localStorage.getItem('API_KEY_OPENAI');
+            if(!apiKey) { addMsg("Veuillez d'abord enregistrer votre clé API OpenAI dans les paramètres.", 'ai'); btn.disabled = false; return; }
+            url = 'https://api.openai.com/v1/chat/completions';
+            headers['Authorization'] = `Bearer ${apiKey}`;
+            payload = { model: 'gpt-4o', messages: messages };
+        } else if (engine === 'gemini') {
+            apiKey = localStorage.getItem('API_KEY_GEMINI');
+            if(!apiKey) { addMsg("Veuillez d'abord enregistrer votre clé API Gemini dans les paramètres.", 'ai'); btn.disabled = false; return; }
+            
+            // Format spécifique Gemini
+            let geminiContents = messages.map(m => {
+                let role = m.role === "assistant" ? "model" : "user";
+                return { role: role, parts: [{ text: m.content }] };
+            });
+            url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+            payload = { contents: geminiContents };
+        }
+
+        const r = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+        
+        let d;
+        const rawText = await r.text();
+        try {
+            d = JSON.parse(rawText);
+        } catch (jsonErr) {
+            addMsg(`Erreur critique de réponse serveur (Non-JSON) : ${rawText.substring(0, 100)}...`, 'ai');
+            btn.disabled = false;
+            return;
+        }
+        
+        if (!r.ok || d.error) {
+            const errMsg = (d.error && d.error.message) ? d.error.message : (d.error ? JSON.stringify(d.error) : `Statut HTTP ${r.status}`);
+            addMsg(`Erreur ${engine.toUpperCase()} : ${errMsg}`, 'ai');
+        } else {
+            // Traitement unifié de la réponse
+            let reply = "";
+            let inTokens = 0, outTokens = 0, cost = 0;
+            
+            if (engine === 'gemini') {
+                reply = d.candidates[0].content.parts[0].text;
+                if (d.usageMetadata) {
+                    inTokens = d.usageMetadata.promptTokenCount || 0;
+                    outTokens = d.usageMetadata.candidatesTokenCount || 0;
+                    cost = ((inTokens / 1000000) * 1.25) + ((outTokens / 1000000) * 5.00); // Tarifs Gemini 1.5 Pro
+                }
+            } else {
+                reply = d.choices[0].message.content;
+                if (d.usage) {
+                    inTokens = d.usage.prompt_tokens || 0;
+                    outTokens = d.usage.completion_tokens || 0;
+                    if (engine === 'deepseek') cost = ((inTokens / 1000000) * 0.14) + ((outTokens / 1000000) * 0.28);
+                    if (engine === 'openai') cost = ((inTokens / 1000000) * 5.00) + ((outTokens / 1000000) * 15.00); // Tarifs GPT-4o
+                }
+            }
+            if (cost > 0) {
+                let totalCost = parseFloat(localStorage.getItem('hermes_total_cost') || "0");
+                totalCost += cost;
+                localStorage.setItem('hermes_total_cost', totalCost.toFixed(5));
+                const tel = document.getElementById('telemetry');
+                if (tel) tel.innerHTML = `⚡ ${totalCost.toFixed(4)}$`;
+                if (parent && parent.document && parent.document.getElementById('telemetry')) {
+                    parent.document.getElementById('telemetry').innerHTML = `⚡ ${totalCost.toFixed(4)}$`;
+                }
+            }
+
+            conversationHistory.push({role: "assistant", content: reply});
+            
+            let actionProcessed = false;
+            
+            if(reply.includes('[REMEMBER:')) {
+                const match = reply.match(/\[REMEMBER:\s*(.+?)\]/);
+                if(match && match[1]) {
+                    let oldMem = localStorage.getItem('hermes_memory') || "";
+                    localStorage.setItem('hermes_memory', oldMem + "\\n- " + match[1]);
+                    addMsg(reply, 'ai');
+                    addMsg("💾 Souvenir enregistré : " + match[1], 'sys');
+                    actionProcessed = true;
+                }
+            }
+            
+            if(reply.includes('[WRITE_FILE:')) {
+                const startIndex = reply.indexOf('[WRITE_FILE:');
+                const endIndex = reply.indexOf('[/WRITE_FILE]');
+                if(endIndex > startIndex) {
+                    const headerEnd = reply.indexOf(']', startIndex);
+                    if(headerEnd !== -1 && headerEnd < endIndex) {
+                        const filePath = reply.substring(startIndex + 12, headerEnd).trim();
+                        const fileContent = reply.substring(headerEnd + 1, endIndex).trim();
+                        
+                        let cleanContent = fileContent;
+                        if(cleanContent.startsWith('```')) {
+                            cleanContent = cleanContent.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '');
+                        }
+                        
+                        addMsg(reply, 'ai');
+                        actionProcessed = true;
+                        
+                        if(!projName) {
+                            addMsg("⚠️ Action impossible : Aucun projet n'est actuellement sélectionné.", 'sys');
+                        } else {
+                            try {
+                                const writeReq = await fetch(API + '/projects/' + projName + '/write', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({path: filePath, content: cleanContent})
+                                });
+                                const writeRes = await writeReq.json();
+                                const output = `Le fichier ${filePath} du projet ${projName} a été mis à jour directement sur le disque.\nRésultat : ${writeRes.message || "OK"}`;
+                                
+                                delete projectCache[projName];
+                                addMsg(output, 'sys');
+                            } catch(err) {
+                                addMsg("Erreur lors de la modification du fichier : " + err.message, 'sys');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if(reply.includes('[RUN_CMD:') && !actionProcessed) {
+                const match = reply.match(/\[RUN_CMD:\s*(.+?)\]/);
+                if(match && match[1]) {
+                    const cmd = match[1];
+                    addMsg(reply, 'ai');
+                    actionProcessed = true;
+                    
+                    try {
+                        let cwdPath = projName ? "./PROJECTS/" + projName : "";
+                        const runReq = await fetch(API + '/execute', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({command: cmd, cwd: cwdPath})
+                        });
+                        const runRes = await runReq.json();
+                        const output = "Résultat de la commande (" + cmd + ") :\\n" + (runRes.stdout || runRes.stderr || "Erreur silencieuse");
+                        
+                        addMsg(output, 'sys');
+                        
+                    } catch(err) {
+                        addMsg("Erreur lors de l'exécution de la commande : " + err.message, 'sys');
+                    }
+                }
+            }
+            
+            if(reply.includes('[KANBAN:')) {
+                const match = reply.match(/\[KANBAN:\s*([^\|]+)\|\s*(.+?)\]/);
+                if(match && match[1] && match[2]) {
+                    const col = match[1].trim();
+                    const task = match[2].trim();
+                    let kb = JSON.parse(localStorage.getItem('hermes_kanban') || "[]");
+                    kb = kb.filter(t => t.task !== task);
+                    kb.push({col: col, task: task});
+                    localStorage.setItem('hermes_kanban', JSON.stringify(kb));
+                    if (!actionProcessed) addMsg(reply, 'ai');
+                    addMsg("📋 Kanban mis à jour : " + task + " -> [" + col + "]", 'sys');
+                    actionProcessed = true;
+                }
+            }
+            
+            if(reply.includes('[GRANT_XP:')) {
+                const match = reply.match(/\[GRANT_XP:\s*(\d+)\]/);
+                if(match && match[1]) {
+                    const xpToAdd = parseInt(match[1]);
+                    let currentXp = parseInt(localStorage.getItem('hermes_xp') || "0");
+                    localStorage.setItem('hermes_xp', currentXp + xpToAdd);
+                    if (!actionProcessed) addMsg(reply, 'ai');
+                    addMsg("⭐ +" + xpToAdd + " XP gagnés !", 'sys');
+                    actionProcessed = true;
+                }
+            }
+            if(reply.includes('[UNLOCK:')) {
+                const match = reply.match(/\[UNLOCK:\s*(.+?)\]/);
+                if(match && match[1]) {
+                    const badge = match[1].trim();
+                    let badges = JSON.parse(localStorage.getItem('hermes_badges') || "[]");
+                    if(!badges.includes(badge)) {
+                        badges.push(badge);
+                        localStorage.setItem('hermes_badges', JSON.stringify(badges));
+                        if (!actionProcessed) addMsg(reply, 'ai');
+                        addMsg("🏆 Trophée Débloqué : " + badge + " !", 'sys');
+                        actionProcessed = true;
+                    }
+                }
+            }
+
+            if(reply.includes('[GENERATE_IMAGE:')) {
+                const match = reply.match(/\[GENERATE_IMAGE:\s*(.+?)\]/);
+                if(match && match[1]) {
+                    const imgPrompt = match[1].trim();
+                    if (!actionProcessed) addMsg(reply, 'ai');
+                    actionProcessed = true;
+                    
+                    addMsg("🎨 Usine Visuelle Gemini activée. Génération en cours : " + imgPrompt, 'sys');
+                    const imgUrl = "https://image.pollinations.ai/prompt/" + encodeURIComponent(imgPrompt) + "?width=512&height=512&nologo=true";
+                    
+                    const imgHtml = `<div style="text-align:center;margin-top:10px;">
+                        <img src="${imgUrl}" style="max-width:100%;border-radius:10px;border:2px solid var(--cyan);box-shadow:0 0 15px var(--cyan);" onload="this.parentElement.scrollIntoView()">
+                        <div style="font-size:10px;opacity:0.6;margin-top:5px;">${imgPrompt}</div>
+                    </div>`;
+                    addMsg(imgHtml, 'ai');
+                }
+            }
+
+            if(reply.includes('[CREATE_PROJECT:')) {
+                const match = reply.match(/\[CREATE_PROJECT:\s*([^\|]+)\|\s*(.+?)\]/);
+                if(match && match[1] && match[2]) {
+                    const pName = match[1].trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+                    const pDesc = match[2].trim();
+                    
+                    if (!actionProcessed) addMsg(reply, 'ai');
+                    actionProcessed = true;
+                    
+                    addMsg("🚀 Lancement de l'usine autonome Zero-Touch pour : " + pName, 'sys');
+                    
+                    try {
+                        // Lancer l'API du Bridge
+                        const runReq = await fetch(API + '/mission/one_touch_forge', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ name: pName, desc: pDesc, stack: "react", arch: "g11" })
+                        });
+                        const runRes = await runReq.json();
+                        
+                        // Définir le projet actif dans le système
+                        localStorage.setItem('ACTIVE_PROJECT', pName);
+                        
+                        // Tenter de mettre à jour le menu déroulant parent
+                        try {
+                            if (window.parent && window.parent.document) {
+                                const select = window.parent.document.getElementById('proj-context');
+                                if (select) {
+                                    let option = Array.from(select.options).find(o => o.value === pName);
+                                    if (!option) {
+                                        option = document.createElement("option");
+                                        option.text = pName;
+                                        option.value = pName;
+                                        select.add(option);
+                                    }
+                                    select.value = pName;
+                                    // Déclencher l'événement change pour le parent
+                                    select.dispatchEvent(new Event('change'));
+                                }
+                            }
+                        } catch(e) {}
+                        
+                        addMsg("✅ L'Usine Zero-Touch a été lancée avec succès pour " + pName + " !", 'sys');
+                        
+                    } catch(err) {
+                        addMsg("❌ Erreur critique lors de l'initialisation de l'usine : " + err.message, 'sys');
+                    }
+                }
+            }
+
+            if (!actionProcessed) {
+                addMsg(reply, 'ai');
+            }
+        }
+    }catch(e){addMsg('Erreur système/réseau : ' + e.message, 'ai');}
+    btn.disabled = false;
+}
+
+// Initialisation Télémétrie
+let initialCost = 0;
+try {
+    initialCost = parseFloat(localStorage.getItem('hermes_total_cost') || "0");
+} catch(e) {}
+const tel = document.getElementById('telemetry');
+if (tel) tel.innerHTML = `⚡ ${initialCost.toFixed(4)}$`;
+try {
+    if (parent && parent.document && parent.document.getElementById('telemetry')) {
+        parent.document.getElementById('telemetry').innerHTML = `⚡ ${initialCost.toFixed(4)}$`;
+    }
+} catch(e) {}
+
+function addMsg(t,s){
+    const c=document.getElementById('chat');
+    const m=document.createElement('div');
+    m.className='msg '+s;
+    if (t.includes('<div') || t.includes('<img')) {
+        m.innerHTML = t.replace(/\n/g, '<br>');
+    } else {
+        m.textContent = t;
+    }
+    c.appendChild(m);
+    c.scrollTop=c.scrollHeight;
+}
+let currentAgentProject = '';
+
+async function onProjectChange() {
+    const pid = getActiveProject();
+    if(!pid || pid === currentAgentProject) return;
+    currentAgentProject = pid;
+    
+    delete projectCache[pid];
+    updateBackupCount();
+    addMsg(`[Système] Projet actif basculé sur : ${pid.toUpperCase()}`, 'sys');
+    
+    // 1. Forward project change to workspace iframe
+    try {
+        const wsIframe = document.querySelector('#workspace-panel iframe');
+        if (wsIframe && wsIframe.contentWindow) {
+            wsIframe.contentWindow.postMessage({ action: 'projectChange', pid: pid }, '*');
+        }
+    } catch(e) {}
+    
+    // NB : Le serveur de dev est lancé uniquement à la demande explicite de l'utilisateur.
+    // Le lancement automatique a été désactivé pour éviter le spam ERR_CONNECTION_REFUSED.
+}
+
+async function updateBackupCount() {
+    const pid = getActiveProject();
+    if (!pid) {
+        const bc = document.getElementById('backup-count');
+        if (bc) bc.textContent = "0";
+        return;
+    }
+    try {
+        const r = await fetch(API + `/mission/backups?name=${encodeURIComponent(pid)}`);
+        const list = await r.json();
+        const bc = document.getElementById('backup-count');
+        if (bc) bc.textContent = list.length;
+    } catch(e) {}
+}
+
+async function missionCapture() {
+    const pid = getActiveProject();
+    if (!pid) {
+        addMsg("⚠️ Erreur : Veuillez sélectionner un projet d'abord.", 'sys');
+        return;
+    }
+    
+    addMsg("📸 Prise de capture du code source en cours...", 'sys');
+    try {
+        const r = await fetch(API + '/mission/capture', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: pid })
+        });
+        const d = await r.json();
+        if (d.status === 'ok') {
+            addMsg(`✅ Capture d'état réussie ! ID : ${d.backup}`, 'sys');
+            updateBackupCount();
+        } else {
+            addMsg("❌ Échec de la capture.", 'sys');
+        }
+    } catch(e) {
+        addMsg("❌ Erreur réseau lors de la capture.", 'sys');
+    }
+}
+
+async function missionRevert() {
+    const pid = getActiveProject();
+    if (!pid) return;
+    if (!confirm("Voulez-vous restaurer le code à son état de sauvegarde précédent ? Vos modifications non sauvegardées seront écrasées.")) return;
+    
+    addMsg("⏪ Restauration du dernier point de sauvegarde...", 'sys');
+    try {
+        const r = await fetch(API + '/mission/revert', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: pid })
+        });
+        const d = await r.json();
+        if (d.status === 'ok') {
+            addMsg("✅ Restauration réussie ! Le projet a été restauré.", 'sys');
+            delete projectCache[pid];
+            updateBackupCount();
+        } else {
+            addMsg("❌ Échec de la restauration : " + d.message, 'sys');
+        }
+    } catch(e) {
+        addMsg("❌ Erreur réseau lors de la restauration.", 'sys');
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (window.innerWidth > 1024) {
+        sidebar.classList.toggle('collapsed');
+    } else {
+        sidebar.classList.toggle('active');
+    }
+}
+
+async function launchLocalServer() {
+    const pid = getActiveProject();
+    if(!pid) {
+        addMsg("⚠️ Veuillez sélectionner un projet d'abord.", 'sys');
+        return;
+    }
+    addMsg(`🚀 Démarrage du serveur local pour ${pid}...`, 'sys');
+    try {
+        const r = await fetch(API + '/launch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: pid })
+        });
+        const d = await r.json();
+        if(d.status === "launched") {
+            addMsg(`✅ Serveur local démarré avec succès !`, 'sys');
+            setTimeout(refreshPreview, 3000);
+        } else {
+            addMsg(`❌ Erreur au lancement : ${d.error || "inconnu"}`, 'sys');
+            
+            // Afficher un bel écran d'avertissement dans le Preview pour éviter de laisser l'ancien projet
+            const iframe = document.getElementById('preview-frame');
+            if (iframe) {
+                iframe.src = 'about:blank';
+                setTimeout(() => {
+                    try {
+                        const doc = iframe.contentDocument || iframe.contentWindow.document;
+                        doc.body.style.background = '#0d1117';
+                        doc.body.innerHTML = `
+                            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 40px; color: #c9d1d9; background: #0d1117; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; box-sizing: border-box;">
+                                <div style="font-size: 50px; margin-bottom: 20px;">⚠️</div>
+                                <h1 style="color: #ff7b72; font-size: 22px; margin: 0 0 15px 0; font-weight: 600;">PROJET NON MATÉRIALISÉ</h1>
+                                <p style="color: #8b949e; font-size: 14px; max-width: 420px; line-height: 1.6; margin: 0 0 25px 0;">
+                                    Le projet <strong style="color: #58a6ff;">${pid.toUpperCase()}</strong> ne contient aucun fichier de code source pour le moment (pas de package.json ni de code React).
+                                </p>
+                                <div style="background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.2); padding: 12px 20px; border-radius: 8px; font-size: 12px; color: #58a6ff; font-weight: bold; max-width: 420px;">
+                                    👉 Demandez à l'IA d'exécuter la Phase 2 & 3 pour générer le code !
+                                </div>
+                            </div>
+                        `;
+                    } catch(err) {
+                        console.error("Erreur injection preview vide:", err);
+                    }
+                }, 100);
+            }
+        }
+    } catch(e) {
+        addMsg("❌ Erreur réseau lors du lancement du serveur.", 'sys');
+    }
+}
+
+function togglePreview() {
+    const panel = document.getElementById('preview-panel');
+    const isActive = panel.classList.toggle('active');
+    if (isActive) {
+        const wsPanel = document.getElementById('workspace-panel');
+        if (wsPanel && wsPanel.classList.contains('active')) {
+            wsPanel.classList.remove('active');
+        }
+        refreshPreview();
+    } else {
+        resetZoomPan();
+    }
+}
+
+async function refreshPreview() {
+    const iframe = document.getElementById('preview-frame');
+    if (!iframe) return;
+
+    const pid = getActiveProject();
+    if (!pid) {
+        console.log('👁️ [PREVIEW] Aucun projet actif — préview ignoré.');
+        return;
+    }
+
+    // ── ROUTE SOUVERAINE : Bridge Preview (sans dépendance au port Vite) ──
+    // On utilise toujours le bridge server qui sert le dist/ compilé
+    // ou génère une page de chargement propre si pas encore buildé.
+    // Cela évite le spam ERR_CONNECTION_REFUSED sur :5173.
+    const bridgeHost = window.location.hostname || '127.0.0.1';
+    const previewUrl = `http://${bridgeHost}:5005/v1/projects/${pid}/preview/?t=${Date.now()}`;
+    console.log(`👁️ [PREVIEW] Chargement bridge : ${previewUrl}`);
+    iframe.src = previewUrl;
+}
+
+// GESTION TOUCH/PAN/ZOOM SOUVERAIN
+let previewMode = 'interact';
+let scale = 1;
+let translateX = 0;
+let translateY = 0;
+let isDragging = false;
+let startX = 0, startY = 0;
+let startDist = 0;
+let baseScale = 1;
+
+function setPreviewMode(mode) {
+    previewMode = mode;
+    const overlay = document.getElementById('gesture-overlay');
+    
+    if (mode === 'interact') {
+        overlay.style.display = 'none';
+        document.getElementById('viewport-wrapper').style.cursor = 'default';
+    } else {
+        overlay.style.display = 'block';
+        document.getElementById('viewport-wrapper').style.cursor = 'grab';
+    }
+}
+
+function resetZoomPan() {
+    scale = 1;
+    translateX = 0;
+    translateY = 0;
+    applyTransforms();
+}
+
+function applyTransforms() {
+    const iframe = document.getElementById('preview-frame');
+    
+    // Formule mathématique d'adaptation de taille réciproque :
+    // L'iframe garde toujours exactement 100% de la surface visible du viewport, 
+    // et c'est uniquement le contenu (la page web) qui subit le zoom/dézoom de manière nette et native !
+    const pct = (100 / scale).toFixed(4);
+    iframe.style.width = pct + '%';
+    iframe.style.height = pct + '%';
+    
+    iframe.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    
+    // Synchronisation dynamique du slider et du texte dans le parent
+    if (parent && parent.document) {
+        const valText = parent.document.getElementById('zoom-value');
+        if (valText) {
+            valText.textContent = scale.toFixed(1) + 'x';
+        }
+        const slider = parent.document.getElementById('zoom-slider');
+        if (slider) {
+            slider.value = scale;
+        }
+    }
+}
+
+function onZoomSliderInput(val) {
+    scale = parseFloat(val);
+    applyTransforms();
+}
+
+// Initialisation des événements
+const overlay = document.getElementById('gesture-overlay');
+
+overlay.addEventListener('touchstart', (e) => {
+    if (previewMode !== 'zoom') return;
+    
+    if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - translateX;
+        startY = e.touches[0].clientY - translateY;
+        document.getElementById('viewport-wrapper').style.cursor = 'grabbing';
+    } else if (e.touches.length === 2) {
+        isDragging = false;
+        startDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        baseScale = scale;
+    }
+});
+
+overlay.addEventListener('touchmove', (e) => {
+    if (previewMode !== 'zoom') return;
+    
+    if (e.touches.length === 1 && isDragging) {
+        translateX = e.touches[0].clientX - startX;
+        translateY = e.touches[0].clientY - startY;
+        applyTransforms();
+    } else if (e.touches.length === 2) {
+        const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale = Math.max(0.3, Math.min(5, baseScale * (dist / startDist)));
+        applyTransforms();
+    }
+});
+
+overlay.addEventListener('touchend', (e) => {
+    isDragging = false;
+    document.getElementById('viewport-wrapper').style.cursor = 'grab';
+});
+
+// Support souris PC pour le confort
+overlay.addEventListener('mousedown', (e) => {
+    if (previewMode !== 'zoom') return;
+    isDragging = true;
+    startX = e.clientX - translateX;
+    startY = e.clientY - translateY;
+    document.getElementById('viewport-wrapper').style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (previewMode === 'zoom' && isDragging) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        applyTransforms();
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    isDragging = false;
+    const vp = document.getElementById('viewport-wrapper');
+    if (vp) {
+        vp.style.cursor = previewMode === 'zoom' ? 'grab' : 'default';
+    }
+});
+
+function toggleWorkspace() {
+    const panel = document.getElementById('workspace-panel');
+    const isActive = panel.classList.toggle('active');
+    if (isActive) {
+        const prevPanel = document.getElementById('preview-panel');
+        if (prevPanel && prevPanel.classList.contains('active')) {
+            prevPanel.classList.remove('active');
+            resetZoomPan();
+        }
+    }
+}
+
+// Init active theme safely
+let savedTheme = 'default';
+try {
+    savedTheme = localStorage.getItem('ACTIVE_THEME') || 'default';
+} catch(e) {}
+document.body.setAttribute('data-theme', savedTheme);
+
+window.addEventListener('storage', (e) => {
+    try {
+        if (e.key === 'ACTIVE_THEME') {
+            document.body.setAttribute('data-theme', e.newValue || 'default');
+        }
+        if (e.key === 'ACTIVE_PROJECT') {
+            onProjectChange();
+        }
+    } catch(err) {}
+});
+
+window.addEventListener('message', (e) => {
+    const data = e.data;
+    if (!data || !data.action) return;
+    
+    if (data.action === 'toggleWorkspace') {
+        toggleWorkspace();
+    } else if (data.action === 'togglePreview') {
+        togglePreview();
+    } else if (data.action === 'refreshPreview') {
+        refreshPreview();
+    } else if (data.action === 'portChange') {
+        const portInput = document.getElementById('preview-port');
+        if (portInput) portInput.value = data.val;
+        refreshPreview();
+    } else if (data.action === 'launchLocalServer') {
+        launchLocalServer();
+    } else if (data.action === 'setPreviewMode') {
+        setPreviewMode(data.mode);
+    } else if (data.action === 'onZoomSliderInput') {
+        onZoomSliderInput(data.val);
+    } else if (data.action === 'resetZoomPan') {
+        resetZoomPan();
+    } else if (data.action === 'missionCapture') {
+        missionCapture();
+    } else if (data.action === 'missionRevert') {
+        missionRevert();
+    } else if (data.action === 'projectChange') {
+        onProjectChange();
+    } else if (data.action === 'themeChange') {
+        document.body.setAttribute('data-theme', data.val);
+    }
+});
+
+onProjectChange();
+setInterval(updateBackupCount, 5000);
+</script>
+</body>
+</html>

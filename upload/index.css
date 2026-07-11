@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+
+:root {
+    --bg: #0b1120;
+    --s1: #111827;
+    --s2: #1e2d3d;
+    --cyan: #00d2ff;
+    --gold: #ffd700;
+    --red: #ff4b2b;
+    --green: #4ade80;
+    --purple: #a855f7;
+    --glass: rgba(255, 255, 255, 0.03);
+    --border: rgba(255, 255, 255, 0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: #fff;
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+.glass-theme {
+    background: radial-gradient(circle at top right, #1e1b4b, #0b1120);
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    margin-bottom: 30px;
+}
+
+h1 { font-weight: 900; letter-spacing: -1px; }
+
+.btn-launch {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-launch:active { transform: scale(0.9); }
+
+/* Scrollbar Style */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 210, 255, 0.3); border-radius: 10px; }

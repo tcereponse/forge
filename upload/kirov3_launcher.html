@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>ELITE FORGE — KIROV MASTER LAUNCHER vG50</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&family=Literata:wght@700;800;900&family=Fira+Code:wght@400;500&display=swap');
+
+        :root {
+            --primary: #4a7c59;
+            --secondary: #6b6358;
+            --accent: #705c30;
+            --bg: #faf6f0;
+            --card-bg: #ffffff;
+            --border: #e4e0d8;
+            --success: #78a886;
+            --error: #b83230;
+            --text-main: #2e3230;
+            --text-muted: #5e5548;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text-main);
+            font-family: 'Nunito Sans', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* GRILLE DYNAMIQUE ET LUMIÈRE D'AMBIANCE */
+        .grid-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg);
+            z-index: -2;
+        }
+
+        .glow-overlay {
+            position: fixed;
+            top: -20%; left: 30%; width: 50vw; height: 50vw;
+            background: radial-gradient(circle, rgba(120, 168, 134, 0.1) 0%, transparent 70%);
+            z-index: -1;
+            filter: blur(80px);
+            pointer-events: none;
+        }
+
+        /* HEADER */
+        header {
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: rgba(250, 246, 240, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .logo-box {
+            display: flex;
+            flex-direction: column;
+        }
+        .logo {
+            font-family: 'Literata', serif;
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -1.5px;
+        }
+        .subtitle {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        /* ACTIONS EN HAUT */
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        @media(max-width: 768px) {
+            header {
+                padding: 15px 15px;
+            }
+            .logo {
+                font-size: 20px;
+            }
+            .subtitle {
+                font-size: 8px;
+                letter-spacing: 2px;
+            }
+            .header-actions {
+                gap: 8px;
+            }
+        }
+
+        /* CONTAINER PRINCIPAL */
+        .main-wrapper {
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        @media(max-width: 768px) {
+            .main-wrapper {
+                padding: 15px 10px;
+                gap: 20px;
+            }
+        }
+
+        /* CARROUSEL DE PROJETS SUR-MESURE */
+        .carousel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+        .section-title {
+            font-family: 'Literata', serif;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .carousel-nav {
+            display: flex;
+            gap: 10px;
+        }
+        .nav-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .nav-btn:hover {
+            background: #f0ece4;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .carousel-viewport {
+            overflow: hidden;
+            width: 100%;
+            padding: 10px 0;
+        }
+        .carousel-track {
+            display: flex;
+            gap: 20px;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+        }
+        .project-card {
+            min-width: 280px;
+            max-width: 280px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 15px -3px rgba(74, 124, 89, 0.1);
+        }
+        .project-card.active {
+            border-color: var(--accent);
+            background: #f5f0e8;
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+        .project-card.active::before {
+            content: "CIBLE ACTIVE";
+            position: absolute;
+            top: 15px; right: 15px;
+            background: var(--accent);
+            color: white;
+            font-size: 7.5px;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: 12px;
+            letter-spacing: 1px;
+        }
+        .card-icon {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        .card-name {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .card-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: auto;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* DEUX COLONNES DE PILOTAGE */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* 📺 PANNEAU PREVIEW DIRECT */
+        .preview-panel {
+            width: 0;
+            opacity: 0;
+            overflow: hidden;
+            background: var(--bg);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 80;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .preview-panel.active {
+            flex: 1.2; /* Part de l'écran à droite */
+            width: auto;
+            opacity: 1;
+        }
+        .preview-iframe {
+            flex: 1;
+            border: none;
+            background: #ffffff;
+        }
+        .workspace-column {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        @media(max-width: 1024px) {
+            .workspace-grid { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .panel-title {
+            font-family: 'Literata', serif;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--primary);
+            margin: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        @media(max-width: 768px) {
+            .panel {
+                padding: 18px;
+                gap: 15px;
+            }
+        }
+
+        /* GRILLE DE SÉLECTEURS RESPONSIVE */
+        .selector-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+        }
+        @media(max-width: 768px) {
+            .selector-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+
+        /* INPUT GROUPS */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        input, select, textarea {
+            width: 100%;
+            background: #f5f1ea;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            color: var(--text-main);
+            font-family: 'Nunito Sans', sans-serif;
+            font-size: 15.5px;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.3s;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.2);
+            background: #ffffff;
+        }
+        textarea { resize: none; }
+
+        /* BOUTONS ET INTERACTIONS */
+        .btn {
+            width: 100%;
+            padding: 20px;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-family: 'Nunito Sans', sans-serif;
+            font-size: 15.5px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-detonate {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(112, 92, 48, 0.2);
+        }
+        .btn-detonate:hover {
+            transform: translateY(-2px);
+            background: #5e4d28;
+            box-shadow: 0 6px 8px -1px rgba(112, 92, 48, 0.3);
+        }
+        .btn-action {
+            background: #f0ece4;
+            color: var(--primary);
+            border: 1px solid var(--border);
+        }
+        .btn-action:hover:not(:disabled) {
+            background: #e4e0d8;
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        .btn-build {
+            background: var(--primary);
+            box-shadow: 0 4px 6px -1px rgba(74, 124, 89, 0.2);
+        }
+        .btn-build:hover:not(:disabled) {
+            transform: translateY(-2px);
+            background: #3d664a;
+            box-shadow: 0 6px 8px -1px rgba(74, 124, 89, 0.3);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* PANNEAU DE SUIVI RADAR */
+        .radar-box {
+            grid-column: span 2;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .radar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .radar-title {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+        .radar-steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .step {
+            background: #f5f1ea;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            font-size: 9.5px;
+            font-weight: 800;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+        .step.active {
+            background: #f0ece4;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .step.done {
+            background: #eaf3ec;
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        @media(max-width: 480px) {
+            .radar-steps {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            .step {
+                font-size: 8px;
+                padding: 8px 5px;
+            }
+        }
+
+        /* CONSOLE LOGS */
+        .console-container {
+            grid-column: span 2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .console {
+            height: 160px;
+            background: #f5f1ea;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            overflow-y: scroll;
+            -webkit-overflow-scrolling: touch;
+            color: var(--text-main);
+            line-height: 1.6;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* BARRE DE STATUT */
+        footer {
+            margin-top: auto;
+            background: #f0ece4;
+            border-top: 1px solid var(--border);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        .status-online {
+            color: var(--primary);
+            font-weight: 800;
+        }
+        .status-offline {
+            color: var(--error);
+            font-weight: 800;
+        }
+
+        @media(max-width: 768px) {
+            footer {
+                padding: 10px 15px;
+                flex-direction: column;
+                gap: 5px;
+                align-items: center;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="glow-overlay"></div>
+
+    <!-- HEADER SOUVERAIN -->
+    <header>
+        <div class="logo-box">
+            <span class="logo" onclick="location.href='kirov3_launcher.html'" style="cursor:pointer">KIROV MASTER</span>
+            <span class="subtitle">Sovereign Forge G50</span>
+        </div>
+        <div class="header-actions">
+            <button class="nav-btn" onclick="location.href='settings.html'" title="Configuration">⚙️</button>
+            <button class="nav-btn" onclick="location.href='workspace.html'" title="Explorateur de Fichiers">💻</button>
+            <button class="nav-btn" onclick="location.href='ai.html'" title="Interface IA">🤖</button>
+        </div>
+    </header>
+
+    <div class="main-wrapper">
+        <div class="workspace-grid" id="main-workspace-grid">
+            <!-- CARTE GAUCHE : DÉTONATION & WORKFLOW DE PHASES (1 à 4) -->
+            <div class="panel" style="gap: 25px; display: flex; flex-direction: column;">
+                <h3 class="panel-title" style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <button id="toggle-params-btn" onclick="toggleParamsCard()" style="background: #f0ece4; border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px; font-size: 11px; font-weight: 800; color: var(--primary); cursor: pointer; transition: all 0.2s; font-family: inherit; text-transform: uppercase; letter-spacing: 1px;">⚙️ MASQUER CONFIG</button>
+                </h3>
+                
+                <div class="input-group">
+                    <label>Nom du Projet</label>
+                    <input id="project-name" placeholder="Ex: Tetris_Diamond" type="text"/>
+                </div>
+                
+                <div class="input-group" style="flex-grow: 1; display: flex; flex-direction: column;">
+                    <label>Vision / Description</label>
+                    <textarea id="project-desc" placeholder="Décrivez l'application à générer (ex: Jeu de Tetris fluide en dark mode...)" style="flex-grow: 1; min-height: 250px; resize: vertical;"></textarea>
+                </div>
+                
+                <div style="border-top: 1px dashed var(--border); margin: 5px 0;"></div>
+                
+                <div>
+                    <h3 class="panel-title" style="margin-bottom: 20px; font-size: 11px; color: var(--accent);">⚡ PILOTAGE DES PHASES DE FORGE (P0 - P4)</h3>
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label>Phase 0 : Réveil Cognitif &amp; Cadrage</label>
+                            <button class="btn btn-detonate" id="btn-p0" onclick="triggerP0()" style="background: linear-gradient(135deg, #00d2ff, #0072ff); color: white; box-shadow: 0 4px 15px rgba(0, 114, 255, 0.35);">🚀 RÉVEIL COGNITIF (P0)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label>Phase 1 : Détonation Active (PRDs)</label>
+                            <button class="btn btn-detonate" id="btn-p1" onclick="triggerP1()">🔥 DÉTONATION PRDs (P1)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label>Phase 2 : Génération de Code</label>
+                            <button class="btn btn-action" id="btn-p2" onclick="triggerP2()">⚡ RÉGÉNÉRER CODE (P2)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label>Phase 3 : Serveur Local &amp; Aperçu (5173)</label>
+                            <button class="btn btn-action" id="btn-p3" onclick="launchLocalServer()" style="background: rgba(74, 124, 89, 0.15); color: var(--primary); border-color: rgba(74, 124, 89, 0.4);">🚀 DÉMARRER SERVEUR (5173)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label>Phase 4 : Forge APK Native</label>
+                            <button class="btn btn-build" id="btn-p4" onclick="triggerP4()">📦 LANCER LE BUILD APK (P4)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
+                            <label style="color: #ffd700; font-weight: 900;">⚡ GRADE GOLD — ONE-TOUCH TOTAL (P5)</label>
+                            <button id="btn-p5-onetouch" onclick="triggerOneTouchP5()" style="background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700); background-size: 200% 200%; animation: goldPulseKirov 2s ease infinite; border: 2px solid gold; border-radius: 14px; padding: 18px; color: #000; font-size: 13px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 6px 30px rgba(255,215,0,0.5);">💎 ONE-TOUCH — APK DE A À Z (P5)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
+                            <label style="color: #ff00ff; font-weight: 900;">🚀 PROTOCOLE ARCHITECTURE STRICTE (P6)</label>
+                            <button id="btn-p6" onclick="triggerP6()" style="background: linear-gradient(135deg, #ff00ff, #8a2be2); border: 2px solid #ff00ff; border-radius: 14px; padding: 18px; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 6px 30px rgba(255,0,255,0.5); text-transform: uppercase;">🚀 INJECTER PROTOCOLE P6 (FLAT ARCHITECTURE)</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
+                            <label style="color: #0ea5e9; font-weight: 900;">💻 INJECTION PC (DEVELOPER UTILS)</label>
+                            <button id="btn-pc-injector" onclick="window.open(API_BASE + '/v1/tools/injector', '_blank')" style="background: linear-gradient(135deg, #0ea5e9, #2563eb); border: 2px solid #38bdf8; border-radius: 14px; padding: 18px; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 6px 30px rgba(14,165,233,0.5); text-transform: uppercase;">💻 INJECTEUR PC</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARTE DROITE : PARAMÈTRES & TARGET SELECTION (3 COLONNES) -->
+            <div class="panel" id="right-params-panel" style="gap: 20px; display: flex; flex-direction: column;">
+                <h3 class="panel-title" style="margin-bottom: 5px;">⚡ Paramètres &amp; Cibles</h3>
+                <div id="params-card-body" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+                    
+                    <div class="selector-grid">
+                        <!-- STACK TECHNIQUE -->
+                        <div class="input-group">
+                            <select id="project-stack" onchange="updateStackStructure()" style="width: 100%; font-weight: 700; color: var(--text-main); background: #f5f1ea; border: 1px solid var(--border); border-radius: 12px; padding: 10px;">
+                                <option value="react">⚛️ React (Vite / TypeScript)</option>
+                                <option value="nextjs">🌑 Next.js (App Router)</option>
+                                <option value="expostack_hono">📱 ExpoStack (Hono + tRPC)</option>
+                                <option value="expostack_ai">🤖 ExpoStack AI-Native</option>
+                                <option value="expostack_rt">⚡ ExpoStack Real-time</option>
+                                <option value="expostack_offline">💾 ExpoStack Offline-First</option>
+                                <option value="turborepo_nest">🦅 Turborepo (Next + Nest)</option>
+                                <option value="turborepo_python">🐍 Turborepo (Next + Python)</option>
+                                <option value="solito">💫 Solito (Expo + Next)</option>
+                                <option value="react_native">📲 React Native (Expo)</option>
+                                <option value="flutter">🐦 Flutter (Dart)</option>
+                                <option value="ios">🍎 iOS (SwiftUI)</option>
+                                <option value="android">🤖 Android (Kotlin)</option>
+                                <option value="html_css_js">🌐 HTML/CSS/JS</option>
+                                <option value="extension">📡 Extension Navigateur</option>
+                                <option value="streamlit">📊 Streamlit (AI/Data)</option>
+                                <option value="game_expostack">🎮 Game ExpoStack (WebGPU)</option>
+                                <option value="electron">🖥️ Electron</option>
+                                <option value="tauri">🦀 Tauri (Rust)</option>
+                                <option value="pentagon">🏢 Enterprise Pentagon (5-Level)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- INTELLIGENCE CIBLE -->
+                        <div class="input-group">
+                            <select id="ai-selector" onchange="saveAISelection()" style="width: 100%; font-weight: 700; color: var(--text-main); background: #f5f1ea; border: 1px solid var(--border); border-radius: 12px; padding: 10px;">
+                                <option value="agent_tiger.html?engine=deepseek">🐅 Agent Tiger (DeepSeek)</option>
+                                <option value="agent_tiger.html?engine=gemini">🐅 Agent Tiger (Gemini)</option>
+                                <option value="agent_tiger.html?engine=openai">🐅 Agent Tiger (OpenAI)</option>
+                                <option value="https://chat.deepseek.com/">🐋 DeepSeek Web</option>
+                                <option value="https://gemini.google.com/">✨ Google Gemini Web</option>
+                                <option value="https://chatgpt.com/">🟢 ChatGPT Web</option>
+                                <option value="https://www.perplexity.ai/">🌐 Perplexity Web</option>
+                            </select>
+                        </div>
+                        
+                        <!-- CIBLE DE COMPILATION -->
+                        <div class="input-group">
+                            <label>🏗️ Cible courante</label>
+                            <select id="target-project-select" onchange="selectProject(this.value)" style="width: 100%; font-weight: 800; color: var(--accent); background: #f5f1ea; border: 1px solid var(--border); border-radius: 12px; padding: 10px;">
+                                <option value="">-- CHOISIR PROJET --</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="border-top: 1px dashed var(--border); margin: 5px 0;"></div>
+                    
+                    <!-- BOÎTE DE STRUCTURE DE LA STACK AVEC ONGLETS -->
+                    <div id="stack-structure-box" style="background: #f5f1ea; border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                            <span style="font-size: 13px; font-weight: 800; color: var(--primary); letter-spacing: 1px; text-transform: uppercase;">📂 Structure de l'Architecture Matérialisée</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="tab-struct-simple" onclick="setStructureTab('simple')" style="background: #eaf3ec; border: 1px solid var(--success); border-radius: 12px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--primary); cursor: pointer; transition: all 0.2s; font-family: inherit;">🌱 SIMPLE</button>
+                                <button id="tab-struct-complex" onclick="setStructureTab('complex')" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: all 0.2s; font-family: inherit;">🏗️ COMPLEXE</button>
+                                <button id="tab-struct-scripts" onclick="setStructureTab('scripts')" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--accent); cursor: pointer; transition: all 0.2s; font-family: inherit;">🔧 SCRIPTS</button>
+                            </div>
+                        </div>
+                        <pre id="stack-structure-tree" style="margin: 0; font-family: 'Fira Code', monospace; font-size: 14px; color: var(--text-main); line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; min-height: 400px; padding: 5px;"></pre>
+                    </div>
+            </div>
+        </div>
+        
+        <!-- 📺 PANNEAU PREVIEW DIRECT -->
+        <div id="preview-panel" class="preview-panel">
+            <div id="viewport-wrapper" style="flex: 1; overflow: hidden; position: relative; width: 100%; height: 100%; background: #e4e0d8;">
+                <!-- Overlay invisible qui intercepte les gestures tactiles -->
+                <div id="gesture-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: none; background: rgba(0,0,0,0.01);"></div>
+                <iframe id="preview-frame" class="preview-iframe" src="about:blank" style="width: 100%; height: 100%; border: none; transform-origin: 0 0; position: absolute; top: 0; left: 0;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIED DE PAGE STATUTS -->
+    <footer>
+        <div>NEXUS : <span class="status-offline" id="nexus-status">OFFLINE</span></div>
+    </footer>
+
+    <script>
+        const API_BASE = window.location.origin.startsWith('file') || window.location.origin.includes(':3000')
+            ? 'http://127.0.0.1:5005' 
+            : window.location.origin;
+        let selectedProject = "";
+        let isInteractingWithSelect = false;
+        let carouselIndex = 0;
+
+        // ============================================================
+        // CARTOGRAPHIE DES STRUCTURES DE PROJET PAR STACK (SIMPLE & COMPLEXE)
+        // ============================================================
+        let activeStructTab = "simple";
+
+        const STACK_STRUCTURES = {
+            "react": {
+                "simple": `📂 React (Vite) - Structure Simple
+├── .npmrc (PNPM hoist configuration)
+├── launcher.bat (Auto-install & Run)
+├── index.html
+├── vite.config.ts
+├── package.json
+└── src/
+     ├── App.tsx
+     ├── main.tsx
+     ├── components/
+     ├── pages/
+     └── styles/`,
+                "complex": `📂 React (Vite) - Structure Complexe (Tailwind v4 Optimized)
+├── .npmrc (PNPM hoist configuration)
+├── launcher.bat (Auto-install & Run)
+├── index.html
+├── vite.config.ts
+├── tailwind.config.ts
+├── postcss.config.js (Utilise @tailwindcss/postcss)
+├── package.json
+└── src/
+     ├── app/
+     ├── features/
+     └── shared/`
+            },
+            "nextjs": {
+                "simple": `📂 Next.js (App Router) - Structure Simple
+├── app/
+│    ├── page.tsx
+│    ├── layout.tsx
+│    └── globals.css
+├── components/
+├── lib/
+└── next.config.ts`,
+                "complex": `📂 Next.js (App Router) - Structure Complexe
+├── app/
+│    ├── (auth)/
+│    ├── (dashboard)/
+│    │    ├── page.tsx
+│    │    └── layout.tsx
+│    └── api/
+│         └── {auth,data}/route.ts
+├── components/
+│    └── {ui,forms,layout}
+├── lib/
+│    └── {db,auth,utils}
+├── hooks/
+├── types/
+├── next.config.ts
+└── tailwind.config.ts`
+            },
+            "expostack_hono": {
+                "simple": `📂 ExpoStack (Hono + tRPC) - Structure Simple
+├── app/ (Expo Router)
+├── server/ (Hono)
+├── drizzle/
+│    └── schema.ts
+└── shared/`,
+                "complex": `📂 ExpoStack (Hono + tRPC) - Structure Complexe
+├── app/
+│    ├── (tabs)/
+│    └── _layout.tsx
+├── server/
+│    ├── _core/
+│    └── routes/
+├── drizzle/
+│    └── migrations/
+├── components/
+│    └── ui/
+└── shared/
+     └── types.ts`
+            },
+            "expostack_ai": {
+                "simple": `📂 ExpoStack AI-Native - Structure Simple
+├── app/
+│    └── chat/
+├── server/
+│    └── agents/
+└── shared/
+     └── schemas/`,
+                "complex": `📂 ExpoStack AI-Native - Structure Complexe
+├── app/
+│    └── orchestration/
+├── server/
+│    ├── services/ai/
+│    └── skills/
+├── lib/
+│    └── vector-db/
+└── shared/
+     └── prompts.ts`
+            },
+            "expostack_rt": {
+                "simple": `📂 ExpoStack Real-time - Structure Simple
+├── app/
+│    └── rooms/
+├── server/
+│    └── websockets/
+└── shared/
+     └── events/`,
+                "complex": `📂 ExpoStack Real-time - Structure Complexe
+├── app/
+│    └── multiplayer/
+├── server/
+│    ├── ws-handlers/
+│    └── state-manager/
+└── shared/
+     └── sync-protocol.ts`
+            },
+            "expostack_offline": {
+                "simple": `📂 ExpoStack Offline-First - Structure Simple
+├── app/
+│    └── db-local/
+├── server/
+│    └── sync-api/
+└── shared/
+     └── models/`,
+                "complex": `📂 ExpoStack Offline-First - Structure Complexe
+├── app/
+│    └── storage/sqlite/
+├── server/
+│    ├── replication-log/
+│    └── conflict-resolver/
+└── shared/
+     └── schema.ts`
+            },
+            "turborepo_nest": {
+                "simple": `📂 Turborepo (Next + Nest) - Structure Simple
+├── apps/
+│    ├── web/
+│    └── api/
+├── packages/
+│    └── ui/
+└── turbo.json`,
+                "complex": `📂 Turborepo (Next + Nest) - Structure Complexe
+├── apps/
+│    ├── web/src/{app,components}
+│    └── api/src/{modules,shared}
+├── packages/
+│    ├── config/
+│    └── database/ (Prisma/Drizzle)
+└── turbo.json`
+            },
+            "turborepo_python": {
+                "simple": `📂 Turborepo (Next + Python) - Structure Simple
+├── apps/
+│    └── web/
+├── services/
+│    └── api/ (FastAPI)
+├── packages/
+│    └── shared/
+└── turbo.json`,
+                "complex": `📂 Turborepo (Next + Python) - Structure Complexe
+├── apps/
+│    └── web/src/{app,components,lib}
+├── services/
+│    ├── api/src/{routers,models,agents}
+│    └── worker/
+├── packages/
+│    └── {shared,types,config}
+├── turbo.json
+└── pyproject.toml`
+            },
+            "t3_stack": {
+                "simple": `📂 T3 Stack (tRPC) - Structure Simple
+├── src/
+│    └── {server/routers,pages,styles}
+├── prisma/
+│    └── schema.prisma
+└── trpc/
+     └── router.ts`,
+                "complex": `📂 T3 Stack (tRPC) - Structure Complexe
+├── src/
+│    └── {server/{routers,trpc,auth,db},app/{_components,_trpc},styles}
+├── prisma/
+│    └── {schema.prisma,migrations}
+├── env.mjs
+└── tailwind.config.ts`
+            },
+            "solito": {
+                "simple": `📂 Solito (Expo + Next) - Structure Simple
+├── apps/
+│    └── {next,expo}/
+├── packages/
+│    └── {app,ui}/
+└── turbo.json`,
+                "complex": `📂 Solito (Expo + Next) - Structure Complexe
+├── apps/
+│    ├── next/src/{pages,app}
+│    └── expo/app/
+├── packages/
+│    ├── app/{features,provider,navigation}
+│    └── ui/{components,theme}
+└── turbo.json`
+            },
+            "react_native": {
+                "simple": `📂 React Native (Expo) - Structure Simple
+├── app/
+│    └── (tabs)/
+├── components/
+├── constants/
+├── assets/
+└── app.json`,
+                "complex": `📂 React Native (Expo) - Structure Complexe
+├── app/
+│    └── {(tabs),(auth),_layout.tsx}
+├── components/
+│    └── {ui,forms,navigation}
+├── hooks/
+├── services/
+├── store/ (Zustand/Redux)
+├── assets/
+├── app.json
+└── eas.json`
+            },
+            "flutter": {
+                "simple": `📂 Flutter (Dart) - Structure Simple
+├── lib/
+│    ├── main.dart
+│    ├── screens/
+│    └── widgets/
+└── pubspec.yaml`,
+                "complex": `📂 Flutter (Dart) - Structure Complexe
+├── lib/
+│    ├── core/{theme,router,di}
+│    ├── features/{auth,home}/{data,domain,presentation}
+│    └── shared/{widgets,utils}
+├── test/
+└── pubspec.yaml`
+            },
+            "ios": {
+                "simple": `📂 iOS (SwiftUI) - Structure Simple
+├── Sources/
+│    ├── App.swift
+│    ├── Views/
+│    └── Models/
+├── Resources/
+└── Package.swift`,
+                "complex": `📂 iOS (SwiftUI) - Structure Complexe
+├── Sources/
+│    ├── App/{AppEntry,Router}
+│    ├── Features/{Auth,Home}/{View,ViewModel,Model}
+│    ├── Core/{Network,Storage,DI}
+│    └── Shared/{Components,Extensions}
+├── Tests/
+└── Package.swift`
+            },
+            "android": {
+                "simple": `📂 Android (Kotlin) - Structure Simple
+├── app/src/main/
+│    ├── java/com/app/{ui,data}
+│    ├── res/
+│    └── AndroidManifest.xml
+└── build.gradle.kts`,
+                "complex": `📂 Android (Kotlin) - Structure Complexe
+├── app/src/main/
+│    ├── java/com/app/
+│    │    ├── core/{di,network,db}
+│    │    ├── features/{auth,home}/{ui,data,domain}
+│    │    └── shared/{ui,util}
+│    ├── res/{layout,drawable,values}
+│    └── AndroidManifest.xml
+└── build.gradle.kts`
+            },
+            "html_css_js": {
+                "simple": `📂 HTML/CSS/JS - Structure Simple
+├── index.html
+├── style.css
+└── script.js`,
+                "complex": `📂 HTML/CSS/JS - Structure Complexe
+├── index.html
+├── assets/{css,js,img}
+├── src/modules/
+├── components/
+└── .prettierrc`
+            },
+            "astro": {
+                "simple": `📂 Astro - Structure Simple
+├── src/
+│    ├── pages/index.astro
+│    └── components/
+├── public/
+└── astro.config.mjs`,
+                "complex": `📂 Astro - Structure Complexe
+├── src/
+│    └── {content,layouts,components,lib,styles}
+├── public/assets/
+├── astro.config.mjs
+└── tailwind.config.cjs`
+            },
+            "extension": {
+                "simple": `📂 Extension Navigateur - Structure Simple
+├── manifest.json
+├── background.js
+├── popup.html
+└── popup.js`,
+                "complex": `📂 Extension Navigateur - Structure Complexe
+├── src/
+│    └── {background,popup,options,content,shared}
+├── manifest.json
+└── webpack.config.js`
+            },
+            "streamlit": {
+                "simple": `📂 Streamlit (AI/Data) - Structure Simple
+├── app.py
+├── requirements.txt
+└── data/`,
+                "complex": `📂 Streamlit (AI/Data) - Structure Complexe
+├── pages/
+├── scripts/
+├── data/processed/
+├── utils/
+├── app.py
+└── Dockerfile`
+            },
+            "game_expostack": {
+                "simple": `📂 Game ExpoStack (WebGPU) - Structure Simple
+├── apps/mobile/
+├── packages/
+│    ├── backend/
+│    └── shared/
+└── turbo.json`,
+                "complex": `📂 Game ExpoStack (WebGPU) - Structure Complexe
+├── apps/
+│    └── {web,mobile}/
+├── packages/
+│    └── {backend,db,shared,ui}/
+├── turbo.json
+├── bun.lockb
+└── apps/mobile/app/webgpu-canvas.tsx`
+            },
+            "electron": {
+                "simple": `📂 Electron - Structure Simple
+├── src/
+│    ├── main.ts
+│    ├── preload.ts
+│    └── renderer/
+│         ├── index.html
+│         └── app.tsx
+└── electron-builder.yml`,
+                "complex": `📂 Electron - Structure Complexe
+├── src/
+│    ├── main/{ipc,menu,updater,main.ts}
+│    ├── preload/preload.ts
+│    └── renderer/{app,components,pages,hooks,store}
+├── electron-builder.yml
+└── forge.config.ts`
+            },
+            "tauri": {
+                "simple": `📂 Tauri (Rust) - Structure Simple
+├── src/ (UI frontend)
+└── src-tauri/
+     ├── src/main.rs
+     └── Cargo.toml`,
+                "complex": `📂 Tauri (Rust) - Structure Complexe
+├── src/
+│    └── {components,hooks,styles}
+└── src-tauri/
+     ├── src/{commands,models,main.rs}
+     └── capabilities/`
+            },
+            "pentagon": {
+                "simple": `📂 Enterprise Pentagon (5-Level) - Structure Simple
+├── Level1_Central/
+├── Level2_Transmission/
+├── Level3_Substation/
+├── Level4_Microgrid/
+└── Level5_EndUser/`,
+                "complex": `📂 Enterprise Pentagon (5-Level) - Structure Complexe
+└── src/
+     ├── Level1_CentralController/System.ts
+     ├── Level2_TransmissionNetwork/Store.ts
+     ├── Level3_Substation/Logic.ts
+     ├── Level4_Microgrid/Atoms.ts
+     └── Level5_EndUser/Dashboard.tsx`
+            }
+        };
+
+        // ============================================================
+        // SCRIPTS BATCH PAR STACK — GRAVÉS DANS LE MARBRE (G50+)
+        // Chaque stack a son launcher.bat (dev) et FIX_AND_BUILD.bat (secours)
+        // RÈGLE CMD : JAMAIS de parenthèses dans les echo à l'intérieur des blocs if
+        // ============================================================
+        const STACK_SCRIPTS = {
+            "react": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER
+cd /d "%~dp0"
+echo [FORGE] Lancement du projet React+Vite...
+if exist package.json (
+    if not exist node_modules\.bin (
+        echo [FORGE] Dependances absentes. Installation...
+        npm install --legacy-peer-deps
+    )
+)
+npm run dev -- --host --port 5173
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE ===
+del /f /q package.js tsconfig.js tsconfig.node.js app.js App.ts pnpm-lock.yaml 2>nul
+if exist src (
+    cd src
+    del /f /s /q *.vue >nul 2>&1
+    cd ..
+)
+if exist node_modules (
+    echo Suppression node_modules - cela peut prendre 1 a 2 minutes...
+    rmdir /s /q node_modules
+)
+if exist package-lock.json del /f /q package-lock.json
+echo === INSTALLATION ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR INSTALLATION & pause & exit /b 1 )
+echo === BUILD ===
+call npm run build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+pause`,
+
+            "nextjs": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Next.js
+cd /d "%~dp0"
+if not exist node_modules\.bin (
+    echo Installation des dependances Next.js...
+    npm install --legacy-peer-deps
+)
+npm run dev -- --port 3000
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE ===
+if exist node_modules rmdir /s /q node_modules
+if exist .next rmdir /s /q .next
+if exist package-lock.json del /f /q package-lock.json
+echo === INSTALLATION ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR INSTALLATION & pause & exit /b 1 )
+echo === BUILD ===
+call npm run build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+pause`,
+
+            "turborepo_nest": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Turborepo
+cd /d "%~dp0"
+if not exist node_modules (
+    echo Installation des dependances Turborepo (pnpm)...
+    pnpm install
+)
+pnpm dev
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE TURBOREPO ===
+for /d /r . %%d in (node_modules) do (
+    if exist "%%d" rmdir /s /q "%%d"
+)
+if exist .turbo rmdir /s /q .turbo
+echo === INSTALLATION ===
+call pnpm install
+if errorlevel 1 ( echo ERREUR PNPM INSTALL & pause & exit /b 1 )
+echo === BUILD ===
+call pnpm build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+pause`,
+
+            "turborepo_python": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Turborepo+Python
+cd /d "%~dp0"
+if not exist node_modules pnpm install
+start "API Python" cmd /k "cd services\api && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+pnpm dev
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE ===
+for /d /r . %%d in (node_modules) do ( if exist "%%d" rmdir /s /q "%%d" )
+if exist .turbo rmdir /s /q .turbo
+if exist services\api\.venv rmdir /s /q services\api\.venv
+echo === INSTALLATION NODE ===
+call pnpm install
+if errorlevel 1 ( echo ERREUR PNPM & pause & exit /b 1 )
+echo === INSTALLATION PYTHON ===
+cd services\api
+python -m venv .venv
+call .venv\Scripts\activate.bat
+pip install -r requirements.txt
+cd ..\..
+echo === BUILD ===
+call pnpm build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+pause`,
+
+            "streamlit": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Streamlit
+cd /d "%~dp0"
+if not exist .venv (
+    echo Creation de l environnement virtuel Python...
+    python -m venv .venv
+    call .venv\Scripts\activate.bat
+    pip install -r requirements.txt
+) else (
+    call .venv\Scripts\activate.bat
+)
+streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE PYTHON ===
+if exist .venv rmdir /s /q .venv
+for /d /r . %%d in (__pycache__) do ( if exist "%%d" rmdir /s /q "%%d" )
+del /f /s /q *.pyc 2>nul
+echo === REINSTALLATION ===
+python -m venv .venv
+call .venv\Scripts\activate.bat
+pip install -r requirements.txt
+if errorlevel 1 ( echo ERREUR PIP & pause & exit /b 1 )
+echo === VALIDATION ===
+streamlit run app.py --server.headless true &
+pause`,
+
+            "flutter": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Flutter
+cd /d "%~dp0"
+echo Verification des dependances Flutter...
+call flutter pub get
+echo Demarrage en mode Chrome...
+call flutter run -d chrome
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE FLUTTER ===
+call flutter clean
+echo === REINSTALLATION ===
+call flutter pub get
+if errorlevel 1 ( echo ERREUR PUB GET & pause & exit /b 1 )
+echo === BUILD APK RELEASE ===
+call flutter build apk --release
+if errorlevel 1 ( echo ERREUR BUILD FLUTTER & pause & exit /b 1 )
+echo APK genere dans build\app\outputs\flutter-apk\
+pause`,
+
+            "electron": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Electron
+cd /d "%~dp0"
+if not exist node_modules\.bin (
+    echo Installation des dependances Electron...
+    npm install --legacy-peer-deps
+)
+npm start
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE ELECTRON ===
+if exist node_modules rmdir /s /q node_modules
+if exist dist rmdir /s /q dist
+if exist out rmdir /s /q out
+if exist package-lock.json del /f /q package-lock.json
+echo === INSTALLATION ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR INSTALL & pause & exit /b 1 )
+echo === BUILD ===
+call npm run build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+pause`,
+
+            "tauri": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Tauri (Rust)
+cd /d "%~dp0"
+if not exist node_modules\.bin (
+    npm install --legacy-peer-deps
+)
+npm run tauri dev
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE TAURI+RUST ===
+if exist node_modules rmdir /s /q node_modules
+if exist src-tauri\target rmdir /s /q src-tauri\target
+if exist dist rmdir /s /q dist
+echo === INSTALLATION NODE ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR NPM & pause & exit /b 1 )
+echo === BUILD TAURI ===
+call npm run tauri build
+if errorlevel 1 ( echo ERREUR TAURI BUILD & pause & exit /b 1 )
+echo Bundle disponible dans src-tauri\target\release\bundle\
+pause`,
+
+            "react_native": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - React Native Expo
+cd /d "%~dp0"
+if not exist node_modules\.bin (
+    npm install --legacy-peer-deps
+)
+npx expo start --tunnel
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE EXPO ===
+if exist node_modules rmdir /s /q node_modules
+if exist .expo rmdir /s /q .expo
+if exist android\build rmdir /s /q android\build
+if exist package-lock.json del /f /q package-lock.json
+echo === INSTALLATION ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR INSTALL & pause & exit /b 1 )
+echo === PREBUILD ANDROID ===
+call npx expo prebuild --clean
+if errorlevel 1 ( echo ERREUR PREBUILD & pause & exit /b 1 )
+pause`,
+
+            "html_css_js": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - HTML/CSS/JS
+cd /d "%~dp0"
+echo Ouverture du projet dans le navigateur...
+start "" "index.html"
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === VALIDATION HTML/CSS/JS ===
+echo Structure verifiee. Aucun build requis pour un projet HTML statique.
+echo Ouvrir index.html dans le navigateur pour tester.
+pause`,
+
+            "extension": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER - Extension Navigateur
+cd /d "%~dp0"
+if not exist node_modules\.bin (
+    npm install --legacy-peer-deps
+)
+npm run watch
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE EXTENSION ===
+if exist node_modules rmdir /s /q node_modules
+if exist dist rmdir /s /q dist
+if exist package-lock.json del /f /q package-lock.json
+echo === INSTALLATION ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR INSTALL & pause & exit /b 1 )
+echo === BUILD EXTENSION ===
+call npm run build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+echo Extension buildee dans dist/ - Charger dans Chrome via chrome://extensions
+pause`,
+
+            "_default": `🚀 LAUNCHER.BAT
+@echo off
+title FORGE LAUNCHER
+cd /d "%~dp0"
+if not exist node_modules\.bin (
+    echo Installation des dependances...
+    npm install --legacy-peer-deps
+)
+npm run dev -- --host --port 5173
+pause
+
+🔧 FIX_AND_BUILD.BAT
+@echo off
+cd /d "%~dp0"
+echo === NETTOYAGE ===
+if exist node_modules rmdir /s /q node_modules
+if exist dist rmdir /s /q dist
+if exist package-lock.json del /f /q package-lock.json
+echo === INSTALLATION ===
+call npm install --legacy-peer-deps
+if errorlevel 1 ( echo ERREUR INSTALL & pause & exit /b 1 )
+echo === BUILD ===
+call npm run build
+if errorlevel 1 ( echo ERREUR BUILD & pause & exit /b 1 )
+pause`
+        };
+        // Alias pour les stacks partageant le même template
+        STACK_SCRIPTS['nextjs'] = STACK_SCRIPTS['nextjs'] || STACK_SCRIPTS['_default'];
+        STACK_SCRIPTS['expostack_hono'] = STACK_SCRIPTS['react'];
+        STACK_SCRIPTS['expostack_ai'] = STACK_SCRIPTS['react'];
+        STACK_SCRIPTS['expostack_rt'] = STACK_SCRIPTS['react'];
+        STACK_SCRIPTS['expostack_offline'] = STACK_SCRIPTS['react'];
+        STACK_SCRIPTS['solito'] = STACK_SCRIPTS['turborepo_nest'];
+        STACK_SCRIPTS['game_expostack'] = STACK_SCRIPTS['turborepo_nest'];
+        STACK_SCRIPTS['pentagon'] = STACK_SCRIPTS['react'];
+        STACK_SCRIPTS['ios'] = `🚀 LAUNCHER.BAT\n(Script iOS - utiliser Xcode ou swift run directement)\n\n🔧 FIX_AND_BUILD.BAT\n@echo off\necho iOS: Utiliser Xcode pour builder. swift package clean + swift build.\npause`;
+        STACK_SCRIPTS['android'] = `🚀 LAUNCHER.BAT\n(Script Android - utiliser Android Studio directement)\n\n🔧 FIX_AND_BUILD.BAT\n@echo off\necho Android: Utiliser Android Studio. ./gradlew clean assembleRelease\npause`;
+
+        let activeScriptsTab = false;
+
+        function updateStackStructure() {
+            const stack = document.getElementById('project-stack').value;
+            const tree = document.getElementById('stack-structure-tree');
+            if (!tree) return;
+            if (activeScriptsTab) {
+                const scripts = STACK_SCRIPTS[stack] || STACK_SCRIPTS['_default'];
+                tree.style.color = 'var(--accent)';
+                tree.style.fontSize = '11px';
+                tree.textContent = scripts;
+            } else if (STACK_STRUCTURES[stack]) {
+                tree.style.color = 'var(--text-main)';
+                tree.style.fontSize = '14px';
+                tree.textContent = STACK_STRUCTURES[stack][activeStructTab] || "📂 Structure non documentée.";
+            }
+        }
+
+        function setStructureTab(tab) {
+            activeScriptsTab = (tab === 'scripts');
+            if (tab !== 'scripts') activeStructTab = tab;
+
+            const simpleBtn = document.getElementById('tab-struct-simple');
+            const complexBtn = document.getElementById('tab-struct-complex');
+            const scriptsBtn = document.getElementById('tab-struct-scripts');
+
+            // Reset all
+            [simpleBtn, complexBtn, scriptsBtn].forEach(b => { if(b) { b.style.background = 'var(--card-bg)'; b.style.borderColor = 'var(--border)'; b.style.color = 'var(--text-muted)'; } });
+
+            if (tab === 'scripts' && scriptsBtn) {
+                scriptsBtn.style.background = '#fdf3e0';
+                scriptsBtn.style.borderColor = 'var(--accent)';
+                scriptsBtn.style.color = 'var(--accent)';
+            } else if (tab === 'simple' && simpleBtn) {
+                simpleBtn.style.background = '#eaf3ec';
+                simpleBtn.style.borderColor = 'var(--success)';
+                simpleBtn.style.color = 'var(--primary)';
+            } else if (tab === 'complex' && complexBtn) {
+                complexBtn.style.background = '#eaf3ec';
+                complexBtn.style.borderColor = 'var(--success)';
+                complexBtn.style.color = 'var(--primary)';
+            }
+
+            updateStackStructure();
+        }
+
+        function toggleParamsCard() {
+            const grid = document.getElementById('main-workspace-grid');
+            const rightPanel = document.getElementById('right-params-panel');
+            const btn = document.getElementById('toggle-params-btn');
+            
+            if (grid && rightPanel && btn) {
+                if (rightPanel.style.display === 'none') {
+                    rightPanel.style.display = 'flex';
+                    grid.style.gridTemplateColumns = '1fr 1fr';
+                    btn.innerHTML = '⚙️ MASQUER CONFIG';
+                    btn.style.background = '#f0ece4';
+                    btn.style.color = 'var(--primary)';
+                    btn.style.borderColor = 'var(--border)';
+                } else {
+                    rightPanel.style.display = 'none';
+                    grid.style.gridTemplateColumns = '1fr';
+                    btn.innerHTML = '⚙️ AFFICHER CONFIG';
+                    btn.style.background = '#f5f0e8';
+                    btn.style.color = 'var(--accent)';
+                    btn.style.borderColor = 'var(--border)';
+                }
+            }
+        }
+
+        function addLog(msg) {
+            const cons = document.getElementById('console');
+            if (cons) {
+                cons.innerHTML += `<br>> ${msg}`;
+                cons.scrollTop = cons.scrollHeight;
+            } else {
+                console.log(`> ${msg}`);
+            }
+        }
+
+        // ============================================================
+        // SÉLECTION DE PROJET SIMPLIFIÉE
+        // ============================================================
+        async function fetchProjects() {
+            if (isInteractingWithSelect) return;
+            try {
+                const r = await fetch(`${API_BASE}/v1/projects/list`);
+                const data = await r.json();
+                const select = document.getElementById('target-project-select');
+                if (!select) return;
+
+                // Diff-check: compare current options with incoming projects
+                const currentProjects = Array.from(select.options)
+                    .filter(opt => opt.value !== "")
+                    .map(opt => opt.value);
+                const newProjects = data.map(p => typeof p === 'string' ? p : p.name);
+
+                const isIdentical = currentProjects.length === newProjects.length &&
+                                    currentProjects.every((val, index) => val === newProjects[index]);
+
+                if (isIdentical) {
+                    const activeProj = localStorage.getItem('ACTIVE_PROJECT') || selectedProject;
+                    if (activeProj && select.value !== activeProj) {
+                        select.value = activeProj;
+                        selectedProject = activeProj;
+                    }
+                    return;
+                }
+
+                select.innerHTML = '<option value="">-- CHOISIR PROJET --</option>';
+                data.forEach(p => {
+                    const name = typeof p === 'string' ? p : p.name;
+                    const prdCount = typeof p === 'string' ? 0 : (p.prd_count || 0);
+                    const o = document.createElement('option');
+                    o.value = name;
+                    o.textContent = `📂 ${name.toUpperCase()} (${prdCount} PRD)`;
+                    select.appendChild(o);
+                });
+
+                const activeProj = localStorage.getItem('ACTIVE_PROJECT') || selectedProject;
+                if (activeProj) {
+                    select.value = activeProj;
+                    selectedProject = activeProj;
+                }
+                
+                addLog(`Scrutage des projets terminé : ${data.length} projets répertoriés.`);
+            } catch(e) {
+                addLog("⚠️ Erreur lors de la mise à jour de l'arborescence des projets.");
+            }
+        }
+
+        let lastSyncedActiveProject = '';
+        let syncActiveProjectTimeout = null;
+
+        function syncActiveProjectWithBridge(name, retries = 3, delay = 1000) {
+            if (!name || name === lastSyncedActiveProject) return;
+            
+            if (syncActiveProjectTimeout) {
+                clearTimeout(syncActiveProjectTimeout);
+            }
+            
+            syncActiveProjectTimeout = setTimeout(async () => {
+                try {
+                    const r = await fetch(`${API_BASE}/v1/projects/set-active`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name })
+                    });
+                    if (!r.ok) throw new Error(`Status ${r.status}`);
+                    lastSyncedActiveProject = name;
+                    addLog(`✅ [BRIDGE] Projet actif synchronisé : ${name.toUpperCase()}`);
+                } catch (err) {
+                    console.error("Erreur de synchronisation du projet actif sur le bridge:", err);
+                    if (retries > 0) {
+                        const nextDelay = delay * 2;
+                        addLog(`🔄 Nouvelle tentative de synchronisation dans ${delay}ms...`);
+                        setTimeout(() => syncActiveProjectWithBridge(name, retries - 1, nextDelay), delay);
+                    }
+                }
+            }, 300);
+        }
+
+        function selectProject(name) {
+            if (!name) return;
+            selectedProject = name;
+            localStorage.setItem('ACTIVE_PROJECT', name);
+            
+            const select = document.getElementById('target-project-select');
+            if (select) select.value = name;
+            
+            // Notifier le bridge de manière debouncée et résiliente
+            syncActiveProjectWithBridge(name);
+
+            // Propagation au parent index.html
+            if (window.parent && typeof window.parent.onGlobalProjectChange === 'function') {
+                const parentSelect = window.parent.document.getElementById('proj-context');
+                if (parentSelect && parentSelect.value !== name) {
+                    parentSelect.value = name;
+                    window.parent.onGlobalProjectChange();
+                }
+            }
+            
+            addLog(`Cible de build basculée vers : ${name.toUpperCase()}`);
+        }
+
+        // ============================================================
+        // IA ET PARAMÈTRES
+        // ============================================================
+        function saveAISelection() {
+            localStorage.setItem('selected_ai_url', document.getElementById('ai-selector').value);
+        }
+        function loadAISelection() {
+            const saved = localStorage.getItem('selected_ai_url');
+            if (saved) {
+                const select = document.getElementById('ai-selector');
+                if (select) {
+                    select.value = saved;
+                    if (select.selectedIndex === -1) {
+                        const relativePath = saved.replace(/^https?:\/\/[^\/]+\//, '');
+                        select.value = relativePath;
+                    }
+                    if (select.selectedIndex === -1) {
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (saved.includes(select.options[i].value) || select.options[i].value.includes(saved)) {
+                                select.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================================
+        // ACTION FLOWS (P0, P1, P2, P3, P4)
+        // ============================================================
+        async function triggerP0() {
+            const name = document.getElementById('project-name').value.trim();
+            const desc = document.getElementById('project-desc').value.trim();
+            const stack = document.getElementById('project-stack').value;
+            const aiUrl = document.getElementById('ai-selector').value;
+
+            if (!name || !desc) {
+                alert("Nom du projet et description obligatoires pour le Réveil Cognitif P0 !");
+                return;
+            }
+
+            localStorage.removeItem('ONE_TOUCH_ACTIVE');
+            addLog(`🚀 RÉVEIL COGNITIF MISSION P0 : Initialisation de ${name.toUpperCase()}...`);
+            
+            try {
+                const res = await fetch(`${API_BASE}/v1/mission/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, prompt: desc, stack, complexity: activeStructTab })
+                });
+
+                if (res.ok) {
+                    addLog(`✅ Phase 0 Réussie. Le prompt de cadrage/réveil cognitif est prêt.`);
+                    saveAISelection();
+                    
+                    // Enregistrer le projet actif côté client
+                    localStorage.setItem('ACTIVE_PROJECT', name);
+                    selectedProject = name;
+                    
+                    // Propagation du projet actif au parent index.html
+                    if (window.parent && typeof window.parent.onGlobalProjectChange === 'function') {
+                        const parentSelect = window.parent.document.getElementById('proj-context');
+                        if (parentSelect) {
+                            let exists = false;
+                            for (let i = 0; i < parentSelect.options.length; i++) {
+                                if (parentSelect.options[i].value === name) { exists = true; break; }
+                            }
+                            if (!exists) {
+                                const opt = document.createElement('option');
+                                opt.value = name;
+                                opt.textContent = name.toUpperCase();
+                                parentSelect.appendChild(opt);
+                            }
+                            parentSelect.value = name;
+                        }
+                        window.parent.onGlobalProjectChange();
+                    }
+                    
+                    setTimeout(fetchProjects, 1500);
+
+                    // OUVERTURE DE LA NOUVELLE FENETRE IA POUR P0
+                    addLog(`🌐 Ouverture de l'IA dans une nouvelle fenêtre pour P0...`);
+                    if (window.parent && typeof window.parent.onParentOpenAI === 'function') {
+                        window.parent.onParentOpenAI();
+                    } else {
+                        window.open(aiUrl, '_blank');
+                    }
+
+                    // Redirection active et immédiate vers le Monitor de logs
+                    addLog(`📡 Redirection vers l'écran de suivi (monitor.html) en cours...`);
+                    setTimeout(() => {
+                        try {
+                            window.parent.postMessage({ action: 'loadView', url: 'monitor.html' }, '*');
+                        } catch(e) {}
+                        setTimeout(() => {
+                            try {
+                                if (window.parent && typeof window.parent.loadView === 'function') {
+                                    const monitorBtn = window.parent.document.querySelector('.side-item[onclick*="monitor.html"]');
+                                    if (monitorBtn) {
+                                        window.parent.loadView(monitorBtn, 'monitor.html');
+                                    } else {
+                                        const frame = window.parent.document.getElementById('content-frame');
+                                        if (frame) frame.src = 'monitor.html';
+                                    }
+                                }
+                            } catch(e) { window.location.href = 'monitor.html'; }
+                        }, 200);
+                    }, 800);
+                } else {
+                    addLog("❌ Échec de l'initialisation de la Phase 0 par le Bridge.");
+                }
+            } catch(e) {
+                addLog("⚠️ Erreur de connexion avec le Bridge de forge.");
+            }
+        }
+
+        async function triggerP1() {
+            const project = selectedProject || document.getElementById('project-name').value.trim();
+            if (!project) return alert("Veuillez choisir un projet ou saisir son nom !");
+            const desc = document.getElementById('project-desc').value.trim();
+            const stack = document.getElementById('project-stack').value;
+            const aiUrl = document.getElementById('ai-selector').value;
+
+            localStorage.removeItem('ONE_TOUCH_ACTIVE');
+            addLog(`🔥 DÉTONATION MISSION P1 : Génération des PRDs pour ${project.toUpperCase()}...`);
+            
+            try {
+                const res = await fetch(`${API_BASE}/v1/mission/phase1`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: project, prompt: desc, stack, complexity: activeStructTab })
+                });
+
+                if (res.ok) {
+                    addLog(`🔥 Détonation Réussie. Lancement de la génération des PRDs.`);
+                    saveAISelection();
+                    
+                    // Enregistrer le projet actif côté client
+                    localStorage.setItem('ACTIVE_PROJECT', project);
+                    selectedProject = project;
+                    
+                    // Propagation du projet actif au parent index.html
+                    if (window.parent && typeof window.parent.onGlobalProjectChange === 'function') {
+                        const parentSelect = window.parent.document.getElementById('proj-context');
+                        if (parentSelect) {
+                            let exists = false;
+                            for (let i = 0; i < parentSelect.options.length; i++) {
+                                if (parentSelect.options[i].value === project) { exists = true; break; }
+                            }
+                            if (!exists) {
+                                const opt = document.createElement('option');
+                                opt.value = project;
+                                opt.textContent = project.toUpperCase();
+                                parentSelect.appendChild(opt);
+                            }
+                            parentSelect.value = project;
+                        }
+                        window.parent.onGlobalProjectChange();
+                    }
+                    
+                    setTimeout(fetchProjects, 1500);
+
+                    // OUVERTURE DE LA NOUVELLE FENETRE IA POUR P1
+                    addLog(`🌐 Ouverture de l'IA dans une nouvelle fenêtre pour P1...`);
+                    if (window.parent && typeof window.parent.onParentOpenAI === 'function') {
+                        window.parent.onParentOpenAI();
+                    } else {
+                        window.open(aiUrl, '_blank');
+                    }
+
+                    // Redirection active et immédiate vers le Monitor de logs
+                    addLog(`📡 Redirection vers l'écran de suivi (monitor.html) en cours...`);
+                    setTimeout(() => {
+                        try {
+                            window.parent.postMessage({ action: 'loadView', url: 'monitor.html' }, '*');
+                        } catch(e) {}
+                        setTimeout(() => {
+                            try {
+                                if (window.parent && typeof window.parent.loadView === 'function') {
+                                    const monitorBtn = window.parent.document.querySelector('.side-item[onclick*="monitor.html"]');
+                                    if (monitorBtn) {
+                                        window.parent.loadView(monitorBtn, 'monitor.html');
+                                    } else {
+                                        const frame = window.parent.document.getElementById('content-frame');
+                                        if (frame) frame.src = 'monitor.html';
+                                    }
+                                }
+                            } catch(e) { window.location.href = 'monitor.html'; }
+                        }, 200);
+                    }, 800);
+                } else {
+                    addLog("❌ Échec de l'initialisation de la Phase 1 par le Bridge.");
+                }
+            } catch(e) {
+                addLog("⚠️ Erreur de connexion avec le Bridge de forge.");
+            }
+        }
+
+        async function triggerP2() {
+            if (!selectedProject) return alert("Veuillez d'abord choisir un projet !");
+            
+            localStorage.removeItem('ONE_TOUCH_ACTIVE');
+            addLog(`⚡ RÉGÉNÉRATION DU CODE (P2) pour : ${selectedProject.toUpperCase()}...`);
+
+            try {
+                const res = await fetch(`${API_BASE}/v1/mission/phase2`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: selectedProject, stack: document.getElementById('project-stack').value, complexity: activeStructTab })
+                });
+
+                if (res.ok) {
+                    addLog(`🔥 Code Fonderie activé en tâche de fond silencieuse.`);
+                    
+                    // Redirection active et immédiate vers le Workspace
+                    addLog(`📡 Redirection vers l'éditeur (workspace.html) en cours...`);
+                    setTimeout(() => {
+                        try {
+                            window.parent.postMessage({ action: 'loadView', url: 'workspace.html' }, '*');
+                        } catch(e) {}
+                        setTimeout(() => {
+                            try {
+                                if (window.parent && typeof window.parent.loadView === 'function') {
+                                    const wsBtn = window.parent.document.querySelector('.side-item[onclick*="workspace.html"]');
+                                    if (wsBtn) {
+                                        window.parent.loadView(wsBtn, 'workspace.html');
+                                    } else {
+                                        const frame = window.parent.document.getElementById('content-frame');
+                                        if (frame) frame.src = 'workspace.html';
+                                    }
+                                }
+                            } catch(e) { window.location.href = 'workspace.html'; }
+                        }, 200);
+                    }, 800);
+                } else {
+                    addLog("❌ Échec de la transition Phase 2.");
+                }
+            } catch(e) {
+                addLog("⚠️ Erreur réseau vers la Forge.");
+            }
+        }
+
+        async function triggerP3() {
+            if (!selectedProject) return alert("Veuillez d'abord choisir un projet !");
+            
+            localStorage.removeItem('ONE_TOUCH_ACTIVE');
+
+            try {
+                const res = await fetch(`${API_BASE}/v1/mission/phase3`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: selectedProject })
+                });
+
+                if (res.ok) {
+                } else {
+                }
+            } catch(e) {
+                addLog("⚠️ Erreur réseau vers la Forge.");
+            }
+        }
+
+        async function launchLocalServer() {
+            const project = selectedProject || document.getElementById('project-name').value.trim();
+            if (!project) {
+                alert("Veuillez choisir un projet ou saisir son nom !");
+                return;
+            }
+            
+            addLog(`🚀 DÉMARRAGE DU SERVEUR LOCAL pour ${project.toUpperCase()}...`);
+            
+            try {
+                const res = await fetch(`${API_BASE}/v1/launch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: project })
+                });
+                
+                const data = await res.json();
+                if (res.ok && data.status === 'launched') {
+                    addLog(`✅ Serveur démarré avec succès sur le port 5173 !`);
+                    
+                    // Redirection active et immédiate vers le Monitor
+                    addLog(`📡 Redirection vers l'écran de suivi (monitor.html) en cours...`);
+                    setTimeout(() => {
+                        try {
+                            window.parent.postMessage({ action: 'loadView', url: 'monitor.html' }, '*');
+                        } catch(e) {}
+                        setTimeout(() => {
+                            try {
+                                if (window.parent && typeof window.parent.loadView === 'function') {
+                                    const monitorBtn = window.parent.document.querySelector('.side-item[onclick*="monitor.html"]');
+                                    if (monitorBtn) {
+                                        window.parent.loadView(monitorBtn, 'monitor.html');
+                                    } else {
+                                        const frame = window.parent.document.getElementById('content-frame');
+                                        if (frame) frame.src = 'monitor.html';
+                                    }
+                                }
+                            } catch(e) { window.location.href = 'monitor.html'; }
+                        }, 200);
+                    }, 800);
+                } else {
+                    addLog(`❌ Échec du lancement : ${data.error || 'Erreur inconnue'}`);
+                    alert(`❌ Échec: ${data.error || 'Erreur inconnue'}`);
+                }
+            } catch(e) {
+                addLog(`❌ Erreur de communication avec le Bridge : ${e.message}`);
+                alert(`❌ Erreur : ${e.message}`);
+            }
+        }
+
+        async function triggerP4() {
+            if (!selectedProject) return alert("Veuillez d'abord choisir un projet !");
+            
+            localStorage.removeItem('ONE_TOUCH_ACTIVE');
+            addLog(`📦 FORGE ULTIMATE (P4) : Lancement du Build APK pour ${selectedProject.toUpperCase()}...`);
+            
+            try {
+                // Fixer le projet actif
+                await fetch(`${API_BASE}/v1/mission/set-project`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: selectedProject })
+                });
+
+                // Lancement du build natif
+                const res = await fetch(`${API_BASE}/v1/projects/${selectedProject}/build`, { method: 'POST' });
+                
+                if (res.ok) {
+                    addLog("🏗️ Build Gradle démarré ! Suivez la compilation en temps réel ci-dessous.");
+                    
+                    // Redirection vers le Radar de suivi temps réel (monitor.html)
+                    setTimeout(() => {
+                        let redirected = false;
+                        try {
+                            if (window.parent && typeof window.parent.loadView === 'function') {
+                                const monitorBtn = window.parent.document.querySelector('.side-item[onclick*="monitor.html"]');
+                                if (monitorBtn) {
+                                    window.parent.loadView(monitorBtn, 'monitor.html');
+                                    redirected = true;
+                                }
+                            }
+                        } catch(e) {}
+                        
+                        try {
+                            if (!redirected && window.parent) {
+                                const frame = window.parent.document.getElementById('content-frame');
+                                if (frame) {
+                                    frame.src = 'monitor.html';
+                                    redirected = true;
+                                }
+                            }
+                        } catch(e) {}
+
+                        if (!redirected) {
+                            window.location.href = 'monitor.html';
+                        }
+                    }, 800);
+                } else {
+                }
+            } catch(e) {
+                addLog("⚠️ Erreur d'initialisation du build natif.");
+            }
+        }
+
+        // ============================================================
+        // MONITORING EN CONTINU
+        // ============================================================
+        // ╔══════════════════════════════════════════════════════╗
+        // ║  💎 ONE-TOUCH GRADE GOLD — APK DE A À Z (P5)        ║
+        // ╚══════════════════════════════════════════════════════╝
+        async function triggerOneTouchP5() {
+            if (!selectedProject) return alert("Veuillez d'abord choisir un projet dans la liste !");
+            
+            localStorage.setItem('ONE_TOUCH_ACTIVE', 'true');
+            
+            const btn = document.getElementById('btn-p5-onetouch');
+            btn.disabled = true;
+            btn.textContent = '⏳ ONE-TOUCH EN COURS — NE PAS INTERROMPRE...';
+            btn.style.opacity = '0.7';
+            
+            addLog(``);
+            addLog(`╔════════════════════════════════════╗`);
+            addLog(`║  💎 ONE-TOUCH GRADE GOLD : ${selectedProject.toUpperCase()}`);
+            addLog(`║  Pipeline 100% autonome. Zéro intervention requise.`);
+            addLog(`╚════════════════════════════════════╝`);
+            addLog(``);
+            
+            try {
+                // Étape 1 : Définir le projet actif
+                await fetch(`${API_BASE}/v1/mission/set-project`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: selectedProject })
+                });
+                addLog(`📌 [1/5] Projet actif défini : ${selectedProject}`);
+                
+                // Étape 2 : Lancer le pipeline ONE-TOUCH
+                addLog(`🚀 [2/5] Lancement du pipeline Gold...)`);
+                const res = await fetch(`${API_BASE}/v1/mission/one_touch_forge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: selectedProject })
+                });
+                
+                const d = await res.json();
+                
+                if (d.status === 'started') {
+                    addLog(`✅ [3/5] Pipeline ONE-TOUCH activé avec succès !`);
+                    addLog(`📂 [4/5] Dossier APK cible : forge_setup/compiler/APK/`);
+                    addLog(`⚠️ [5/5] Surveillance temps réel en cours... Ne touchez rien.`);
+                    addLog(``);
+                    
+                    // Redirection vers monitor.html pour suivre en direct
+                    setTimeout(() => {
+                        try {
+                            window.parent.postMessage({ action: 'loadView', url: 'monitor.html' }, '*');
+                        } catch(e) {}
+                        setTimeout(() => {
+                            try {
+                                if (window.parent && typeof window.parent.loadView === 'function') {
+                                    const monitorBtn = window.parent.document.querySelector('.side-item[onclick*="monitor.html"]');
+                                    if (monitorBtn) {
+                                        window.parent.loadView(monitorBtn, 'monitor.html');
+                                    } else {
+                                        const frame = window.parent.document.getElementById('content-frame');
+                                        if (frame) frame.src = 'monitor.html';
+                                    }
+                                }
+                            } catch(e) { window.location.href = 'monitor.html'; }
+                        }, 200);
+                    }, 1000);
+                    
+                } else if (d.status === 'already_running') {
+                    addLog(`⚠️ Pipeline déjà en cours. Consultez monitor.html pour suivre.`);
+                } else {
+                    addLog(`❌ Erreur ONE-TOUCH : ${d.error || JSON.stringify(d)}`);
+                }
+            } catch(e) {
+                addLog(`❌ Erreur réseau : ${e.message}`);
+            } finally {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = '💎 ONE-TOUCH — APK DE A À Z (P5)';
+                    btn.style.opacity = '1';
+                }, 4000);
+            }
+        }
+        function triggerP6() {
+            const btn = document.getElementById('btn-p6');
+            if(btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '⏳ COPIE DU PROTOCOLE...';
+                btn.style.opacity = '0.7';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.opacity = '1';
+                }, 1500);
+            }
+            
+            const promptP6 = `En tant que Senior Fullstack Engineer, ta mission est d'ajouter de nouvelles fonctionnalités (Phase P6) TOUT EN MAINTENANT STRICTEMENT l'Architecture Plate (Flat Structure) de la Forge Diamond. Tous les fichiers de configuration (vite.config.ts, package.json, postcss.config.js, tailwind.config.js, .npmrc, index.html) DOIVENT rester à la RACINE absolue. Le code source est uniquement dans un dossier src/. Ne crée jamais de monorepo (app/, server/). 🔇 SILENCE ABSOLU : ZÉRO texte explicatif, ZÉRO blabla. UNIQUEMENT des blocs de code purs. MISSION ACTUELLE : `
+            let aiUrl = document.getElementById('ai-selector').value;
+            if (!aiUrl.startsWith('http://') && !aiUrl.startsWith('https://')) {
+                aiUrl = API_BASE + '/' + aiUrl;
+            }
+            
+            navigator.clipboard.writeText(promptP6).then(() => {
+                if (typeof addLog === 'function') addLog("✅ Protocole P6 copié avec succès ! Bascule vers l'IA cible...");
+                
+                if (window.AndroidBridge && window.AndroidBridge.openAI) {
+                    window.AndroidBridge.openAI(aiUrl);
+                } else {
+                    window.open(aiUrl, "ai_forge_window");
+                }
+            }).catch(err => {
+                alert("❌ Impossible de copier dans le presse-papier. Autorisez l'accès ou copiez manuellement.");
+            });
+        }
+        async function checkStatus() {
+            try {
+                const r = await fetch(`${API_BASE}/v1/bridge/poll`);
+                const d = await r.json();
+                
+                const nexus = document.getElementById('nexus-status');
+                if (nexus) {
+                    nexus.innerText = "ONLINE";
+                    nexus.className = "status-online";
+                }
+            } catch(e) {
+                const nexus = document.getElementById('nexus-status');
+                if (nexus) {
+                    nexus.innerText = "OFFLINE";
+                    nexus.className = "status-offline";
+                }
+            }
+        }
+
+        // SYNCHRONISATION WORKSPACE GLOBAL
+        function onProjectChange() {
+            if (isInteractingWithSelect) return;
+            const activeProj = localStorage.getItem('ACTIVE_PROJECT');
+            if (activeProj && activeProj !== selectedProject) {
+                selectedProject = activeProj;
+                const select = document.getElementById('target-project-select');
+                if (select) select.value = activeProj;
+                addLog(`Cible synchronisée avec le projet global : ${activeProj.toUpperCase()}`);
+            }
+        }
+
+        // GESTION PREVIEW COCKPIT INTÉGRÉE
+        function togglePreview() {
+            const panel = document.getElementById('preview-panel');
+            const isActive = panel.classList.toggle('active');
+            if (isActive) {
+                refreshPreview();
+            } else {
+                resetZoomPan();
+            }
+        }
+
+        async function refreshPreview() {
+            const iframe = document.getElementById('preview-frame');
+            if (!iframe) return;
+
+            const pid = selectedProject || localStorage.getItem('ACTIVE_PROJECT') || '';
+            if (!pid) {
+                iframe.src = 'about:blank';
+                return;
+            }
+
+            // Charger via la route bridge souveraine
+            const bridgeHost = window.location.hostname || 'localhost';
+            const previewUrl = `http://${bridgeHost}:5005/v1/projects/${pid}/preview/?t=${Date.now()}`;
+            console.log(`👁️ [LAUNCHER] Preview via Bridge : ${previewUrl}`);
+            iframe.src = previewUrl;
+        }
+
+        let previewMode = 'interact';
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX = 0, startY = 0;
+
+        function setPreviewMode(mode) {
+            previewMode = mode;
+            const overlay = document.getElementById('gesture-overlay');
+            if (mode === 'interact') {
+                overlay.style.display = 'none';
+                document.getElementById('viewport-wrapper').style.cursor = 'default';
+            } else {
+                overlay.style.display = 'block';
+                document.getElementById('viewport-wrapper').style.cursor = 'grab';
+            }
+        }
+
+        function resetZoomPan() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            applyTransforms();
+        }
+
+        function applyTransforms() {
+            const iframe = document.getElementById('preview-frame');
+            const pct = (100 / scale).toFixed(4);
+            iframe.style.width = pct + '%';
+            iframe.style.height = pct + '%';
+            iframe.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        // DÉMARRAGE
+        window.onload = () => {
+            loadAISelection();
+            fetchProjects();
+            checkStatus();
+            updateStackStructure(); // Charger la structure initiale
+            
+            // Charger le projet actif depuis le localStorage
+            const activeProj = localStorage.getItem('ACTIVE_PROJECT');
+            const select = document.getElementById('target-project-select');
+            if (activeProj) {
+                selectedProject = activeProj;
+                if (select) select.value = activeProj;
+            }
+
+            if (select) {
+                select.addEventListener('focus', () => {
+                    isInteractingWithSelect = true;
+                });
+                select.addEventListener('blur', () => {
+                    setTimeout(() => { isInteractingWithSelect = false; }, 300);
+                });
+                select.addEventListener('change', () => {
+                    setTimeout(() => { isInteractingWithSelect = false; }, 300);
+                });
+            }
+
+            setInterval(checkStatus, 3000);
+            
+            // Routage initial vers le protocole Phase P6 si demandé
+            handleHashRoute();
+
+            // Gestionnaires souris pour le zoom/pan de l'aperçu
+            const overlay = document.getElementById('gesture-overlay');
+            overlay.addEventListener('mousedown', (e) => {
+                if (previewMode !== 'zoom') return;
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                document.getElementById('viewport-wrapper').style.cursor = 'grabbing';
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (previewMode === 'zoom' && isDragging) {
+                    translateX = e.clientX - startX;
+                    translateY = e.clientY - startY;
+                    applyTransforms();
+                }
+            });
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                const vp = document.getElementById('viewport-wrapper');
+                if (vp) {
+                    vp.style.cursor = previewMode === 'zoom' ? 'grab' : 'default';
+                }
+            });
+        };
+
+        function handleHashRoute() {
+            if (window.location.hash === '#p6') {
+                setTimeout(() => {
+                    const btnP6 = document.getElementById('btn-p6');
+                    if (btnP6) {
+                        btnP6.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Effet néon clignotant violet/fuchsia extrêmement premium
+                        btnP6.style.transition = 'all 0.5s ease-in-out';
+                        btnP6.style.outline = '4px solid #ff00ff';
+                        btnP6.style.boxShadow = '0 0 50px #ff00ff, 0 6px 30px rgba(255,0,255,0.9)';
+                        btnP6.style.transform = 'scale(1.05)';
+                        
+                        setTimeout(() => {
+                            btnP6.style.outline = 'none';
+                            btnP6.style.boxShadow = '0 6px 30px rgba(255,0,255,0.5)';
+                            btnP6.style.transform = 'scale(1)';
+                        }, 4000);
+                    }
+                }, 500);
+            }
+        }
+
+        window.addEventListener('hashchange', handleHashRoute);
+
+        // Écouter les changements dans le localStorage pour synchroniser le projet sélectionné
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'ACTIVE_PROJECT') {
+                onProjectChange();
+            }
+        });
+    </script>
+</body>
+</html>

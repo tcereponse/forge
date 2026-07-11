@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KIROV — Interface Intelligence</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Outfit:wght@700;800;900&display=swap');
+        
+        :root {
+            --bg: #030712;
+            --primary: #00f2ff;
+            --secondary: #0060ff;
+            --accent: #ffd700;
+            --card-bg: rgba(17, 24, 39, 0.85);
+            --border: rgba(0, 242, 255, 0.15);
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(3, 7, 18, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .back-btn {
+            background: rgba(0, 242, 255, 0.07);
+            border: 1px solid rgba(0, 242, 255, 0.25);
+            border-radius: 12px;
+            color: var(--primary);
+            padding: 10px 20px;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: 800;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 242, 255, 0.15);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .logo {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(90deg, var(--primary), #fff, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .iframe-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* BANNIÈRE DE RÉSILIENCE HORS-CADRE */
+        .csp-banner {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 18px;
+            max-width: 320px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .csp-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #000;
+            font-weight: 800;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 11px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .csp-btn:hover {
+            box-shadow: 0 0 15px var(--primary);
+            transform: scale(1.02);
+        }
+
+        /* 📱 DRAGGABLE PREVIEW WINDOW */
+        #preview-window {
+            position: absolute;
+            bottom: 80px;
+            right: 25px;
+            width: 380px;
+            height: 580px;
+            background: rgba(10, 15, 30, 0.95);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            border-radius: 16px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.85), 0 0 30px rgba(0, 242, 255, 0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 9999;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        @media (max-width: 768px) {
+            #preview-window {
+                bottom: 10px !important;
+                right: 10px !important;
+                left: 10px !important;
+                width: calc(100% - 20px) !important;
+                height: 70% !important;
+                max-width: none !important;
+                transform: none !important;
+            }
+        }
+
+        .preview-drag-header {
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .preview-drag-header:active {
+            cursor: grabbing;
+        }
+
+        .preview-title {
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 8px;
+            z-index: 10000;
+        }
+
+        .preview-action-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 10px;
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 800;
+            transition: all 0.2s;
+        }
+
+        .preview-action-btn:hover {
+            background: rgba(0, 242, 255, 0.2);
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+        }
+
+        .preview-action-btn.close:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+        }
+
+        .preview-body {
+            flex: 1;
+            position: relative;
+            background: #ffffff;
+        }
+
+        /* Resize Handle */
+        .preview-resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 15px;
+            height: 15px;
+            cursor: se-resize;
+            background: linear-gradient(135deg, transparent 50%, var(--primary) 50%);
+            z-index: 10001;
+        }
+
+        /* 🧩 EXTENSIONS VISUALIZER MODAL STYLES */
+        #extensions-modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 7, 18, 0.98);
+            backdrop-filter: blur(20px);
+            z-index: 10005;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .ext-header {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(199, 125, 255, 0.15);
+            background: rgba(10, 15, 30, 0.9);
+        }
+        
+        .ext-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 900;
+            color: #c77dff;
+            text-shadow: 0 0 10px rgba(199, 125, 255, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ext-close {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+
+        .ext-close:hover {
+            background: rgba(239, 68, 68, 0.25);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+            transform: scale(1.02);
+        }
+
+        .ext-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+            .ext-container {
+                flex-direction: column !important;
+                overflow-y: auto !important;
+            }
+            .ext-left-panel {
+                width: 100% !important;
+                border-right: none !important;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+            }
+            .ext-right-panel {
+                flex: none !important;
+                height: auto !important;
+            }
+        }
+
+        .ext-left-panel {
+            width: 320px;
+            background: rgba(6, 9, 20, 0.9);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .ext-right-panel {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        /* Replica Widget Dashboard G13 */
+        .widget-kirov {
+            background: linear-gradient(135deg, rgba(20, 10, 35, 0.5), rgba(5, 5, 10, 0.8));
+            border: 1px solid rgba(199, 125, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(199, 125, 255, 0.05);
+        }
+
+        .widget-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 900;
+            color: #fff;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .widget-subtitle {
+            font-size: 11px;
+            color: #c77dff;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            margin: -10px 0 0 0;
+        }
+
+        .widget-phases {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+            margin: 10px 0;
+        }
+
+        .phase-bubble {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 12px;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .phase-bubble.active {
+            background: rgba(199, 125, 255, 0.15);
+            border-color: #c77dff;
+            color: #c77dff;
+            box-shadow: 0 0 15px rgba(199, 125, 255, 0.3);
+            text-shadow: 0 0 5px rgba(199, 125, 255, 0.5);
+        }
+
+        .phase-bubble.done {
+            background: rgba(0, 242, 255, 0.05);
+            border-color: rgba(0, 242, 255, 0.3);
+            color: var(--primary);
+        }
+
+        .widget-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 242, 255, 0.07);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: fit-content;
+        }
+
+        .widget-badge.diamond {
+            background: rgba(255, 215, 0, 0.07);
+            border-color: rgba(255, 215, 0, 0.3);
+            color: var(--accent);
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
+        }
+
+        .ext-search-container {
+            display: flex;
+            gap: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 10px 15px;
+            align-items: center;
+        }
+
+        .ext-search-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            flex: 1;
+        }
+
+        .ext-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+            overflow-y: auto;
+            flex: 1;
+            padding-bottom: 20px;
+        }
+
+        .ext-card {
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .ext-card:hover {
+            border-color: rgba(199, 125, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            background: rgba(17, 24, 39, 0.85);
+        }
+
+        .ext-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ext-card-title {
+            font-weight: 800;
+            font-size: 12.5px;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .ext-card-status {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .ext-card-status.active {
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
+        }
+
+        .ext-card-status.standby {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #888;
+        }
+
+        .ext-card-desc {
+            font-size: 10.5px;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        /* Code View Panel overlay */
+        .ext-viewer-panel {
+            position: absolute;
+            top: 0;
+            right: -100%;
+            width: 550px;
+            height: 100%;
+            background: #020617;
+            border-left: 1px solid rgba(199, 125, 255, 0.2);
+            box-shadow: -20px 0 50px rgba(0,0,0,0.85);
+            z-index: 10008;
+            transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .ext-viewer-panel {
+                width: 100% !important;
+                right: -100% !important;
+            }
+            .ext-viewer-panel.open {
+                right: 0 !important;
+            }
+        }
+
+        .ext-viewer-panel.open {
+            right: 0;
+        }
+
+        .ext-viewer-header {
+            padding: 15px 20px;
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ext-viewer-body {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+            background: #020617;
+        }
+
+        .ext-code-pre {
+            margin: 0;
+            font-family: 'Consolas', 'Fira Code', monospace;
+            font-size: 11.5px;
+            color: #c7d2fe;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <button class="back-btn" onclick="location.href='kirov3_launcher.html'">
+            ← RETOUR KIRO
+        </button>
+        <span class="logo">INTELLIGENCE ACTIVE</span>
+        <div style="display: flex; gap: 10px;">
+            <button id="toggle-extensions-btn" class="back-btn" onclick="toggleExtensionsModal()" style="color: #c77dff; border-color: rgba(199, 125, 255, 0.3); background: rgba(199, 125, 255, 0.05);">
+                🧩 EXTENSIONS ACTIVE
+            </button>
+            <button id="toggle-preview-btn" class="back-btn" onclick="togglePreviewWindow()" style="color: var(--accent); border-color: rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);">
+                👁️ APERÇU LIVE
+            </button>
+        </div>
+    </header>
+    
+    <div style="display: flex; flex: 1; overflow: hidden; position: relative;">
+        <!-- 🛠️ SIDEBAR PATCH SELECTOR -->
+        <div id="patch-sidebar" style="width: 320px; background: rgba(10, 15, 30, 0.95); border-right: 1px solid rgba(0,242,255,0.15); display: flex; flex-direction: column; z-index: 50; transition: transform 0.3s; box-shadow: 5px 0 20px rgba(0,0,0,0.5);">
+            <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,242,255,0.05);">
+                <h3 style="margin: 0; font-size: 13px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+                    🧩 SÉLECTEUR DE PATCHS
+                </h3>
+                <p style="margin: 5px 0 0 0; font-size: 10px; color: #888; line-height: 1.4;">
+                    Sélectionnez les extensions à injecter dans le contexte pour l'IA.
+                </p>
+            </div>
+            
+            <div style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;" id="patch-categories">
+                <!-- Les catégories seront générées en JS -->
+            </div>
+            
+            <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 10px;">
+                <label style="font-size: 10px; color: var(--accent); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">📝 Instructions Spécifiques :</label>
+                <textarea id="patch-instructions" placeholder="Ex: Ajoute une page de login avec ces patchs..." style="width: 100%; height: 80px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; padding: 10px; font-family: 'Inter', sans-serif; font-size: 12px; resize: vertical; box-sizing: border-box;"></textarea>
+                
+                <button onclick="generateAndCopyPatchPrompt()" id="btn-generate-prompt" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #000; font-weight: 900; border: none; border-radius: 10px; padding: 15px; font-size: 11px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    🚀 GÉNÉRER & COPIER LE PROMPT
+                </button>
+            </div>
+        </div>
+        
+        <!-- MAIN IFRAME -->
+        <div class="iframe-container">
+            <iframe id="ai-frame" src="about:blank" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+            
+            <div class="csp-banner" id="csp-banner">
+                <div style="font-size: 11px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px;">📡 Navigation Souveraine</div>
+                <div style="font-size: 11px; opacity: 0.8; line-height: 1.4;">Certaines IA interdisent l'affichage dans un cadre. Ouvrez-la en plein écran si l'écran reste noir.</div>
+                <button class="csp-btn" onclick="openExternal()">Ouvrir Plein Écran</button>
+            </div>
+    
+            <!-- 📱 FENÊTRE DE PREVIEW FLOTTANTE ET DRAGGABLE -->
+            <div id="preview-window">
+                <div class="preview-drag-header" id="preview-drag-header">
+                    <div class="preview-title">
+                        <span>🐯 COCKPIT PREVIEW</span>
+                    </div>
+                    <div class="preview-actions">
+                        <button class="preview-action-btn" onclick="refreshLocalPreview()">🔄</button>
+                        <button class="preview-action-btn close" onclick="togglePreviewWindow()">❌</button>
+                    </div>
+                </div>
+                <div class="preview-body">
+                    <iframe id="local-preview-frame" src="about:blank"></iframe>
+                </div>
+                <div class="preview-resize-handle" id="preview-resize-handle"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🧩 EXTRA-PREMIUM EXTENSIONS VISUALIZER MODAL -->
+    <div id="extensions-modal">
+        <div class="ext-header">
+            <div class="ext-title">
+                <span>🧩 ARCHIVES & EXTENSIONS SOUVERAINES</span>
+                <span style="font-size: 10px; opacity: 0.7; font-weight: 500; background: rgba(199, 125, 255, 0.1); border: 1px solid rgba(199, 125, 255, 0.2); padding: 4px 8px; border-radius: 8px;">KIROV3 ENGINE</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span id="ext-server-status" style="font-size: 10px; font-weight: 800; color: var(--primary); letter-spacing: 0.5px; text-transform: uppercase;">● NEXUS RECHERCHE...</span>
+                <button class="ext-close" onclick="toggleExtensionsModal()">❌ FERMER</button>
+            </div>
+        </div>
+        
+        <div class="ext-container">
+            <!-- Left Panel: Core Engine replica -->
+            <div class="ext-left-panel">
+                <div class="widget-kirov">
+                    <h4 class="widget-title">GLOBAL KIROV3</h4>
+                    <p class="widget-subtitle">Elite Forge Industrial v13.0</p>
+                    
+                    <div class="widget-phases" id="widget-phases-grid">
+                        <div class="phase-bubble" id="p-bubble-1">P1</div>
+                        <div class="phase-bubble" id="p-bubble-2">P2</div>
+                        <div class="phase-bubble" id="p-bubble-3">P3</div>
+                        <div class="phase-bubble" id="p-bubble-4">P4</div>
+                        <div class="phase-bubble" id="p-bubble-5">P5</div>
+                        <div class="phase-bubble" id="p-bubble-6">P6</div>
+                    </div>
+                    
+                    <div class="widget-badge" id="widget-stage-txt">
+                        VEILLE DU COMPILATEUR
+                    </div>
+                    <div class="widget-badge diamond">
+                        🛡️ Grade Diamond Active
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 9.5px; opacity: 0.7; margin-bottom: 4px;">
+                            <span>RAG COGNITIF MEMORY</span>
+                            <span id="memory-percent">88%</span>
+                        </div>
+                        <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden;">
+                            <div style="width: 88%; height: 100%; background: linear-gradient(90deg, #c77dff, var(--primary)); border-radius: 10px;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; font-size: 11px; line-height: 1.5; color: #888;">
+                    <div style="color: #fff; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">💡 Guide d'utilisation</div>
+                    Visualisez les extensions actives injectées dans la Forge pour le durcissement du projet. Cliquez sur une extension pour inspecter son code.
+                </div>
+            </div>
+            
+            <!-- Right Panel: Grid & Search -->
+            <div class="ext-right-panel">
+                <div class="ext-search-container">
+                    <span style="font-size: 14px; opacity: 0.5;">🔍</span>
+                    <input type="text" id="ext-search" class="ext-search-input" placeholder="Filtrer parmi les 68 extensions du catalogue souverain..." oninput="filterExtensions()">
+                </div>
+                
+                <div class="ext-grid" id="ext-cards-grid">
+                    <!-- Les cartes d'extensions seront injectées en JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Sliding Code Viewer Overlay -->
+        <div id="ext-viewer" class="ext-viewer-panel">
+            <div class="ext-viewer-header">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span id="viewer-title" style="font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 900; color: #c77dff; text-transform: uppercase;">📄 INSPECTEUR DE CODE</span>
+                    <span id="viewer-subtitle" style="font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;">Extensions Kirov3 Engine</span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="copyViewerCode()" style="background: rgba(0, 242, 255, 0.08); border: 1px solid rgba(0, 242, 255, 0.3); color: var(--primary); padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer; text-transform: uppercase;">📋 COPIER</button>
+                    <button onclick="closeViewerPanel()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;">❌</button>
+                </div>
+            </div>
+            <div class="ext-viewer-body">
+                <pre class="ext-code-pre"><code id="viewer-code-content">// Chargement en cours...</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin.startsWith('file') || window.location.origin.includes(':3000')
+            ? 'http://127.0.0.1:5005' 
+            : window.location.origin;
+
+        let savedAI = localStorage.getItem('selected_ai_url') || 'https://chat.deepseek.com/';
+        if (!savedAI.startsWith('http://') && !savedAI.startsWith('https://')) {
+            savedAI = API_BASE + '/' + savedAI;
+        }
+        const frame = document.getElementById('ai-frame');
+        frame.src = savedAI;
+
+        function openExternal() {
+            if (window.AndroidBridge && window.AndroidBridge.openAI) {
+                window.AndroidBridge.openAI(savedAI);
+            } else {
+                window.open(savedAI, '_blank');
+            }
+        }
+        
+        // ============================================================
+        // PATCH SELECTOR LOGIC
+        // ============================================================
+        const patchCategories = {
+            "🔐 Auth & Sécurité": [
+                { id: "auth_mobile_pack", desc: "Flux d'authentification (Login/Register) optimisé." },
+                { id: "stealth_bridge", desc: "Sécurisation et obfuscation des requêtes." }
+            ],
+            "🛒 E-Commerce & Paiement": [
+                { id: "ecommerce_pack", desc: "Composants boutique en ligne, panier." },
+                { id: "commerce_paiement_pack", desc: "Intégration Stripe / Méthodes de paiement." }
+            ],
+            "🎨 Design & UI": [
+                { id: "design_figma_xd_pack", desc: "Styles Tailwind avancés, palettes." },
+                { id: "layout_pack", desc: "Mises en page responsives, grilles, sidebars." },
+                { id: "composant_pack", desc: "Composants UI interactifs (Modals, Dropdowns)." },
+                { id: "interface_pack", desc: "Interfaces utilisateur complexes et tableaux de bord." }
+            ],
+            "🧠 Intelligence Artificielle": [
+                { id: "ia_pack", desc: "Intégration OpenAI/Gemini/DeepSeek, Chatbots." },
+                { id: "prompt_skills_pack", desc: "Compétences de prompts système avancées." }
+            ],
+            "📱 Mobile & Web": [
+                { id: "mobile_pack", desc: "Optimisations PWA et tactiles, Bottom Tabs." },
+                { id: "mobile_shell_pack", desc: "Coquille native WebView experte." },
+                { id: "web_blog_pack", desc: "Système de blog, CMS, SEO." }
+            ],
+            "🛠️ Outils & Utilitaires": [
+                { id: "forms_inputs_pack", desc: "Formulaires complexes, validation Zod." },
+                { id: "markdown_pack", desc: "Rendu Markdown riche." },
+                { id: "sqlite_inspector", desc: "Base de données locale SQLite intégrée." }
+            ],
+            "⚙️ Architecture & Forge": [
+                { id: "diamond_forge_pack", desc: "Règles strictes de code propre (Hygiène/Robustesse)." },
+                { id: "prd_architecture_g11", desc: "Architecture de dossiers structurée." }
+            ]
+        };
+
+        function renderPatchTree() {
+            const container = document.getElementById('patch-categories');
+            container.innerHTML = '';
+            
+            for (const [category, patches] of Object.entries(patchCategories)) {
+                const catDiv = document.createElement('div');
+                catDiv.style.marginBottom = '10px';
+                
+                const catHeader = document.createElement('div');
+                catHeader.style.fontSize = '11px';
+                catHeader.style.fontWeight = '800';
+                catHeader.style.color = '#fff';
+                catHeader.style.marginBottom = '8px';
+                catHeader.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+                catHeader.style.paddingBottom = '4px';
+                catHeader.textContent = category;
+                catDiv.appendChild(catHeader);
+                
+                patches.forEach(patch => {
+                    const label = document.createElement('label');
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'flex-start';
+                    label.style.gap = '8px';
+                    label.style.cursor = 'pointer';
+                    label.style.marginBottom = '6px';
+                    label.style.padding = '6px';
+                    label.style.borderRadius = '6px';
+                    label.style.transition = 'background 0.2s';
+                    label.onmouseover = () => label.style.background = 'rgba(255,255,255,0.05)';
+                    label.onmouseout = () => label.style.background = 'transparent';
+                    
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = patch.id;
+                    cb.className = 'patch-checkbox';
+                    cb.style.marginTop = '2px';
+                    
+                    cb.addEventListener('change', (e) => {
+                        const checkedCount = document.querySelectorAll('.patch-checkbox:checked').length;
+                        if (checkedCount > 3) {
+                            e.target.checked = false;
+                            alert(`⚠️ Limite atteinte : Vous ne pouvez sélectionner que 3 patchs maximum par demande. Cette limite permet de ne pas saturer la mémoire de l'IA.`);
+                        }
+                    });
+                    
+                    const textDiv = document.createElement('div');
+                    const title = document.createElement('div');
+                    title.style.fontSize = '11px';
+                    title.style.fontWeight = '700';
+                    title.style.color = 'var(--primary)';
+                    title.textContent = patch.id;
+                    
+                    const desc = document.createElement('div');
+                    desc.style.fontSize = '9.5px';
+                    desc.style.color = '#aaa';
+                    desc.style.lineHeight = '1.3';
+                    desc.textContent = patch.desc;
+                    
+                    textDiv.appendChild(title);
+                    textDiv.appendChild(desc);
+                    
+                    label.appendChild(cb);
+                    label.appendChild(textDiv);
+                    catDiv.appendChild(label);
+                });
+                
+                container.appendChild(catDiv);
+            }
+        }
+        
+        async function fetchPatchContent(packName) {
+            try {
+                const res = await fetch(`${API_BASE}/v1/extensions/read/${packName}`);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data.js || data.html || data.json || "";
+            } catch (e) {
+                console.error("Erreur lecture patch", packName, e);
+                return null;
+            }
+        }
+
+        async function generateAndCopyPatchPrompt() {
+            const btn = document.getElementById('btn-generate-prompt');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ GÉNÉRATION...';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            
+            const selectedProject = localStorage.getItem('ACTIVE_PROJECT') || "INCONNU";
+            const instructions = document.getElementById('patch-instructions').value.trim();
+            const checkboxes = document.querySelectorAll('.patch-checkbox:checked');
+            
+            if (checkboxes.length > 3) {
+                alert("⚠️ Erreur : Vous avez sélectionné plus de 3 patchs. Veuillez en désélectionner.");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                return;
+            }
+            
+            let prompt = `En tant que Senior Fullstack Engineer, ta mission est d'améliorer/refactoriser le projet actuel.
+
+[🚨 MODE CHIRURGICAL (P6) & FLAT ARCHITECTURE]
+1. NE RÉÉCRIS PAS l'intégralité du projet. Modifie UNIQUEMENT les fichiers nécessaires pour répondre à la demande.
+2. FLAT ARCHITECTURE : Tous les fichiers de configuration (vite.config.ts, package.json, etc.) DOIVENT rester à la RACINE absolue.
+3. Le code source est uniquement dans le dossier src/. Ne crée jamais de monorepo (app/, server/).
+4. Fournis le chemin relatif exact pour chaque fichier généré ou modifié (ex: src/App.tsx).
+5. ⚠️ FORMAT DE RÉPONSE OBLIGATOIRE : Chaque bloc de code généré DOIT commencer par la ligne exacte : "Fichier : chemin/du/fichier.ext". N'utilise pas de mots comme "Nouveau fichier :" ou "Modification :".
+
+[📌 CONTEXTE PROJET]
+Projet Actuel : ${selectedProject}
+
+[📝 INSTRUCTIONS UTILISATEUR]
+${instructions || "Applique les patchs sélectionnés de manière robuste et sécurisée."}
+
+(NB: Je vais te fournir ci-dessous ou dans les prochains messages les fichiers sources actuels (comme App.tsx ou package.json) ainsi que les PRDs d'Architecture et d'Interface. Base-toi dessus pour t'intégrer parfaitement).
+`;
+
+            if (checkboxes.length > 0) {
+                prompt += `\n[📦 PATCHS ET CONNAISSANCES SÉLECTIONNÉS]\nAppuie-toi strictement sur les documents de contexte suivants pour implémenter la demande :\n`;
+                for (const cb of checkboxes) {
+                    const content = await fetchPatchContent(cb.value);
+                    if (content) {
+                        prompt += `\n--- DEBUT PATCH: ${cb.value} ---\n${content}\n--- FIN PATCH: ${cb.value} ---\n`;
+                    }
+                }
+            }
+
+            const selectedExtensions = Array.from(checkboxes).map(cb => cb.value);
+
+            try {
+                // 🚀 INJECTION AUTOMATIQUE VIA LE BRIDGE (Phase 5)
+                // Le content.js de l'extension lira ce 'prompt' et l'écrira dans la zone de texte de l'IA
+                try {
+                    await fetch(`${API_BASE}/v1/mission/phase5`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: selectedProject, prompt: prompt, extensions: selectedExtensions })
+                    });
+                } catch(e) {
+                    console.warn("L'envoi automatique au bridge a échoué", e);
+                }
+
+                await navigator.clipboard.writeText(prompt);
+                btn.innerHTML = '✅ PROMPT ENVOYÉ !';
+                btn.style.background = 'var(--accent)';
+                
+                // Si sur mobile ou besoin d'ouvrir l'IA
+                if (window.AndroidBridge && window.AndroidBridge.openAI) {
+                    window.AndroidBridge.openAI(savedAI);
+                } else {
+                    // On laisse l'utilisateur sur la page ai.html puisque l'IA est déjà dans l'iframe
+                }
+                
+            } catch (err) {
+                console.error("Erreur clipboard", err);
+                btn.innerHTML = '❌ ERREUR';
+            }
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.background = 'linear-gradient(135deg, var(--primary), var(--secondary))';
+            }, 3000);
+        }
+        
+        // Initialiser l'arbre
+        renderPatchTree();
+
+        // ============================================================
+        // GESTION PREVIEW INDÉPENDANTE
+        // ============================================================
+        function togglePreviewWindow() {
+            const win = document.getElementById('preview-window');
+            const iframe = document.getElementById('local-preview-frame');
+            const btn = document.getElementById('toggle-preview-btn');
+            
+            if (win.style.display === 'none' || win.style.display === '') {
+                win.style.display = 'flex';
+                btn.style.background = 'rgba(255, 215, 0, 0.15)';
+                btn.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.2)';
+                
+                const pid = localStorage.getItem('ACTIVE_PROJECT') || '';
+                if (!pid) {
+                    iframe.src = 'about:blank';
+                    return;
+                }
+
+                // Charger via la route bridge souveraine
+                const bridgeHost = window.location.hostname || 'localhost';
+                iframe.src = `http://${bridgeHost}:5005/v1/projects/${pid}/preview/?t=${Date.now()}`;
+            } else {
+                win.style.display = 'none';
+                btn.style.background = 'rgba(255, 215, 0, 0.05)';
+                btn.style.boxShadow = 'none';
+                iframe.src = 'about:blank';
+            }
+        }
+
+        function refreshLocalPreview() {
+            const iframe = document.getElementById('local-preview-frame');
+            iframe.src = iframe.src;
+        }
+
+        // ============================================================
+        // DRAG AND DROP LOGIC (Vanilla JS)
+        // ============================================================
+        const dragItem = document.getElementById("preview-window");
+        const dragHeader = document.getElementById("preview-drag-header");
+        
+        let active = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        dragHeader.addEventListener("touchstart", dragStart, false);
+        document.addEventListener("touchend", dragEnd, false);
+        document.addEventListener("touchmove", drag, false);
+
+        dragHeader.addEventListener("mousedown", dragStart, false);
+        document.addEventListener("mouseup", dragEnd, false);
+        document.addEventListener("mousemove", drag, false);
+
+        function dragStart(e) {
+            if (window.innerWidth <= 768) return; // Désactiver le drag sur mobile
+            
+            if (e.type === "touchstart") {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+            
+            active = true;
+        }
+
+        function dragEnd() {
+            initialX = currentX;
+            initialY = currentY;
+            active = false;
+        }
+
+        function drag(e) {
+            if (active) {
+                e.preventDefault();
+                
+                if (e.type === "touchmove") {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                setTranslate(currentX, currentY, dragItem);
+            }
+        }
+
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
+        }
+
+        // ============================================================
+        // RESIZING LOGIC (Vanilla JS)
+        // ============================================================
+        const resizeHandle = document.getElementById("preview-resize-handle");
+        let isResizing = false;
+
+        resizeHandle.addEventListener("mousedown", initResize, false);
+        resizeHandle.addEventListener("touchstart", initResize, false);
+
+        function initResize(e) {
+            if (window.innerWidth <= 768) return; // Pas de resize sur mobile
+            e.preventDefault();
+            isResizing = true;
+            document.addEventListener("mousemove", resize, false);
+            document.addEventListener("mouseup", stopResize, false);
+            document.addEventListener("touchmove", resize, false);
+            document.addEventListener("touchend", stopResize, false);
+        }
+
+        function resize(e) {
+            if (!isResizing) return;
+            
+            let clientX, clientY;
+            if (e.type === "touchmove") {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            const rect = dragItem.getBoundingClientRect();
+            const newWidth = clientX - rect.left;
+            const newHeight = clientY - rect.top;
+            
+            if (newWidth > 200 && newWidth < window.innerWidth - 50) {
+                dragItem.style.width = newWidth + "px";
+            }
+            if (newHeight > 200 && newHeight < window.innerHeight - 50) {
+                dragItem.style.height = newHeight + "px";
+            }
+        }
+
+        // ============================================================
+        // 🧩 EXTENSIONS VISUALIZER LOGIC (G13 Sovereign)
+        // ============================================================
+        const extDescriptions = {
+            "auth_mobile_pack": "Flux d'authentification (Login/Register) optimisé pour mobile WebView.",
+            "stealth_bridge": "Sécurisation, obfuscation et suture binaire Grade Diamond.",
+            "ecommerce_pack": "Composants boutique en ligne, gestion de panier, Grid.",
+            "commerce_paiement_pack": "Intégration Stripe et méthodes de paiement sécurisées.",
+            "design_figma_xd_pack": "Styles Tailwind avancés, palettes HSL, CSS purifié.",
+            "layout_pack": "Mises en page responsives, grilles fluides, bars latéraux.",
+            "composant_pack": "Composants UI interactifs (Modales, listes animées).",
+            "interface_pack": "Interfaces utilisateur complexes et tableaux de bord.",
+            "ia_pack": "Intégration OpenAI/Gemini/DeepSeek, Chatbots intelligents.",
+            "prompt_skills_pack": "Compétences de prompts système avancées pour l'autonomie.",
+            "mobile_pack": "Optimisations PWA, tactiles, onglets inférieurs fluides.",
+            "mobile_shell_pack": "Coquille native WebView experte grade production.",
+            "web_blog_pack": "Système de blog, gestion CMS avancée, balises SEO.",
+            "forms_inputs_pack": "Formulaires complexes, validation Zod, Hook-Form.",
+            "markdown_pack": "Rendu Markdown riche en HTML propre.",
+            "sqlite_inspector": "Base de données locale SQLite et inspection intégrée.",
+            "diamond_forge_pack": "Règles d'intégrité de code (Hygiène, TypeScript strict).",
+            "prd_architecture_g11": "Architecture de dossiers structurée, robustesse des chemins.",
+            "prd_specs_pack": "Génération de cahiers des charges standardisés 10 documents.",
+            "ext_diamond_sovereign_infra_v12_6": "Protocole d'autonomie locale store G12.6.",
+            "prd_diamond_robustness": "Durcissement de robustesse de la Forge Grade Diamond.",
+            "ext_diamond_fullstack_standard_v12": "Standard d'intégration fullstack Hono/React.",
+            "ext_diamond_generation_hygiene_v12": "Hygiène anti-pollution pour éviter les scories IA.",
+            "ext_diamond_code_integrity_v12": "Intégrité stricte et validation de compilation de code.",
+            "protocol_master_g12": "Maître de protocole de suture pour les fichiers complexes.",
+            "antipollution_v12_pack": "Règles d'éradication des fichiers fantômes et codes obsolètes.",
+            "fichiers_base_pack": "Fichiers de base essentiels (Postcss, Tailwind, tsconfig).",
+            "fichiers_base_vite": "Base de fichiers de build et scripts d'auto-suture."
+        };
+
+        let loadedExtensionsList = [];
+
+        async function toggleExtensionsModal() {
+            const modal = document.getElementById("extensions-modal");
+            if (modal.style.display === "flex") {
+                modal.style.display = "none";
+                closeViewerPanel();
+            } else {
+                modal.style.display = "flex";
+                await loadExtensionsList();
+            }
+        }
+
+        async function loadExtensionsList() {
+            const grid = document.getElementById("ext-cards-grid");
+            const serverStatus = document.getElementById("ext-server-status");
+            const stageTxt = document.getElementById("widget-stage-txt");
+            grid.innerHTML = `<div style="color: var(--primary); font-size: 12px; grid-column: 1/-1; text-align: center; padding: 40px 0;">📡 Interrogation du Nexus Kirov3...</div>`;
+            
+            try {
+                // Fetch Extensions and Bridge details in parallel
+                const [extRes, bridgeRes] = await Promise.all([
+                    fetch(`${API_BASE}/v1/extensions/list`),
+                    fetch(`${API_BASE}/v1/bridge/poll`)
+                ]);
+                
+                if (!extRes.ok) throw new Error("Impossible de joindre le service d'extensions");
+                
+                const extData = await extRes.json();
+                const bridgeData = await bridgeRes.json();
+                
+                serverStatus.innerHTML = "● NEXUS EN LIGNE";
+                serverStatus.style.color = "var(--success)";
+                
+                // Set Phase bubbles
+                const activePhase = bridgeData.phase || 1;
+                document.querySelectorAll(".phase-bubble").forEach((bubble, idx) => {
+                    const phaseNum = idx + 1;
+                    bubble.className = "phase-bubble";
+                    if (phaseNum === activePhase) {
+                        bubble.classList.add("active");
+                    } else if (phaseNum < activePhase) {
+                        bubble.classList.add("done");
+                    }
+                });
+                
+                // Update Phase Status text
+                const phaseNames = {
+                    1: "PHASE 1 : PLANIFICATION PRD",
+                    2: "PHASE 2 : GÉNÉRATION DU CODE",
+                    3: "PHASE 3 : HARDENING & SUTURE",
+                    4: "PHASE 4 : COMPILATION APK",
+                    5: "PHASE 5 : ONE-TOUCH AUTOMATION",
+                    6: "PHASE 6 : FLAT ARCHITECTURE"
+                };
+                stageTxt.innerHTML = phaseNames[activePhase] || `PHASE ${activePhase} ACTIVÉE`;
+                
+                const available = extData.available || [];
+                const activeExts = extData.active || [];
+                
+                loadedExtensionsList = available.map(name => {
+                    const isActive = activeExts.includes(name);
+                    return {
+                        name: name,
+                        active: isActive,
+                        desc: extDescriptions[name] || "Module de performance et d'auto-suture du moteur Kirov3."
+                    };
+                });
+                
+                // Sort active first, then alphabetically
+                loadedExtensionsList.sort((a, b) => {
+                    if (a.active && !b.active) return -1;
+                    if (!a.active && b.active) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+                
+                renderExtensions(loadedExtensionsList);
+                
+            } catch (err) {
+                console.error(err);
+                serverStatus.innerHTML = "● NEXUS HORS-LIGNE";
+                serverStatus.style.color = "var(--danger)";
+                grid.innerHTML = `<div style="color: var(--danger); font-size: 12px; grid-column: 1/-1; text-align: center; padding: 40px 0;">❌ Échec de la communication avec le serveur local.<br><span style="font-size:10px; opacity:0.6;">Vérifiez que START_NEXUS.bat ou le pont mobile est actif sur le port 5005.</span></div>`;
+            }
+        }
+
+        function renderExtensions(list) {
+            const grid = document.getElementById("ext-cards-grid");
+            grid.innerHTML = "";
+            
+            if (list.length === 0) {
+                grid.innerHTML = `<div style="color: #666; font-size: 12px; grid-column: 1/-1; text-align: center; padding: 40px 0;">Zéro extension correspondante</div>`;
+                return;
+            }
+            
+            list.forEach(ext => {
+                const card = document.createElement("div");
+                card.className = "ext-card";
+                card.onclick = () => inspectExtension(ext.name);
+                
+                const statusClass = ext.active ? "active" : "standby";
+                const statusLabel = ext.active ? "● ACTIF" : "STANDBY";
+                
+                card.innerHTML = `
+                    <div class="ext-card-header">
+                        <span class="ext-card-title">${ext.name}</span>
+                        <span class="ext-card-status ${statusClass}">${statusLabel}</span>
+                    </div>
+                    <p class="ext-card-desc">${ext.desc}</p>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; margin-top:auto; opacity:0.6; color:#c77dff;">
+                        <span>Grade Diamond Approved</span>
+                        <span>Inspecter 🔍</span>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        function filterExtensions() {
+            const query = document.getElementById("ext-search").value.toLowerCase().trim();
+            if (!query) {
+                renderExtensions(loadedExtensionsList);
+                return;
+            }
+            
+            const filtered = loadedExtensionsList.filter(ext => 
+                ext.name.toLowerCase().includes(query) || ext.desc.toLowerCase().includes(query)
+            );
+            renderExtensions(filtered);
+        }
+
+        async function inspectExtension(name) {
+            const viewer = document.getElementById("ext-viewer");
+            const codeBox = document.getElementById("viewer-code-content");
+            const titleBox = document.getElementById("viewer-title");
+            
+            titleBox.innerText = `📄 ${name.toUpperCase()}`;
+            codeBox.innerText = "Chargement du code source en cours...";
+            viewer.classList.add("open");
+            
+            try {
+                const res = await fetch(`${API_BASE}/v1/extensions/read/${name}`);
+                if (!res.ok) throw new Error("Source introuvable");
+                const data = await res.json();
+                
+                // Show JS, fallback to JSON, fallback to HTML
+                codeBox.innerText = data.js || data.json || data.html || "// Source de l'extension vide ou non disponible.";
+            } catch (err) {
+                codeBox.innerText = `// Erreur de chargement du code source : ${err.message}\n// L'extension est peut-être packagée de façon binaire native dans le bridge.`;
+            }
+        }
+
+        function closeViewerPanel() {
+            document.getElementById("ext-viewer").classList.remove("open");
+        }
+
+        function copyViewerCode() {
+            const content = document.getElementById("viewer-code-content").innerText;
+            navigator.clipboard.writeText(content).then(() => {
+                alert("Source copiée avec succès !");
+            }).catch(err => {
+                alert("Erreur de copie : " + err);
+            });
+        }
+
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener("mousemove", resize, false);
+            document.removeEventListener("mouseup", stopResize, false);
+            document.removeEventListener("touchmove", resize, false);
+            document.removeEventListener("touchend", stopResize, false);
+        }
+    </script>
+</body>
+</html>
