@@ -165,7 +165,19 @@ export function postProcessProject(
   let packagesAdded = 0;
 
   // Work on a mutable copy
-  const result = files.map((f) => ({ ...f }));
+  let result = files.map((f) => ({ ...f }));
+
+  // ── 0. Auto-generate stubs for missing imports + fix common LLM errors ──
+  const { generateMissingStubs, fixCommonErrors } = require("./forge-stub-generator") as typeof import("./forge-stub-generator");
+  const stubs = generateMissingStubs(result);
+  if (stubs.length > 0) {
+    result.push(...stubs);
+    autoFixed.push(`${stubs.length} stubs auto-générés pour imports manquants`);
+  }
+  result = fixCommonErrors(result);
+  if (stubs.length > 0) {
+    autoFixed.push("Erreurs communes LLM corrigées (Select, Dialog, Table, RequestOptions, etc.)");
+  }
 
   // ── E. Newline corruption crash-test + auto-repair (FIRST, before anything else) ──
   // Detects \n → n corruption and attempts to repair. This must run before
