@@ -881,3 +881,69 @@ Stage Summary:
   * Phase 6: Tests générés (Vitest + React Testing Library)
 - Résultat: 100 fichiers pour GoldRecipeBox (vs 13 standard — ratio 7.7x)
 - Le pipeline Gold génère maintenant des projets enterprise-grade complets avec design system pro, couche données typée, architecture scalable, et tests.
+
+---
+Task ID: 16
+Agent: main (Z.ai Code)
+Task: Overlay Gold enrichi — log détaillé et visuel des phases de création en temps réel
+
+Work Log:
+- Créé src/app/api/projects/[id]/progress/route.ts — endpoint de progression temps réel:
+  * Store en mémoire (Map<projectId, ProgressEntry>)
+  * initProgress(projectId, mode, phases) — initialise le tracking
+  * updateProgress(projectId, patch) — met à jour le progress global
+  * updatePhaseProgress(projectId, phaseIndex, patch) — met à jour une phase spécifique
+  * clearProgress(projectId) — nettoie après terminaison
+  * GET /api/projects/[id]/progress — retourne {progress, project} avec elapsedMs, phases, currentPhase, totalFiles
+  * Auto-marque les phases running comme done/failed quand le projet passe en ready/failed
+- Modifié src/lib/forge-pipeline.ts:
+  * PipelinePhase étendu: startedAt?, completedAt?
+  * runPipeline() accepte maintenant un projectId optionnel
+  * updatePhase() broadcast automatiquement vers le progress store via updatePhaseProgress()
+  * Auto-track startedAt (quand status=running) et completedAt (quand status=done/failed)
+  * updateProgress() met à jour totalFiles (somme des filesGenerated)
+- Modifié src/app/api/projects/[id]/generate-gold/route.ts: passe `id` au runPipeline()
+- Créé src/hooks/use-progress.ts — hook client pour poller la progression:
+  * useProgress(projectId, {interval, enabled}) — poll /api/projects/[id]/progress toutes les 800ms
+  * Stop automatiquement quand projectStatus = ready ou failed
+  * Retourne {progress, loading, error, refetch}
+- Réécrit src/components/forge/generation-overlay.tsx — overlay enrichi:
+  * StandardOverlay() — pour génération standard (4 phases: PRD, code, saving, done)
+  * GoldOverlay({projectId}) — pour génération Gold avec useProgress():
+    - Barre de progression avec gradient (amber→cyan→teal) + % + fichiers + temps écoulé
+    - 6 phases détaillées avec icônes spécifiques (Layers, Palette, FileText, Code2, Hammer, TestTube)
+    - Chaque phase: status (pending/running/done/failed/skipped), message live, durée, fichiers générés, retries
+    - Anneau pulsant sur la phase active
+    - Lignes de connexion entre phases
+    - Message de succès avec fichiers + durée
+    - Message d'erreur détaillé
+  * PhaseRow() — composant de phase avec animations Framer Motion, icône dynamique, durée, fichiers
+  * setGoldGeneratingProjectId(projectId) — stocke l'ID en sessionStorage pour activer l'overlay Gold
+  * Détection automatique du mode Gold (sessionStorage) vs Standard
+  * Footer contextuel (Gold: "3-6 min" vs Standard: "30-90 secondes")
+- Modifié src/components/forge/builder-form.tsx:
+  * Import setGoldGeneratingProjectId
+  * handleGoldGenerate() appelle setGoldGeneratingProjectId(project.id) avant le fetch /generate-gold
+  * L'overlay Gold s'affiche automatiquement avec progression temps réel
+- TypeScript check: 0 erreur
+- Vérification Agent Browser:
+  * Projet GoldOverlayTest généré via bouton Gold
+  * Overlay s'affiche: "Gold Grade en cours" + "Pipeline 5 passes • Architecture → Types → Logic → UI → Tests"
+  * Barre de progression: "Pipeline Gold Grade" + "50 fichiers" + "49s" + "0 / 6 passes" + "0%"
+  * 6 phases détaillées visibles avec descriptions:
+    1. Architecture (49s) — Plan JSON : dossiers, features, dépendances, routes, composants
+    2. Scaffold (43s) — 32 composants UI + ApiClient + repository pattern + hooks Query
+    3. Types (43s) — Interfaces TypeScript + schémas Zod par feature
+    4. Business Logic (26s) — Composants + hooks TanStack Query + repository
+    5. UI Components (pending) — Composants UI spécifiques au projet
+    6. Tests (pending) — Tests Vitest + React Testing Library par composant
+  * Endpoint /progress retourne les données en temps réel (vérifié via curl)
+  * Polling automatique toutes les 800ms depuis le client
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'overlay de génération est maintenant détaillé et visuel pour le mode Gold.
+- 6 phases affichées avec icônes, descriptions, durées, fichiers générés, retries, messages live.
+- Barre de progression avec gradient + % + temps écoulé + nombre de fichiers.
+- Détection automatique du mode (Gold vs Standard) via sessionStorage.
+- Polling temps réel (800ms) via /api/projects/[id]/progress.
+- Le mode Standard garde son overlay existant (4 phases).

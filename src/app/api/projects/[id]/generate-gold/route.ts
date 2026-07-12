@@ -63,7 +63,7 @@ export async function POST(
     }
 
     // ── Phase 1-5: Run the multi-pass pipeline ──
-    const pipelineResult = await runPipeline(config);
+    const pipelineResult = await runPipeline(config, undefined, id);
 
     if (!pipelineResult.success || pipelineResult.files.length === 0) {
       await db.project.update({

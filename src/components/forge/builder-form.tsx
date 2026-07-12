@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { setGoldGeneratingProjectId } from "./generation-overlay";
 
 interface OptionCard<T extends string> {
   value: T;
@@ -299,6 +300,9 @@ export function BuilderForm() {
       const project: ProjectRecord = createData.project;
 
       toast.success("Projet créé — lancement du pipeline Gold Grade (5 passes)…");
+
+      // Enable the Gold overlay with real-time progress polling
+      setGoldGeneratingProjectId(project.id);
 
       fetchProjects();
 

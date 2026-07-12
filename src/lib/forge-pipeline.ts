@@ -26,6 +26,12 @@ import {
   type ValidationGateResult,
 } from "./forge-validators";
 import { unescapeJsonString } from "./forge-anticorruption";
+import {
+  initProgress,
+  updatePhaseProgress,
+  updateProgress,
+  clearProgress,
+} from "@/app/api/projects/[id]/progress/route";
 import { detectFeatures, scaffoldFeatures } from "./forge-scaffolder";
 import { buildDesignSystem } from "./forge-design-system";
 import { buildDataLayer } from "./forge-data-layer";
@@ -37,6 +43,8 @@ export interface PipelinePhase {
   message?: string;
   filesGenerated?: number;
   retries?: number;
+  startedAt?: number;
+  completedAt?: number;
 }
 
 export interface PipelineResult {
@@ -526,7 +534,8 @@ Réponds UNIQUEMENT avec le JSON.`;
 // ── Main pipeline orchestrator ─────────────────────────────────────────────
 export async function runPipeline(
   config: ProjectConfig,
-  onProgress?: (phases: PipelinePhase[]) => void
+  onProgress?: (phases: PipelinePhase[]) => void,
+  projectId?: string
 ): Promise<PipelineResult> {
   const phases: PipelinePhase[] = [
     { name: "Architecture", pass: 1, status: "pending" },
@@ -537,9 +546,35 @@ export async function runPipeline(
     { name: "Tests (LLM)", pass: 6, status: "pending" },
   ];
 
+  // Initialize progress store for real-time polling
+  if (projectId) {
+    initProgress(projectId, "gold", phases.map((p) => ({ name: p.name, pass: p.pass })));
+  }
+
   const updatePhase = (idx: number, patch: Partial<PipelinePhase>) => {
-    phases[idx] = { ...phases[idx], ...patch };
+    // Auto-track startedAt/completedAt
+    const now = Date.now();
+    const current = phases[idx];
+    if (patch.status === "running" && !current.startedAt) {
+      patch.startedAt = now;
+    }
+    if ((patch.status === "done" || patch.status === "failed") && !current.completedAt) {
+      patch.completedAt = now;
+    }
+    phases[idx] = { ...current, ...patch };
     onProgress?.(phases);
+    // Broadcast to progress store for polling
+    if (projectId) {
+      updatePhaseProgress(projectId, idx, {
+        status: phases[idx].status,
+        message: phases[idx].message,
+        filesGenerated: phases[idx].filesGenerated,
+        retries: phases[idx].retries,
+        startedAt: phases[idx].startedAt,
+        completedAt: phases[idx].completedAt,
+      });
+      updateProgress(projectId, { totalFiles: phases.reduce((s, p) => s + (p.filesGenerated || 0), 0) });
+    }
   };
 
   try {
