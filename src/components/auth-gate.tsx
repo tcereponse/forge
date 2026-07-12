@@ -17,7 +17,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         if (data.authenticated && data.user) setUser(data.user);
@@ -62,19 +62,23 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
+          credentials: "include",
         });
         const data = await res.json();
         if (!data.success) { setError(data.error); return; }
         onSuccess(data.user);
+        window.location.reload();
       } else if (screen === "register") {
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, email, password }),
+          credentials: "include",
         });
         const data = await res.json();
         if (!data.success) { setError(data.error); return; }
         onSuccess(data.user);
+        window.location.reload();
       } else if (screen === "forgot") {
         const res = await fetch("/api/auth/forgot-password", {
           method: "POST",

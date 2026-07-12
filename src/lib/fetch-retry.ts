@@ -17,7 +17,7 @@ export async function fetchWithRetry(
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, init);
+      const res = await fetch(url, { credentials: "include", ...init });
       // Retry only on 5xx (server errors are often transient: cold start,
       // gateway timeout, etc.). 4xx are client errors — don't retry.
       if (res.status >= 500 && attempt < retries) {
