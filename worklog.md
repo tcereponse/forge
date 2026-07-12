@@ -1101,3 +1101,27 @@ Stage Summary:
 - exactOptionalPropertyTypes désactivé (trop strict pour LLM).
 - Les erreurs de code généré par LLM (imports manquants, composants inexistants) sont corrigées manuellement pour le projet existant.
 - Les nouveaux projets Gold auront le tsconfig + build script corrigés automatiquement.
+
+---
+Task ID: 21
+Agent: main (Z.ai Code)
+Task: Corriger page blanche aperçu (chemins assets absolus au lieu de relatifs)
+
+Work Log:
+- Cause racine identifiee : le vite.config.ts Gold n'avait pas de `base: './'`. Vite générait dist/index.html avec des chemins absolus (/assets/index-xxx.js) au lieu de relatifs (./assets/index-xxx.js). Comme l'aperçu est servi depuis /api/preview/{id}/, les chemins absolus ne trouvaient pas les assets → page blanche.
+- Corrigé src/lib/forge-gold-templates.ts buildGoldViteConfig() : ajouté `base: './'` dans le defineConfig
+- Réparé 6 projets Gold existants sur disque : ajouté `base: './'` au vite.config.ts via sed
+- Réparé 6 projets Gold en DB (filesJson) : mis à jour le vite.config.ts dans le filesJson stocké
+- Rebuilt GoldOverlayTest : npm run build → dist/index.html maintenant avec ./assets/index-xxx.js
+- Vérification Agent Browser:
+   * Avant: #root vide (page blanche)
+   * Après reload: #root contient le rendu React (Card, titre "Gold Overlay Test", bouton "Tester l'Overlay")
+   * document.title = "GoldOverlayTest"
+   * L'app React s'affiche correctement dans l'aperçu
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'aperçu affiche maintenant l'app React au lieu d'une page blanche.
+- Cause: chemins assets absolus (/assets/...) au lieu de relatifs (./assets/...).
+- Fix: `base: './'` dans vite.config.ts.
+- 6 projets existants réparés (disque + DB).
+- Les nouveaux projets Gold auront `base: './'` automatiquement.
