@@ -26,6 +26,8 @@ interface ProcessStatus {
 
 const statusMap = new Map<string, ProcessStatus>();
 const runningProcesses = new Map<string, ChildProcess>();
+const statusCache = new Map<string, { status: ProcessStatus; ts: number }>();
+const STATUS_CACHE_TTL = 2000; // 2s — short for responsive UI
 
 function getStatus(projectId: string): ProcessStatus {
   let s = statusMap.get(projectId);
@@ -83,6 +85,9 @@ export function runInstall(projectId: string): void {
     install: "installing",
     installLog: "$ npm install\n",
   });
+
+  // Invalidate the status cache so the next /status request sees "installing"
+  statusCache.delete(projectId);
 
   const dir = getProjectDir(projectId);
   const child = spawn("npm", ["install", "--no-fund", "--no-audit"], {
@@ -159,6 +164,9 @@ export async function runBuild(projectId: string): Promise<void> {
     buildLog: "$ npm run build\n",
   });
 
+  // Invalidate the status cache so the next /status request sees "building"
+  statusCache.delete(projectId);
+
   const dir = getProjectDir(projectId);
   const child = spawn("npm", ["run", "build"], {
     cwd: dir,
@@ -211,9 +219,7 @@ export function getProcessStatus(projectId: string): ProcessStatus {
 
 // Get reconciled status — checks disk reality (node_modules, dist) and
 // corrects in-memory status if the server restarted.
-// Results are cached for 3 seconds to avoid excessive disk I/O.
-const statusCache = new Map<string, { status: ProcessStatus; ts: number }>();
-const STATUS_CACHE_TTL = 3000; // 3s
+// statusCache + STATUS_CACHE_TTL are declared at the top of the module.
 
 export async function getReconciledStatus(
   projectId: string
@@ -247,6 +253,11 @@ export async function getReconciledStatus(
   // Cache the result
   statusCache.set(projectId, { status, ts: Date.now() });
   return status;
+}
+
+// Re-export for invalidation from other modules
+export function invalidateStatusCache(projectId: string): void {
+  statusCache.delete(projectId);
 }
 
 // ── Preview file serving ────────────────────────────────────────────────────
