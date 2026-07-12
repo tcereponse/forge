@@ -324,7 +324,7 @@ export async function POST(request: NextRequest) {
     log.push("Compilation de l'APK...");
     const result = await buildApk(projectId, config, distDir, {
       backendUrl,
-      includeForgeInterfaces: false,
+      includeForgeInterfaces: true,
     });
 
     if (!result.success || !result.apkPath) {

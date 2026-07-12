@@ -1188,3 +1188,45 @@ Stage Summary:
 - Fallback automatique vers le serveur Gold si GLM injoignable.
 - Design system 10 composants inclus (Button, Input, Card, Badge, Skeleton, EmptyState, ErrorState, AsyncBoundary, utils, index).
 - APK recompilé: 168KB avec le bouton Gold + pipeline 5 passes + design system.
+
+---
+Task ID: 24
+Agent: main (Z.ai Code)
+Task: Enrichir l'APK du projet — tout le projet embarqué (dist + source + PWA + interfaces natives)
+
+Work Log:
+- Modifié src/lib/forge-apk-builder.ts :
+  * Structure Android enrichie : mipmap-mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi + layout + drawable
+  * AndroidManifest enrichi : versionCode=2, versionName=2.0, permissions ACCESS_NETWORK_STATE + VIBRATE, icônes @mipmap/ic_launcher + @mipmap/ic_launcher_round, theme SplashTheme, windowSoftInputMode=adjustResize, configChanges+uiMode, allowBackup, supportsRtl
+  * Ressources enrichies :
+    - styles.xml : AppTheme (Material, statusBar, navigationBar, windowBackground) + SplashTheme
+    - colors.xml : primary, background, icon_bg
+    - ic_launcher_foreground.xml (vector 108dp, croix blanche)
+    - ic_launcher_background.xml (vector 108dp, fond cyan)
+    - splash.xml (layer-list : background + bitmap centré)
+    - icon.xml (legacy vector 48dp)
+    - mipmap-anydpi-v26/ic_launcher.xml (adaptive-icon)
+    - mipmap-anydpi-v26/ic_launcher_round.xml (adaptive-icon)
+  * Step 4b : copie du code source (src/) depuis le workspace vers assets/www/src/
+  * Step 4b : copie des configs (package.json, README.md, tsconfig.json, vite.config.ts, tailwind.config.js)
+  * Step 4c : création OFFLINE_README.md
+- Modifié src/app/api/build-apk/route.ts : includeForgeInterfaces: true (toujours inclure NativeHttp + ForgeFileSaver + StealthBridge)
+- Vérification :
+  * Projet "sas" (108 fichiers) → APK 234KB (contre 165KB avant)
+  * APK contient 105 fichiers :
+    - assets/www/assets/index-BB0vLigm.js (479KB — vrai bundle React minifié)
+    - assets/www/assets/index-Duo0m9ty.css (26KB — CSS Tailwind)
+    - assets/www/index.html (2.5KB — HTML avec chemins relatifs)
+    - assets/www/src/ — code source TypeScript complet (composants, hooks, types, design system, tests)
+    - assets/www/package.json, tsconfig.json, vite.config.ts, tailwind.config.js, README.md
+    - assets/www/manifest.json, sw.js, robots.txt, sitemap.xml (PWA + SEO)
+    - assets/www/OFFLINE_README.md
+    - res/drawable/ : ic_launcher_foreground, ic_launcher_background, splash, icon
+    - res/mipmap-anydpi-v26/ : ic_launcher, ic_launcher_round
+    - classes.dex (5956 bytes — MainActivity + NativeHttp + ForgeFileSaver + StealthBridge)
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'APK du projet contient maintenant TOUT le projet.
+- 105 fichiers embarqués (dist minifié + source TypeScript + configs + PWA + ressources Android + interfaces natives).
+- Taille : 234KB (contre 165KB avant) — l'augmentation vient du code source + configs + ressources.
+- L'APK est 100% autonome : fonctionne hors-ligne, contient le code source, le build minifié, le service worker PWA, et les interfaces natives (NativeHttp, ForgeFileSaver, StealthBridge).

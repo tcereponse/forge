@@ -5,6 +5,7 @@
 import { promises as fs } from "fs";
 import { spawn } from "child_process";
 import path from "path";
+import os from "os";
 import type { ProjectConfig } from "./forge-config";
 
 const ANDROID_HOME = "/tmp/android-sdk";
@@ -71,10 +72,23 @@ export async function buildApk(
     const wwwDir = path.join(assetsDir, "www");
     const srcDir = path.join(buildDir, "src", ...packagePath.split("/"));
     const genDir = path.join(buildDir, "gen");
+    // Multi-density icon directories
+    const mipmapMdpi = path.join(resDir, "mipmap-mdpi");
+    const mipmapHdpi = path.join(resDir, "mipmap-hdpi");
+    const mipmapXhdpi = path.join(resDir, "mipmap-xhdpi");
+    const mipmapXxhdpi = path.join(resDir, "mipmap-xxhdpi");
+    const mipmapXxxhdpi = path.join(resDir, "mipmap-xxxhdpi");
+    const layoutDir = path.join(resDir, "layout");
 
     await fs.mkdir(valuesDir, { recursive: true });
     await fs.mkdir(drawableDir, { recursive: true });
     await fs.mkdir(mipmapDir, { recursive: true });
+    await fs.mkdir(mipmapMdpi, { recursive: true });
+    await fs.mkdir(mipmapHdpi, { recursive: true });
+    await fs.mkdir(mipmapXhdpi, { recursive: true });
+    await fs.mkdir(mipmapXxhdpi, { recursive: true });
+    await fs.mkdir(mipmapXxxhdpi, { recursive: true });
+    await fs.mkdir(layoutDir, { recursive: true });
     await fs.mkdir(manifestDir, { recursive: true });
     await fs.mkdir(wwwDir, { recursive: true });
     await fs.mkdir(srcDir, { recursive: true });
@@ -87,20 +101,25 @@ export async function buildApk(
     const manifest = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="${packageName}"
-    android:versionCode="1"
-    android:versionName="1.0">
+    android:versionCode="2"
+    android:versionName="2.0">
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <application
         android:label="${appName}"
-        android:icon="@drawable/icon"
-        android:theme="@style/AppTheme"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/SplashTheme"
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="true">
-        <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout">
+        android:requestLegacyExternalStorage="true"
+        android:allowBackup="true"
+        android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|uiMode" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -128,6 +147,11 @@ export async function buildApk(
         <item name="android:colorPrimary">#06b6d4</item>
         <item name="android:colorPrimaryDark">#0891b2</item>
         <item name="android:statusBarColor">#0f172a</item>
+        <item name="android:navigationBarColor">#0f172a</item>
+        <item name="android:windowBackground">#0f172a</item>
+    </style>
+    <style name="SplashTheme" parent="AppTheme">
+        <item name="android:windowBackground">@drawable/splash</item>
     </style>
 </resources>`
     );
@@ -136,9 +160,44 @@ export async function buildApk(
       `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="icon_bg">#0f172a</color>
+    <color name="primary">#06b6d4</color>
+    <color name="background">#0f172a</color>
 </resources>`
     );
-    // Simple vector icon
+
+    // Adaptive icon (API 26+) — foreground + background
+    await fs.writeFile(
+      path.join(drawableDir, "ic_launcher_foreground.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M54,30L54,78M30,54L78,54" android:strokeWidth="6" android:strokeColor="#FFFFFF"/>
+</vector>`
+    );
+    await fs.writeFile(
+      path.join(drawableDir, "ic_launcher_background.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#06b6d4" android:pathData="M0,0h108v108h-108z"/>
+</vector>`
+    );
+
+    // Splash screen drawable
+    await fs.writeFile(
+      path.join(drawableDir, "splash.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/background"/>
+    <item android:gravity="center">
+        <bitmap android:src="@drawable/ic_launcher_foreground" android:gravity="center"/>
+    </item>
+</layer-list>`
+    );
+
+    // Simple vector icon (legacy)
     await fs.writeFile(
       path.join(drawableDir, "icon.xml"),
       `<?xml version="1.0" encoding="utf-8"?>
@@ -150,19 +209,73 @@ export async function buildApk(
 </vector>`
     );
 
+    // Adaptive icon XML for API 26+
+    await fs.writeFile(
+      path.join(mipmapDir, "ic_launcher.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>`
+    );
+    await fs.writeFile(
+      path.join(mipmapDir, "ic_launcher_round.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>`
+    );
+
     // Step 4: Copy web build (dist/) to assets/www/
     log.push("📦 Copie du build web vers assets/www/...");
+    let totalFilesCopied = 0;
     try {
       const distEntries = await fs.readdir(distDir);
       for (const entry of distEntries) {
         const srcPath = path.join(distDir, entry);
         const dstPath = path.join(wwwDir, entry);
         await fs.cp(srcPath, dstPath, { recursive: true });
+        totalFilesCopied++;
       }
       log.push(`  ✓ ${distEntries.length} fichiers copiés`);
     } catch (e) {
       log.push(`  ⚠ dist/ non trouvé: ${e instanceof Error ? e.message : "erreur"}`);
     }
+
+    // Step 4b: Copy project source code to assets/www/src/ (for offline access)
+    log.push("📦 Copie du code source vers assets/www/src/...");
+    try {
+      const workspaceDir = path.join(os.tmpdir(), "react-forge-workspaces", projectId);
+      const srcDir2 = path.join(workspaceDir, "src");
+      try {
+        const srcStat = await fs.stat(srcDir2);
+        if (srcStat.isDirectory()) {
+          const srcDst = path.join(wwwDir, "src");
+          await fs.cp(srcDir2, srcDst, { recursive: true });
+          log.push("  ✓ Code source copié (src/)");
+        }
+      } catch { /* no workspace src */ }
+
+      // Also copy package.json, README, and config files
+      for (const configFile of ["package.json", "README.md", "tsconfig.json", "vite.config.ts", "tailwind.config.js"]) {
+        try {
+          const configSrc = path.join(workspaceDir, configFile);
+          const configDst = path.join(wwwDir, configFile);
+          await fs.cp(configSrc, configDst);
+          totalFilesCopied++;
+        } catch { /* skip missing */ }
+      }
+    } catch (e) {
+      log.push(`  ⚠ Source non copié: ${e instanceof Error ? e.message : "erreur"}`);
+    }
+
+    // Step 4c: Create an offline README in assets/www/
+    await fs.writeFile(
+      path.join(wwwDir, "OFFLINE_README.md"),
+      `# ${appName}\n\nCette application est 100% autonome et fonctionne hors-ligne.\n\n## Contenu\n- \`index.html\` — l'application React\n- \`assets/\` — JavaScript et CSS minifiés\n- \`src/\` — code source TypeScript original\n\nGénéré par React Forge — Gold Grade Industrial\n`,
+      "utf-8"
+    );
 
     // Step 5: Create MainActivity.java + ForgeFileSaver + StealthBridge (JavascriptInterfaces)
     log.push("⚙️ Création de MainActivity.java...");
