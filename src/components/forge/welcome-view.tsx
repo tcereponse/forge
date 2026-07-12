@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Hammer,
   Sparkles,
@@ -77,6 +78,15 @@ function StatCard({
 export function WelcomeView() {
   const { setShowBuilder, setPendingTemplate, projects } = useForgeStore();
   const [apkBuilding, setApkBuilding] = useState(false);
+  const [serverUrl, setServerUrl] = useState("");
+  const [showQrModal, setShowQrModal] = useState(false);
+
+  // Detect the current server URL for QR code
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setServerUrl(window.location.origin);
+    }
+  }, []);
 
   const readyCount = projects.filter((p) => p.status === "ready").length;
   const lastProject = projects[0];
@@ -175,6 +185,14 @@ export function WelcomeView() {
                 </>
               )}
             </button>
+            <button
+              onClick={() => setShowQrModal(true)}
+              className="inline-flex h-11 items-center gap-2 rounded-md border border-violet-500/40 bg-violet-500/10 px-6 text-sm font-semibold text-violet-300 shadow-lg shadow-violet-500/10 transition hover:border-violet-500/60 hover:bg-violet-500/20"
+              title="Scanner le QR code avec ton téléphone pour ouvrir l'app mobile"
+            >
+              <Smartphone className="h-4 w-4" />
+              QR Mobile
+            </button>
           </div>
         </motion.div>
 
@@ -264,6 +282,51 @@ export function WelcomeView() {
           </div>
         </motion.div>
       </div>
+
+      {/* QR Code Modal — scan to open mobile app on phone */}
+      {showQrModal && serverUrl && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm"
+          onClick={() => setShowQrModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center shadow-2xl"
+          >
+            <h3 className="mb-1 text-lg font-bold text-slate-100">App Mobile</h3>
+            <p className="mb-4 text-xs text-slate-400">
+              Scanne ce QR code avec ton téléphone pour ouvrir l'app mobile.
+              L'URL du serveur est automatiquement détectée — pas de configuration manuelle.
+            </p>
+            <div className="mb-4 flex justify-center rounded-xl bg-white p-4">
+              <QRCodeSVG
+                value={`${serverUrl}/mobile/`}
+                size={200}
+                level="M"
+                includeMargin={false}
+              />
+            </div>
+            <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+              <p className="text-[10px] uppercase text-slate-500">URL du serveur</p>
+              <p className="mt-0.5 break-all font-mono text-xs text-cyan-300">{serverUrl}</p>
+            </div>
+            <p className="mb-3 text-[11px] text-slate-500">
+              L'app mobile web s'ouvre dans le navigateur de ton téléphone.
+              Elle utilise le serveur comme relais pour créer des projets.
+            </p>
+            <button
+              onClick={() => setShowQrModal(false)}
+              className="w-full rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            >
+              Fermer
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }

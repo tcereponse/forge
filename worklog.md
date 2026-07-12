@@ -1347,3 +1347,34 @@ Stage Summary:
 - PROBLÈME RÉSOLU : "Failed to fetch" affiche maintenant un message clair expliquant quoi faire.
 - L'utilisateur doit re-télécharger l'APK via le bouton "APK Mobile" sur PC (qui injecte l'URL automatiquement).
 - L'APK statique (public/react-forge-mobile.apk) a aussi été recompilé avec l'URL injectée.
+
+---
+Task ID: 29
+Agent: main (Z.ai Code)
+Task: Ajouter QR code pour ouvrir l'app mobile sans APK — solution immédiate
+
+Work Log:
+- Installé qrcode.react package
+- Modifié src/components/forge/welcome-view.tsx :
+  * Bouton "QR Mobile" (violet) ajouté à côté de "App Mobile" et "APK Mobile"
+  * Modal QR code : affiche un QR code 200x200 qui encode {serverUrl}/mobile/
+  * L'URL du serveur est détectée automatiquement (window.location.origin)
+  * Le QR code est scannable par n'importe quelle app caméra de téléphone
+  * Affiche aussi l'URL en texte (pour copier manuellement si besoin)
+- Vérification Agent Browser :
+  * Bouton "QR Mobile" visible sur la page d'accueil
+  * Clic → modal s'ouvre avec QR code SVG 200x200
+  * URL encodée : http://localhost:3000 (sera https://preview-xxx.space-z.ai en production)
+  * Texte "URL du serveur" affiché sous le QR code
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'utilisateur peut maintenant ouvrir l'app mobile SANS installer d'APK.
+- Solution : QR code sur la page PC → scanne avec le téléphone → ouvre /mobile/ dans le navigateur du téléphone.
+- L'app mobile web (servie same-origin par Next.js) fonctionne SANS configuration :
+  * window.location.origin = l'URL du serveur → getApiBase() retourne "" → appels relatifs /api/... fonctionnent
+  * Pas besoin d'APK, pas besoin de configuration manuelle
+- L'app mobile web a TOUTES les fonctionnalités : création de projet, Gold Grade, DeepSeek Bridge, APK des projets
+- 3 options maintenant disponibles :
+  1. "App Mobile" (lien) → ouvre /mobile/ dans un nouvel onglet (même appareil)
+  2. "QR Mobile" (bouton) → QR code à scanner avec le téléphone (appareil différent)
+  3. "APK Mobile" (bouton) → compile un APK avec URL injectée (offline)
