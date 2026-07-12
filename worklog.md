@@ -1676,3 +1676,35 @@ Stage Summary:
 - Mot de passe oublié : entre email → lien de reset généré (envoyé par email en production).
 - Suppression de compte : bouton dans le sidebar (PC) + en bas du main (mobile).
 - En production : le resetUrl serait envoyé par email (SMTP à configurer).
+
+---
+Task ID: 38
+Agent: main (Z.ai Code)
+Task: Configurer SMTP Gmail pour envoi d'emails (mot de passe oublié, bienvenue, suppression)
+
+Work Log:
+- Installé nodemailer (npm package)
+- Créé src/lib/email.ts — service d'envoi d'emails:
+  * getTransporter() — Gmail SMTP avec SMTP_USER/SMTP_PASS
+  * sendEmail() — envoie un email (to, subject, text, html)
+  * sendPasswordResetEmail() — email de réinitialisation avec bouton HTML + lien
+  * sendWelcomeEmail() — email de bienvenue après inscription
+  * sendAccountDeletedEmail() — email de confirmation après suppression
+- Modifié /api/auth/forgot-password — appelle sendPasswordResetEmail() :
+  * Si SMTP configuré → envoie l'email → message "Un email a été envoyé à xxx@gmail.com"
+  * Si SMTP non configuré → retourne le resetUrl (mode dev)
+- Modifié /api/auth/register — appelle sendWelcomeEmail() (non-bloquant)
+- Modifié /api/auth/delete-account — appelle sendAccountDeletedEmail() (non-bloquant)
+- .env mis à jour :
+  * SMTP_USER=patriceadja@gmail.com
+  * SMTP_PASS=lzgj xwdr sgex jgee (mot de passe d'application Gmail)
+- Vérification :
+  * POST /api/auth/forgot-password {email: "patriceadja@gmail.com"} → "Un email de réinitialisation a été envoyé à patriceadja@gmail.com" ✅
+  * POST /api/auth/register {username, email, password} → inscription + email de bienvenue envoyé ✅
+
+Stage Summary:
+- PROBLÈME RÉSOLU : les emails sont maintenant envoyés via Gmail SMTP.
+- Mot de passe oublié → email envoyé avec lien de reset (bouton HTML + lien texte)
+- Inscription → email de bienvenue envoyé
+- Suppression de compte → email de confirmation envoyé
+- SMTP configuré avec le mot de passe d'application Gmail de l'utilisateur.
