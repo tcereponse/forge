@@ -66,8 +66,9 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
         });
         const data = await res.json();
         if (!data.success) { setError(data.error); return; }
+        // Small delay to ensure cookie is set before rendering the app
+        await new Promise(r => setTimeout(r, 200));
         onSuccess(data.user);
-        window.location.reload();
       } else if (screen === "register") {
         const res = await fetch("/api/auth/register", {
           method: "POST",
@@ -77,8 +78,8 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
         });
         const data = await res.json();
         if (!data.success) { setError(data.error); return; }
+        await new Promise(r => setTimeout(r, 200));
         onSuccess(data.user);
-        window.location.reload();
       } else if (screen === "forgot") {
         const res = await fetch("/api/auth/forgot-password", {
           method: "POST",
