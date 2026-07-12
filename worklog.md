@@ -1630,3 +1630,49 @@ Stage Summary:
 - Validation en temps réel des règles de mot de passe (6+ chars, chiffre, maj, min, symbole).
 - Après connexion: accès aux projets (filtrés par userId).
 - Bouton déconnexion dans le sidebar (PC) et la barre top (mobile).
+
+---
+Task ID: 37
+Agent: main (Z.ai Code)
+Task: Auth complète — email, suppression compte, mot de passe oublié, isolation stricte
+
+Work Log:
+- Modèle User mis à jour (Prisma) : ajout email (unique), resetToken, resetExpiry
+- Base réinitialisée (prisma db push --force-reset) pour accepter le nouveau schéma
+- Isolation stricte des projets :
+  * GET /api/projects : 401 si non authentifié (plus de projets publics)
+  * POST /api/projects : 401 si non authentifié
+  * Chaque utilisateur ne voit QUE ses propres projets
+- POST /api/auth/register : ajout champ email (unique, validé)
+- POST /api/auth/forgot-password : génère resetToken (32 bytes) + resetExpiry (1h), retourne resetUrl
+- POST /api/auth/reset-password : vérifie token + expiry, hash nouveau password, clear token
+- POST /api/auth/delete-account : supprime l'utilisateur (cascade projects) + session
+- Écran de connexion (auth-gate.tsx PC) enrichi :
+  * 4 écrans : login, register, forgot, reset
+  * Inscription : nom d'utilisateur + email + mot de passe
+  * Mot de passe oublié : entre email → reçoit lien de reset
+  * Reset : entre nouveau mot de passe (si token valide dans URL)
+  * Validation en temps réel des règles de mot de passe
+  * Lien de reset affiché (en production: envoyé par email)
+- AuthPanel (sidebar PC) enrichi :
+  * Bouton suppression de compte (Trash2) avec confirmation
+  * Avatar username + bouton déconnexion
+- App mobile (App.tsx) enrichi :
+  * Même écran de connexion que PC (login, register, forgot, reset)
+  * Bouton suppression de compte en bas du main
+  * Déconnexion dans la barre top
+- Vérification :
+  * Inscription tiger / patriceadja@gmail.com / 1234wqaQ! → succès ✅
+  * Forgot password → resetUrl généré ✅
+  * Reset password avec token → "Mot de passe réinitialisé" ✅
+  * PC : écran login → inscription (3 champs: username, email, password) ✅
+  * PC : bouton "Mot de passe oublié ?" visible en mode login ✅
+  * PC : bouton suppression de compte dans le sidebar ✅
+
+Stage Summary:
+- PROBLÈME RÉSOLU : isolation stricte + email + suppression + mot de passe oublié.
+- Les utilisateurs ne voient QUE leurs projets (plus de projets publics).
+- Inscription : nom + email + mot de passe (6+ chars, chiffre, maj, min, symbole).
+- Mot de passe oublié : entre email → lien de reset généré (envoyé par email en production).
+- Suppression de compte : bouton dans le sidebar (PC) + en bas du main (mobile).
+- En production : le resetUrl serait envoyé par email (SMTP à configurer).

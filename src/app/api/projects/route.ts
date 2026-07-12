@@ -40,12 +40,13 @@ function parseFiles(raw: unknown): GeneratedFile[] {
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);
-    // If logged in, show only user's projects
-    // If not logged in, show projects with no userId (public/legacy)
-    const where = user ? { userId: user.id } : { userId: null };
+    // STRICT: must be authenticated, only see own projects
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Authentification requise" }, { status: 401 });
+    }
 
     const projects = await db.project.findMany({
-      where,
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -131,13 +132,16 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Authentification requise" }, { status: 401 });
+    }
 
     const project = await db.project.create({
       data: {
         name: config.name,
         slug: uniqueSlug,
         description: config.description,
-        userId: user?.id || null,
+        userId: user.id,
         stack: config.stack,
         typescript: config.typescript,
         styling: config.styling,

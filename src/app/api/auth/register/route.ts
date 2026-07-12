@@ -6,9 +6,11 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json();
+    const { username, email, password } = await request.json();
     const trimmedUsername = String(username || "").trim();
+    const trimmedEmail = String(email || "").trim().toLowerCase();
 
+    // Validate username
     if (trimmedUsername.length < 3) {
       return NextResponse.json({ success: false, error: "Nom d'utilisateur: 3 caractères minimum" }, { status: 400 });
     }
@@ -19,21 +21,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Nom d'utilisateur: lettres, chiffres, _ et - uniquement" }, { status: 400 });
     }
 
+    // Validate email
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      return NextResponse.json({ success: false, error: "Email invalide" }, { status: 400 });
+    }
+
+    // Validate password
     const validation = validatePassword(password);
     if (!validation.ok) {
       return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
     }
 
     // Check if username already exists
-    const existing = await db.user.findUnique({ where: { username: trimmedUsername } });
-    if (existing) {
+    const existingUsername = await db.user.findUnique({ where: { username: trimmedUsername } });
+    if (existingUsername) {
       return NextResponse.json({ success: false, error: "Ce nom d'utilisateur est déjà pris" }, { status: 409 });
+    }
+
+    // Check if email already exists
+    const existingEmail = await db.user.findUnique({ where: { email: trimmedEmail } });
+    if (existingEmail) {
+      return NextResponse.json({ success: false, error: "Cet email est déjà utilisé" }, { status: 409 });
     }
 
     // Create user
     const user = await db.user.create({
       data: {
         username: trimmedUsername,
+        email: trimmedEmail,
         passwordHash: hashPassword(password),
       },
     });
@@ -43,13 +58,13 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, username: user.username },
+      user: { id: user.id, username: user.username, email: user.email },
     });
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: 30 * 24 * 60 * 60,
       path: "/",
     });
     return response;
