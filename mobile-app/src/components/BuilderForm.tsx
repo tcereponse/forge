@@ -143,7 +143,11 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
       setGenerating(false)
       onCreate(realProject)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erreur Gold'
+      let msg = e instanceof Error ? e.message : 'Erreur Gold'
+      if (/failed to fetch/i.test(msg)) {
+        msg = 'Connexion impossible. Sur PC, cliquez le bouton "APK Mobile" pour recompiler l APK avec l URL du serveur automatiquement injectee. Puis reinstallez le nouvel APK.'
+      }
+      if (msg.length > 400) msg = msg.slice(0, 400) + '...'
       setError(msg)
       setGenerating(false)
       onGeneratingError?.()

@@ -53,6 +53,11 @@ export function hasServerFallback(): boolean {
   return !!base // APK with configured server URL
 }
 
+/** Returns a clear error message when GLM is blocked and no server is configured. */
+export function getNoServerErrorMessage(): string {
+  return 'L API GLM-4.6 est bloquee par votre reseau. Pour creer des projets, vous devez : 1) Sur PC, cliquez le bouton "APK Mobile" pour recompiler l APK avec l URL du serveur automatiquement injectee. 2) Installez le nouvel APK sur votre telephone. L URL du serveur sera automatiquement configuree, plus besoin de configuration manuelle.'
+}
+
 /** Deterministic template files (config, boilerplate) — always present, not LLM-generated. */
 function buildTemplateFiles(name: string, description: string): ProjectFile[] {
   const pkgName = name.toLowerCase().replace(/[^a-z0-9]/g, '-')
@@ -253,7 +258,7 @@ Réponds UNIQUEMENT avec le JSON.`
       if (hasServerFallback()) {
         return generateGoldViaServer(name, description, features, onProgress)
       }
-      return { success: false, files: [], prd: '', error: 'API GLM injoignable. Configurez l URL du serveur (bouton Configurer).', mode: 'failed' }
+      return { success: false, files: [], prd: '', error: getNoServerErrorMessage(), mode: 'failed' }
     }
     if (archResult.error) {
       return { success: false, files: [], prd: '', error: `Echec architecture: ${archResult.error}`, mode: 'failed' }
@@ -344,11 +349,12 @@ Réponds UNIQUEMENT avec le JSON.` },
       onProgress?.('code', 'Erreur inattendue. Bascule vers le serveur Gold...')
       return generateGoldViaServer(name, description, features, onProgress)
     }
+    const err = e instanceof Error ? e.message : 'Erreur inconnue'
     return {
       success: false,
       files: [],
       prd: '',
-      error: e instanceof Error ? e.message : 'Erreur inconnue',
+      error: /failed to fetch/i.test(err) ? getNoServerErrorMessage() : err,
       mode: 'failed',
     }
   }
@@ -465,7 +471,7 @@ Reponds UNIQUEMENT avec le Markdown du PRD, sans texte autour.`
         success: false,
         files: [],
         prd: '',
-        error: `L API GLM-4.6 est injoignable depuis votre telephone (reseau operateur). Configurez l URL du serveur React Forge (bouton Configurer) pour utiliser le serveur comme relais.`,
+        error: getNoServerErrorMessage(),
         mode: 'failed',
       }
     }
@@ -593,11 +599,12 @@ Reponds MAINTENANT avec uniquement l'objet JSON.`
       onProgress?.('code', 'Erreur inattendue. Bascule vers le serveur...')
       return generateViaServer(name, description, features, onProgress)
     }
+    const err = e instanceof Error ? e.message : 'Erreur inconnue'
     return {
       success: false,
       files: [],
       prd: '',
-      error: e instanceof Error ? e.message : 'Erreur inconnue',
+      error: /failed to fetch/i.test(err) ? getNoServerErrorMessage() : err,
       mode: 'failed',
     }
   }

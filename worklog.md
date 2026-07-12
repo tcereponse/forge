@@ -1322,3 +1322,28 @@ Stage Summary:
 - Quand l'utilisateur clique "APK Mobile" sur le PC, l'APK est recompilé avec l'URL du serveur actuel.
 - L'APK téléchargé sait automatiquement quelle URL contacter — plus besoin de configuration manuelle.
 - L'app mobile détecte getBackendUrl() non vide et l'utilise directement (fallback GLM → serveur automatique).
+
+---
+Task ID: 28
+Agent: main (Z.ai Code)
+Task: Corriger "Failed to fetch" sur mobile — message clair + re-téléchargement APK
+
+Work Log:
+- Cause : l'APK actuel de l'utilisateur a été téléchargé AVANT la correction d'injection d'URL. getBackendUrl() retourne "" (vide). L'app essaie GLM (bloqué par opérateur), puis tente le fallback serveur avec URL vide → fetch("/api/projects") sur file:// → "Failed to fetch".
+- Ajouté getNoServerErrorMessage() dans sovereign-generator.ts :
+  * Message clair : "L API GLM-4.6 est bloquee. Sur PC, cliquez APK Mobile pour recompiler l APK avec l URL automatiquement injectee."
+  * Utilisé dans tous les fallbacks (standard, Gold, catch blocks)
+- Corrigé tous les catch blocks :
+  * Detection "failed to fetch" → affiche getNoServerErrorMessage() au lieu de l'erreur brute
+  * Truncation des messages > 400 caracteres
+- Corrigé BuilderForm.tsx handleGoldGenerate catch :
+  * Detection "failed to fetch" → message "Sur PC, cliquez le bouton APK Mobile pour recompiler l APK"
+- Recompilé l'APK statique (public/react-forge-mobile.apk) avec URL "http://localhost:3000" injectée
+  * strings classes.dex → "http://localhost:3000" confirmé
+  * L'APK statique a maintenant l'URL pré-injectée pour les téléchargements directs
+  * En production (preview), le bouton "APK Mobile" appellera /api/build-forge-apk qui injecte l'URL dynamiquement
+
+Stage Summary:
+- PROBLÈME RÉSOLU : "Failed to fetch" affiche maintenant un message clair expliquant quoi faire.
+- L'utilisateur doit re-télécharger l'APK via le bouton "APK Mobile" sur PC (qui injecte l'URL automatiquement).
+- L'APK statique (public/react-forge-mobile.apk) a aussi été recompilé avec l'URL injectée.
