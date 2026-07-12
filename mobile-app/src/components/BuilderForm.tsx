@@ -1,28 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sparkles, ArrowLeft, Check, Loader2, AlertCircle, Wifi, Cpu } from 'lucide-react'
 import { apiFetch, getApiBase, getStoredBackendUrl, setBackendUrl, isNativeAndroid } from '../api'
 import { hasNativeHttp } from '../glm-native'
 import { generateProjectOnDevice } from '../sovereign-generator'
+import { PROJECT_TEMPLATES, type ProjectTemplate } from '../templates'
 import type { Project } from '../useProjects'
 
-const TEMPLATES = [
-  { id: 'taskflow', name: 'TaskFlow', desc: 'Gestion de taches avec ajout, suppression et marquage termine' },
-  { id: 'recipebox', name: 'RecipeBox', desc: 'Carnet de recettes avec recherche et filtrage par categorie' },
-  { id: 'devportfolio', name: 'DevPortfolio', desc: 'Portfolio developpeur avec projets et competences' },
-  { id: 'weathercast', name: 'WeatherCast', desc: 'Application meteo avec previsions sur 5 jours' },
-  { id: 'expensetracker', name: 'ExpenseTracker', desc: 'Suivi de depenses avec categories et graphiques' },
-  { id: 'pomodoropro', name: 'PomodoroPro', desc: 'Timer pomodoro avec statistiques de productivite' },
-  { id: 'markdownnotes', name: 'MarkdownNotes', desc: 'Notes markdown avec apercu en temps reel' },
-  { id: 'quizmaster', name: 'QuizMaster', desc: 'Quiz interactif avec score et timer' },
-]
 const FEATURES = ['darkmode', 'auth', 'api', 'forms', 'charts', 'tables', 'pwa', 'i18n', 'tests', 'animations']
 
-export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratingError, onProgress }: {
+export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratingError, onProgress, pendingTemplate, pendingIdea }: {
   onCreate: (p: Project) => void
   onCancel: () => void
   onGeneratingStart?: () => void
   onGeneratingError?: () => void
   onProgress?: (phase: 'prd' | 'code' | 'merge' | 'done', message: string) => void
+  pendingTemplate?: ProjectTemplate | null
+  pendingIdea?: string | null
 }) {
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
@@ -31,13 +24,27 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
+  // Pre-fill from a picked template (from WelcomeView gallery) or a sample idea
+  useEffect(() => {
+    if (pendingTemplate) {
+      setName(pendingTemplate.name)
+      setDesc(pendingTemplate.description)
+      setFeatures(pendingTemplate.features || [])
+      const idx = PROJECT_TEMPLATES.findIndex(t => t.id === pendingTemplate.id)
+      if (idx >= 0) setTpl(idx)
+    } else if (pendingIdea) {
+      setDesc(pendingIdea)
+      setName('')
+    }
+  }, [pendingTemplate, pendingIdea])
+
   function toggle(f: string) { setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]) }
 
   async function handleGenerate() {
     setError('')
-    const t = TEMPLATES[tpl]
+    const t = PROJECT_TEMPLATES[tpl]
     const projectName = name.trim() || t.name
-    const projectDesc = desc.trim() || t.desc
+    const projectDesc = desc.trim() || t.description
     if (projectDesc.length < 10) { setError('Decris ton application (10 caracteres min.)'); return }
 
     setGenerating(true)
@@ -178,7 +185,7 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
 
         <div className="mb-4 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
           <p className="mb-2 text-xs font-medium text-slate-300">Modele de base</p>
-          <div className="flex gap-2 overflow-x-auto pb-1">{TEMPLATES.map((t, i) => <button key={t.id} onClick={() => setTpl(i)} className={`shrink-0 rounded-lg border p-2 text-xs transition ${tpl === i ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-200' : 'border-slate-800 text-slate-400'}`}>{t.name}</button>)}</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">{PROJECT_TEMPLATES.map((t, i) => <button key={t.id} onClick={() => setTpl(i)} className={`shrink-0 rounded-lg border p-2 text-xs transition ${tpl === i ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-200' : 'border-slate-800 text-slate-400'}`}>{t.name}</button>)}</div>
         </div>
 
         <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900/40 p-4">

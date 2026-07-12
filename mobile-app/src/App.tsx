@@ -8,6 +8,7 @@ import { SetupScreen } from './components/SetupScreen'
 import { useBackendStatus } from './useBackendStatus'
 import { useProjects, type Project } from './useProjects'
 import { hasNativeHttp } from './glm-native'
+import { type ProjectTemplate } from './templates'
 
 type View = 'welcome' | 'builder' | 'workspace'
 
@@ -21,6 +22,8 @@ export default function App() {
   const [genPhase, setGenPhase] = useState<'prd' | 'arsenal' | 'code' | 'saving' | 'done' | 'error'>('prd')
   const [genMessage, setGenMessage] = useState('')
   const [setupDone, setSetupDone] = useState(false)
+  const [pendingTemplate, setPendingTemplate] = useState<ProjectTemplate | null>(null)
+  const [pendingIdea, setPendingIdea] = useState<string | null>(null)
 
   // When backend comes online (either auto or after setup), sync projects
   useEffect(() => {
@@ -75,6 +78,27 @@ export default function App() {
     backend.recheck()
   }
 
+  function handlePickTemplate(tpl: ProjectTemplate) {
+    setPendingTemplate(tpl)
+    setPendingIdea(null)
+    setView('builder')
+    setSidebarOpen(false)
+  }
+
+  function handlePickIdea(idea: string) {
+    setPendingIdea(idea)
+    setPendingTemplate(null)
+    setView('builder')
+    setSidebarOpen(false)
+  }
+
+  function handleNewBlank() {
+    setPendingTemplate(null)
+    setPendingIdea(null)
+    setView('builder')
+    setSidebarOpen(false)
+  }
+
   // In sovereign mode (APK with NativeHttp), skip the backend check entirely —
   // the app generates projects on-device, no server needed.
   const sovereign = hasNativeHttp()
@@ -117,12 +141,12 @@ export default function App() {
       </div>
       {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />}
       <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed z-30 h-full w-72 transition-transform md:translate-x-0 md:static md:z-0`}>
-        <Sidebar projects={projects} onNew={() => { setView('builder'); setSidebarOpen(false) }} onSelect={(p) => { setCurrentProject(p); setView('workspace'); setSidebarOpen(false) }} onHome={() => { setView('welcome'); setCurrentProject(null); setSidebarOpen(false) }} onDelete={deleteProject} currentId={currentProject?.id} />
+        <Sidebar projects={projects} onNew={handleNewBlank} onSelect={(p) => { setCurrentProject(p); setView('workspace'); setSidebarOpen(false) }} onHome={() => { setView('welcome'); setCurrentProject(null); setSidebarOpen(false) }} onDelete={deleteProject} currentId={currentProject?.id} />
       </div>
       <main className="relative flex min-w-0 flex-1 flex-col pt-12 md:pt-0">
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          {view === 'welcome' && <WelcomeView onNew={() => setView('builder')} projectCount={projects.length} />}
-          {view === 'builder' && <BuilderForm onCreate={handleCreate} onCancel={() => setView('welcome')} onGeneratingStart={handleGeneratingStart} onGeneratingError={handleGeneratingError} onProgress={handleProgress} />}
+          {view === 'welcome' && <WelcomeView onNew={handleNewBlank} onPickTemplate={handlePickTemplate} onPickIdea={handlePickIdea} projects={projects} />}
+          {view === 'builder' && <BuilderForm onCreate={handleCreate} onCancel={() => setView('welcome')} onGeneratingStart={handleGeneratingStart} onGeneratingError={handleGeneratingError} onProgress={handleProgress} pendingTemplate={pendingTemplate} pendingIdea={pendingIdea} />}
           {view === 'workspace' && currentProject && <Workspace project={currentProject} onBack={() => setView('welcome')} onUpdateProject={(files, prd) => updateProject(currentProject.id, files, prd)} allProjects={projects} />}
         </div>
       </main>

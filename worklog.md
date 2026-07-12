@@ -435,3 +435,55 @@ Stage Summary:
 - L'APK detecte automatiquement le mode souverain (NativeHttp present) et skip le SetupScreen.
 - APK recompilé : 156KB avec NativeHttp + token GLM + generateur souverain.
 - Architecture : JS (mobile app) → NativeHttp.post() → Java HttpURLConnection → https://internal-api.z.ai/v1/chat/completions → GLM-4.6 → reponse JSON → parsing on-device → fichiers generes.
+
+---
+Task ID: 9
+Agent: main (Z.ai Code)
+Task: Interface mobile identique au PC — WelcomeView avec hero, stats, 4 features, 8 modeles + suggestions
+
+Work Log:
+- Examiné welcome-view.tsx et templates-gallery.tsx du PC pour la structure exacte :
+  * Hero : titre "Forge des applications React avec l IA" + description + bouton "Creer un projet"
+  * Stats dashboard : 3 cartes (Projets crees, Projets prets, Dernier projet)
+  * 4 features cards : Generation IA, Explorable, Telechargeable, Stack configurable
+  * 8 modeles "prets a forger" avec icone, nom, tagline, description, bouton "Forger ce modele"
+  * Section "Ou decris ta propre idee" avec 4 suggestions
+- Créé mobile-app/src/templates.ts : 8 ProjectTemplate avec icone Lucide, accent gradient, features, description complete. Identique au PROJECT_TEMPLATES du PC. + SAMPLE_IDEAS (4 suggestions).
+- Réécrit mobile-app/src/components/WelcomeView.tsx : interface complete identique au PC :
+  * Hero avec badge "Generateur de projets React", titre gradient, description, bouton "Creer un projet"
+  * 3 StatCards (Projets crees, Projets prets, Dernier projet) avec icones et accents colores
+  * 4 features cards (Generation IA, Explorable, Telechargeable, Stack configurable) avec icones
+  * Templates Gallery : 8 cartes modele avec icone, nom, tagline, description (2 lignes), "Forger ce modele"
+  * Section "Ou decris ta propre idee" avec 4 boutons suggestions
+  * Props : onNew, onPickTemplate, onPickIdea, projects
+- Mis à jour mobile-app/src/components/BuilderForm.tsx :
+  * Import PROJECT_TEMPLATES depuis templates.ts (remplace l'ancien TEMPLATES local)
+  * Props pendingTemplate et pendingIdea pour pre-remplissage
+  * useEffect : si pendingTemplate → setName, setDesc, setFeatures, setTpl(idx). Si pendingIdea → setDesc.
+  * handleGenerate utilise PROJECT_TEMPLATES[tpl].description (au lieu de l'ancien t.desc)
+- Mis à jour mobile-app/src/App.tsx :
+  * Import type ProjectTemplate depuis templates
+  * State pendingTemplate et pendingIdea
+  * handlePickTemplate(tpl) : setPendingTemplate, setView('builder')
+  * handlePickIdea(idea) : setPendingIdea, setView('builder')
+  * handleNewBlank() : reset pendingTemplate/Idea, setView('builder')
+  * WelcomeView recoit onNew, onPickTemplate, onPickIdea, projects
+  * BuilderForm recoit pendingTemplate, pendingIdea
+  * Sidebar onNew → handleNewBlank
+- TypeScript check : 0 erreur
+- Build Vite : 457KB JS (incluant templates.ts + WelcomeView enrichi) → public/mobile/
+- APK recompilé : 160KB (public/react-forge-mobile.apk)
+- Vérification Agent Browser :
+  * WelcomeView affiche le hero "Forge des applications React avec l IA" + bouton "Creer un projet"
+  * 8 modeles affiches avec descriptions completes : TaskFlow, RecipeBox, DevPortfolio, WeatherCast, ExpenseTracker, PomodoroPro, MarkdownNotes, QuizMaster — chacun avec "Forger ce modele"
+  * 4 suggestions d idees : gestion de taches, portfolio, convertisseur de devises, lecteur de podcasts
+  * Clic sur "Forger ce modele TaskFlow" → BuilderForm pre-rempli : nom="TaskFlow", description complete, features=[forms, charts, tables]
+  * Bouton "Generer le projet" disponible pour lancer la generation
+
+Stage Summary:
+- PROBLEME RÉSOLU : l'interface mobile WelcomeView est maintenant identique au PC.
+- Les 8 modeles "prets a forger" sont affiches avec descriptions completes et boutons "Forger ce modele".
+- Le clic sur un modele pre-remplit automatiquement le BuilderForm (nom + description + features).
+- Les 4 suggestions d idees sont aussi cliquables et pre-remplissent la description.
+- Stats dashboard (Projets crees, Projets prets, Dernier projet) affiche en temps reel.
+- APK recompilé : 160KB avec la nouvelle interface complete.
