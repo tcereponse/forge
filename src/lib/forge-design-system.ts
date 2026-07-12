@@ -204,7 +204,7 @@ export class ApiClient {
         const res = await fetch(url, {
           method,
           headers: this.headers,
-          body: body ? JSON.stringify(body) : undefined,
+          body: body ? JSON.stringify(body) : null,
           signal: controller.signal,
         })
 
