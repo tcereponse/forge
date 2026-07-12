@@ -43,19 +43,32 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function PreviewPanel({ projectId }: { projectId: string }) {
-  const { status, triggerBuild, refresh } = useProcessStatus(projectId, true);
+  const { status, triggerBuild, triggerInstall, refresh } = useProcessStatus(projectId, true);
   const [showLogs, setShowLogs] = useState<"install" | "build" | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [apkBuilding, setApkBuilding] = useState(false);
+  const [installTriggering, setInstallTriggering] = useState(false);
 
   const installDone = status?.install === "installed";
   const buildDone = status?.build === "built";
   const buildFailed = status?.build === "failed";
   const installFailed = status?.install === "failed";
+  const installPending = !status || status.install === "pending";
+  const installInstalling = status?.install === "installing";
+
+  async function handleInstall() {
+    setInstallTriggering(true);
+    toast.success("Installation des dépendances démarrée…");
+    await triggerInstall();
+    setTimeout(() => setInstallTriggering(false), 2000);
+  }
 
   async function handleBuild() {
     if (!installDone) {
-      toast.error("Attends la fin de l'installation des dépendances");
+      // Auto-trigger install if not done yet
+      toast.info("Lancement de l'installation d'abord…");
+      await triggerInstall();
+      toast.error("Attends la fin de l'installation des dépendances, puis clique Builder");
       return;
     }
     toast.success("Build démarré…");
@@ -115,7 +128,25 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
           <span className="text-xs text-slate-400">Build</span>
           <StatusBadge status={status?.build ?? "pending"} />
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {/* Install button — visible when pending or failed */}
+          {(installPending || installFailed) && (
+            <Button
+              onClick={handleInstall}
+              disabled={installTriggering || installInstalling}
+              size="sm"
+              variant="outline"
+              className="h-8 border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20"
+              title="Lancer npm install"
+            >
+              {installTriggering || installInstalling ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Package className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {installFailed ? "Réessayer" : "Installer"}
+            </Button>
+          )}
           <Button
             onClick={handleApk}
             disabled={apkBuilding}
@@ -132,7 +163,7 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
           </Button>
           <Button
             onClick={handleBuild}
-            disabled={!installDone || status?.build === "building"}
+            disabled={status?.build === "building"}
             size="sm"
             variant="outline"
             className="h-8 border-slate-700 text-slate-300 hover:text-cyan-300"

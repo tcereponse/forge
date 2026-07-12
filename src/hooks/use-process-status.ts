@@ -17,6 +17,7 @@ export function useProcessStatus(
 ): {
   status: ProcessStatus | null;
   triggerBuild: () => Promise<void>;
+  triggerInstall: () => Promise<void>;
   refresh: () => Promise<void>;
 } {
   const [status, setStatus] = useState<ProcessStatus | null>(null);
@@ -109,5 +110,24 @@ export function useProcessStatus(
     }
   }, [projectId, refresh]);
 
-  return { status, triggerBuild, refresh };
+  const triggerInstall = useCallback(async () => {
+    if (!projectId) return;
+    if (errorCount.current >= 3) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/install`, { method: "POST" });
+      if (res.status === 404) {
+        errorCount.current += 1;
+        return;
+      }
+      // Reset error count and restart polling
+      errorCount.current = 0;
+      refresh();
+      // Restart polling by triggering a status update
+      setTimeout(() => refresh(), 2000);
+    } catch {
+      errorCount.current += 1;
+    }
+  }, [projectId, refresh]);
+
+  return { status, triggerBuild, triggerInstall, refresh };
 }

@@ -947,3 +947,38 @@ Stage Summary:
 - Détection automatique du mode (Gold vs Standard) via sessionStorage.
 - Polling temps réel (800ms) via /api/projects/[id]/progress.
 - Le mode Standard garde son overlay existant (4 phases).
+
+---
+Task ID: 17
+Agent: main (Z.ai Code)
+Task: Corriger boutons Installer/Builder manquants dans le PreviewPanel
+
+Work Log:
+- Cause identifiee : le PreviewPanel n'avait PAS de bouton pour lancer manuellement npm install. L'install etait censee etre automatique apres generation, mais si elle echouait (surtout pour les projets Gold avec beaucoup de deps), l'utilisateur etait bloque avec "En attente" et ne pouvait rien faire.
+- Modifie src/hooks/use-process-status.ts :
+  * Ajoute triggerInstall() — POST /api/projects/[id]/install
+  * Reset errorCount et restart polling apres triggerInstall
+  * Retourne { status, triggerBuild, triggerInstall, refresh }
+- Modifie src/components/forge/preview-panel.tsx :
+  * Import triggerInstall depuis useProcessStatus
+  * Etat installTriggering + installPending + installInstalling
+  * handleInstall() — appelle triggerInstall + toast
+  * handleBuild() — auto-trigger install si pas installe, puis message
+  * Bouton "Installer" (cyan outline, icone Package) — visible quand installPending ou installFailed
+    * Affiche "Réessayer" si installFailed, "Installer" sinon
+    * Disabled pendant installTriggering ou installInstalling
+  * Bouton "Builder" — maintenant toujours enabled (auto-trigger install si besoin)
+  * Bouton "APK" — inchangé
+  * Bouton "Refresh" — inchangé (visible quand buildDone)
+- TypeScript check: 0 erreur
+- Vérification Agent Browser:
+  * Projet GoldOverlayTest → onglet Aperçu
+  * 3 boutons visibles: Installer, APK, Builder
+  * Clic sur Installer → bouton disabled + toast "Installation des dépendances démarrée…"
+  * Statut passe de "En attente" à installation en cours
+
+Stage Summary:
+- PROBLÈME RÉSOLU : le bouton "Installer" est maintenant visible quand les dépendances sont en attente ou en échec.
+- L'utilisateur peut relancer npm install manuellement à tout moment.
+- Le bouton "Builder" auto-lance l'install si pas encore fait.
+- Bouton "Réessayer" apparait si l'install a échoué.
