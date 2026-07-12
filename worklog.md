@@ -1545,3 +1545,54 @@ Stage Summary:
 - Les projets créés sont associés à l'email Google de l'utilisateur.
 - Bouton Google dans le sidebar avec avatar + déconnexion.
 - POUR ACTIVER: l'utilisateur doit créer des identifiants OAuth Google (Google Cloud Console) et les ajouter au .env.
+
+---
+Task ID: 35
+Agent: main (Z.ai Code)
+Task: Authentification par nom d'utilisateur + mot de passe (sans Google, sans Supabase)
+
+Work Log:
+- Créé modèle User dans Prisma (id, username unique, passwordHash, createdAt)
+- Ajouté relation Project.userId → User (FK, onDelete: Cascade)
+- db:push appliqué (base SQLite mise à jour)
+- Créé src/lib/auth.ts — utilitaires d'authentification:
+  * hashPassword() — scrypt + salt aléatoire
+  * verifyPassword() — vérifie le hash
+  * validatePassword() — 6+ chars, 1 chiffre, 1 majuscule, 1 minuscule, 1 symbole
+  * createSession() — token aléatoire 32 bytes, stocké dans db/sessions.json
+  * getSession() — vérifie token + expiration (30 jours)
+  * deleteSession() — supprime le token
+  * getTokenFromRequest() — extrait le token du cookie ou Authorization header
+- Créé 4 endpoints API:
+  * POST /api/auth/register — inscription (username + password validé)
+  * POST /api/auth/login — connexion (vérifie username + password)
+  * POST /api/auth/logout — déconnexion (supprime le cookie)
+  * GET /api/auth/me — retourne l'utilisateur courant
+- Modifié src/app/api/projects/route.ts:
+  * getCurrentUser() — récupère l'utilisateur depuis la session
+  * GET: filtre par userId (connecté = ses projets; non connecté = projets sans userId)
+  * POST: associe userId au projet créé
+- Créé src/components/auth-panel.tsx — panneau d'authentification:
+  * Toggle Connexion / Inscription
+  * Champs username + password
+  * Validation en temps réel (erreurs affichées)
+  * Si connecté: avatar username + bouton déconnexion
+  * Auto-check au montage (fetch /api/auth/me)
+  * Recharge la page après connexion/déconnexion
+- Modifié src/components/forge/sidebar.tsx — AuthPanel dans le footer (remplace AuthButton Google)
+- Vérification:
+  * Inscription tiger / 1234wqaQ! → succès ✅
+  * Connexion tiger / 1234wqaQ! → succès ✅
+  * Password trop court → "6 caractères minimum" ✅
+  * Sans majuscule → "1 majuscule minimum" ✅
+  * Sans symbole → "1 symbole minimum" ✅
+  * Doublon username → "déjà pris" ✅
+  * Panel visible dans le sidebar ✅
+
+Stage Summary:
+- PROBLÈME RÉSOLU : authentification simple par nom d'utilisateur + mot de passe.
+- Aucune configuration externe nécessaire (pas de Google, pas de Supabase).
+- Validation: 6+ caractères, 1 chiffre, 1 majuscule, 1 minuscule, 1 symbole.
+- Chaque utilisateur ne voit que ses propres projets.
+- Session persistante 30 jours (cookie httpOnly).
+- Inscription + connexion + déconnexion fonctionnels.

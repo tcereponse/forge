@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getSession, getTokenFromRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   type ProjectConfig,
@@ -12,14 +11,12 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Gets the current user's email from the session. Empty string = anonymous/public mode. */
-async function getUserEmail(): Promise<string> {
-  try {
-    const session = await getServerSession(authOptions);
-    return session?.user?.email || "";
-  } catch {
-    return "";
-  }
+/** Gets the current user from the session token. Returns null if not authenticated. */
+async function getCurrentUser(request: NextRequest): Promise<{ id: string; username: string } | null> {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(token);
+  if (!session) return null;
+  return { id: session.userId, username: session.username };
 }
 
 interface RawFile {
@@ -40,14 +37,12 @@ function parseFiles(raw: unknown): GeneratedFile[] {
     .filter((f) => f.path.length > 0);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const userEmail = await getUserEmail();
-    // If logged in, show only user's projects + public ones (empty userEmail)
-    // If not logged in, show only public ones (empty userEmail)
-    const where = userEmail
-      ? { OR: [{ userEmail }, { userEmail: "" }] }
-      : { userEmail: "" };
+    const user = await getCurrentUser(request);
+    // If logged in, show only user's projects
+    // If not logged in, show projects with no userId (public/legacy)
+    const where = user ? { userId: user.id } : { userId: null };
 
     const projects = await db.project.findMany({
       where,
@@ -135,14 +130,14 @@ export async function POST(request: NextRequest) {
       uniqueSlug = `${slug}-${n++}`;
     }
 
-    const userEmail = await getUserEmail();
+    const user = await getCurrentUser(request);
 
     const project = await db.project.create({
       data: {
         name: config.name,
         slug: uniqueSlug,
         description: config.description,
-        userEmail,
+        userId: user?.id || null,
         stack: config.stack,
         typescript: config.typescript,
         styling: config.styling,

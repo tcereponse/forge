@@ -10,12 +10,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  projects     Project[]
+}
+
 model Project {
   id          String   @id @default(cuid())
   name        String
   slug        String   @unique
   description String
-  userEmail   String   @default("") // Google account email — empty = public/shared
+  userEmail   String   @default("") // Email (legacy)
+  userId      String?  // FK to User
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Stack config (stored as plain values for easy querying)
   stack       String   @default("vite") // vite | next | cra
   typescript  Boolean  @default(true)
