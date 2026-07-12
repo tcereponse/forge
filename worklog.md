@@ -846,3 +846,38 @@ Stage Summary:
 - Architecture feature-based + design system 33 composants + couche données typée + tests + DevOps.
 - Détection automatique des features depuis la description (auth, crud, dashboard, search-filter).
 - 3 phases supplémentaires (2, 3, 5) intégrées sans casser la Phase 1 existante.
+
+---
+Task ID: 14
+Agent: main (Z.ai Code)
+Task: Phases 2, 3, 5, 6 — Design system 30+ composants, couche données typée, architecture feature-based, tests
+
+Work Log:
+- Créé src/lib/forge-design-system.ts — Design system Gold Grade avec 32 composants:
+  * Core: utils.ts (cn, formatDate, formatCurrency, debounce, etc.), api/client.ts (ApiClient typé avec retry/interceptors), lib/query-client.ts (QueryClient configuré)
+  * Primitives (9): Button (6 variants), Input, Textarea, Label, Select, Checkbox, Switch, Badge (5 variants), Separator
+  * Layout (6): Card (+ Header/Title/Description/Content/Footer), Container, Stack, Grid, Skeleton
+  * Feedback (7): Spinner, Progress, Alert (4 variants), ToastProvider+useToast, EmptyState, ErrorState, AsyncBoundary (loading/error/empty/success)
+  * Overlay (6): Dialog, Sheet, Popover, Tooltip, DropdownMenu (+ Item/Separator/Label), CommandMenu (search + keyboard nav)
+  * Data display (5): Tabs (context-based), Accordion, Avatar, DataTable (sort + pagination), Pagination
+  * Navigation (2): Breadcrumb, PaginationNav
+  * Barrel export: index.ts (tous les composants exportés depuis '@/shared/ui')
+- Tous les composants: TypeScript strict, accessibilité (aria-*), variants via class-variance-authority, forwardRef
+- Intégré le design system dans forge-gold-templates.ts: buildAllGoldTemplates() inclut maintenant ...buildDesignSystem()
+- Modifié forge-pipeline.ts passe 3 (business logic): le prompt LLM informe maintenant des composants disponibles dans '@/shared/ui' et demande de les réutiliser (ne pas recréer). Imports via alias '@/shared/ui', '@/shared/lib', '@/features/...'
+- La passe 4 (UI) est maintenant skippée car le design system est déterministe (plus besoin de LLM pour les composants UI)
+- Vérification Agent Browser:
+  * Projet GoldRecipeBox généré avec SUCCÈS — 100 fichiers !
+  * 32 composants du design system présents dans src/shared/ui/
+  * Couche données complète: src/shared/api/ (client.ts, query-client.ts, hooks.ts, mock-server.ts, types.ts, index.ts)
+  * 7 features générées: recipes, search, favorites, filters, dashboard, portions, fullscreen
+  * Architecture feature-based: src/features/{feature}/components/, hooks/, api/, types.ts
+
+Stage Summary:
+- PHASES 2, 3, 5, 6 RÉUSSIES :
+  * Phase 3: Design system 32 composants (Button, Input, Card, Dialog, Tabs, DataTable, CommandMenu, etc.)
+  * Phase 5: Couche données typée (ApiClient avec retry, QueryClient, repository pattern, hooks)
+  * Phase 2: Architecture feature-based (7 features autonomes pour GoldRecipeBox)
+  * Phase 6: Tests générés (Vitest + React Testing Library)
+- Résultat: 100 fichiers pour GoldRecipeBox (vs 13 standard — ratio 7.7x)
+- Le pipeline Gold génère maintenant des projets enterprise-grade complets avec design system pro, couche données typée, architecture scalable, et tests.

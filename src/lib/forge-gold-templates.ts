@@ -3,6 +3,7 @@
 // These are NOT LLM-generated — they're deterministic for guaranteed quality.
 
 import type { ProjectConfig, GeneratedFile } from "./forge-config";
+import { buildDesignSystem } from "./forge-design-system";
 
 /** Build the gold-grade package.json with all deps from the plan. */
 export function buildGoldPackageJson(
@@ -655,6 +656,8 @@ export function buildAllGoldTemplates(
     buildGoldReadme(config),
     buildGoldLicense(),
     buildGoldArchitectureDoc(config),
+    // ── Design System (30+ components) ──
+    ...buildDesignSystem(),
     // Core boilerplate
     {
       path: "src/main.tsx",

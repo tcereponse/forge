@@ -287,20 +287,35 @@ ${componentsList}
 Types disponibles (réutilise-les):
 ${typesSummary}
 
+DESIGN SYSTEM DISPONIBLE (importe depuis '@/shared/ui'):
+- Button (variants: primary, secondary, outline, ghost, destructive, link; sizes: sm, md, lg, icon)
+- Input, Textarea, Label, Select, Checkbox, Switch
+- Badge (variants: default, success, warning, destructive, outline)
+- Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter
+- Container, Stack, Grid, Skeleton, Separator
+- Spinner, Progress, Alert (variants: info, success, warning, destructive)
+- EmptyState, ErrorState, AsyncBoundary (isLoading, isError, isEmpty, onRetry)
+- Dialog, Sheet, Popover, Tooltip, DropdownMenu, CommandMenu
+- Tabs, Accordion, Avatar, DataTable, Pagination, Breadcrumb
+- ToastProvider + useToast (toast.success/error/info/warning)
+- ApiClient (apiClient singleton) + ApiError
+
 Génère les fichiers business logic au format JSON:
-1. "src/App.tsx" — composant racine avec HashRouter (si routing), providers (QueryClientProvider)
-2. "src/features/{feature}/components/{Component}.tsx" — composants par feature
-3. "src/features/{feature}/hooks/use-{feature}.ts" — hooks avec TanStack Query
-4. "src/features/{feature}/api/{feature}-repository.ts" — repository pattern (ApiClient)
+1. "src/App.tsx" — composant racine avec HashRouter (si routing), QueryClientProvider, ToastProvider
+2. "src/features/{feature}/components/{Component}.tsx" — composants par feature (UTILISE le design system)
+3. "src/features/{feature}/hooks/use-{feature}.ts" — hooks avec TanStack Query (useQuery, useMutation)
+4. "src/features/{feature}/api/{feature}-repository.ts" — repository pattern (utilise apiClient)
 
 RÈGLES:
 - TypeScript strict, composants fonctionnels avec export default
+- UTILISE les composants du design system (Button, Card, Input, etc.) — ne recrée pas de composants UI
 - Hooks: utilise @tanstack/react-query (useQuery, useMutation)
-- Repository: pattern avec méthodes list/get/create/update/delete
-- États complets: loading (Skeleton), error (ErrorState), empty (EmptyState)
+- Repository: pattern avec méthodes list/get/create/update/delete (utilise apiClient.get/post/put/delete)
+- États complets via AsyncBoundary: loading (Skeleton), error (ErrorState), empty (EmptyState)
 - ${config.styling === "tailwind" ? "Classes Tailwind pour le style" : "CSS modules"}
-- Imports relatifs sans extension
+- Imports: utilise les alias '@/shared/ui', '@/shared/lib', '@/features/...'
 - NE génère PAS package.json, index.html, vite.config — fournis automatiquement
+- NE génère PAS les composants du design system — ils existent déjà dans src/shared/ui/
 
 Format JSON: {"files":[{"path":"...","content":"...","language":"tsx"}]}
 Réponds UNIQUEMENT avec le JSON.`;
