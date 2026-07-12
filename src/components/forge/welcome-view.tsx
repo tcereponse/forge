@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Hammer,
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
   Zap,
   Smartphone,
+  Loader2,
 } from "lucide-react";
 import { useForgeStore } from "@/hooks/use-forge-store";
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,7 @@ function StatCard({
 
 export function WelcomeView() {
   const { setShowBuilder, setPendingTemplate, projects } = useForgeStore();
+  const [apkBuilding, setApkBuilding] = useState(false);
 
   const readyCount = projects.filter((p) => p.status === "ready").length;
   const lastProject = projects[0];
@@ -81,6 +84,32 @@ export function WelcomeView() {
   function handlePickTemplate(tpl: ProjectTemplate) {
     setPendingTemplate(tpl);
     setShowBuilder(true);
+  }
+
+  // Build the React Forge mobile APK with the current server URL automatically injected.
+  // The user downloads this APK and it already knows the server URL — no manual configuration needed.
+  async function handleBuildForgeApk() {
+    setApkBuilding(true);
+    try {
+      const res = await fetch("/api/build-forge-apk", { method: "POST" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "react-forge-mobile.apk";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: download the static APK
+      window.location.href = "/react-forge-mobile.apk";
+    } finally {
+      setApkBuilding(false);
+    }
   }
 
   return (
@@ -128,14 +157,24 @@ export function WelcomeView() {
               <Smartphone className="h-4 w-4" />
               App Mobile
             </a>
-            <a
-              href="/react-forge-mobile.apk"
-              download="react-forge-mobile.apk"
-              className="inline-flex h-11 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-6 text-sm font-semibold text-emerald-300 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-500/60 hover:bg-emerald-500/20"
+            <button
+              onClick={handleBuildForgeApk}
+              disabled={apkBuilding}
+              className="inline-flex h-11 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-6 text-sm font-semibold text-emerald-300 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-500/60 hover:bg-emerald-500/20 disabled:opacity-50"
+              title="Compile l'APK avec l'URL du serveur automatiquement intégrée"
             >
-              <Smartphone className="h-4 w-4" />
-              APK Mobile
-            </a>
+              {apkBuilding ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Compilation...
+                </>
+              ) : (
+                <>
+                  <Smartphone className="h-4 w-4" />
+                  APK Mobile
+                </>
+              )}
+            </button>
           </div>
         </motion.div>
 

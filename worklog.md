@@ -1288,3 +1288,37 @@ Stage Summary:
 - Fallback vers le serveur automatique si l'API GLM est bloquee.
 - Panneau de configuration clarifie : il faut l'URL du serveur React Forge (https://preview-xxx.space-z.ai), PAS l'URL de DeepSeek.
 - IMPORTANT pour l'utilisateur : il faut cliquer "Configurer" et entrer l'URL de preview du serveur React Forge (dans la barre d'adresse du navigateur PC), PAS https://chat.deepseek.com.
+
+---
+Task ID: 27
+Agent: main (Z.ai Code)
+Task: Injection automatique de l'URL serveur dans l'APK mobile
+
+Work Log:
+- Modifié build-mobile-apk.sh :
+  * Ajouté paramètre BACKEND_URL="${1:-}" (premier argument du script)
+  * getBackendUrl() utilise un placeholder __BACKEND_URL_PLACEHOLDER__ (au lieu de ${BACKEND_URL} qui n'est pas expansé dans le heredoc quoted)
+  * sed après la génération du Java : remplace le placeholder par l'URL réelle
+  * Si pas d'URL fournie, placeholder remplacé par chaîne vide
+- Créé src/app/api/build-forge-apk/route.ts :
+  * POST /api/build-forge-apk — récupère l'URL du serveur depuis les headers (host + x-forwarded-proto)
+  * Exécute build-mobile-apk.sh avec l'URL en argument
+  * Retourne l'APK compilé (238KB) avec l'URL injectée
+  * Header X-Server-Url pour debug
+- Modifié src/components/forge/welcome-view.tsx :
+  * Bouton "APK Mobile" transformé de <a href> statique vers <button onClick> dynamique
+  * handleBuildForgeApk() — appelle POST /api/build-forge-apk, télécharge le blob
+  * État apkBuilding + spinner Loader2 pendant la compilation
+  * Fallback: si l'API échoue, télécharge l'APK statique
+- Vérification :
+  * POST /api/build-forge-apk → HTTP 200, 238KB
+  * Header X-Server-Url: http://localhost:3000
+  * Java file: getBackendUrl() { return "http://localhost:3000"; }
+  * DEX: strings classes.dex | grep localhost → "http://localhost:3000"
+  * En production: l'URL sera https://preview-xxx.space-z.ai
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'URL du serveur est maintenant automatiquement injectée dans l'APK.
+- Quand l'utilisateur clique "APK Mobile" sur le PC, l'APK est recompilé avec l'URL du serveur actuel.
+- L'APK téléchargé sait automatiquement quelle URL contacter — plus besoin de configuration manuelle.
+- L'app mobile détecte getBackendUrl() non vide et l'utilise directement (fallback GLM → serveur automatique).

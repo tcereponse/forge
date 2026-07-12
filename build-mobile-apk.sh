@@ -1,6 +1,7 @@
 #!/bin/bash
 # Compile the React Forge mobile APK with the latest web app (10 tabs).
 # Uses Android SDK build-tools 34.0.0 + OpenJDK 17.
+# Optional: $1 = backend URL to inject into getBackendUrl()
 
 set -e
 
@@ -14,6 +15,8 @@ BUILD_DIR=/tmp/react-forge-apk-build
 WWW_DIR=$BUILD_DIR/assets/www
 PackageName="com.reactforge.mobile"
 PackagePath="com/reactforge/mobile"
+# Backend URL to inject (passed as argument, or empty)
+BACKEND_URL="${1:-}"
 
 echo "=== 1. Build mobile web app (Vite) ==="
 cd "$MOBILE_SRC" && npx vite build 2>&1 | tail -5
@@ -238,7 +241,7 @@ public class MainActivity extends Activity {
         private final Activity activity;
         public ForgeFileSaver(Activity a) { activity = a; }
         @android.webkit.JavascriptInterface
-        public String getBackendUrl() { return ""; }
+        public String getBackendUrl() { return "__BACKEND_URL_PLACEHOLDER__"; }
         @android.webkit.JavascriptInterface
         public String getForgePath() {
             java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "ReactForge");
@@ -305,6 +308,15 @@ public class MainActivity extends Activity {
     }
 }
 JAVA
+
+# Inject the backend URL into the Java file (replaces the placeholder)
+if [ -n "$BACKEND_URL" ]; then
+    sed -i "s|__BACKEND_URL_PLACEHOLDER__|$BACKEND_URL|g" "$BUILD_DIR/src/$PackagePath/MainActivity.java"
+    echo "  Backend URL injected: $BACKEND_URL"
+else
+    sed -i 's|__BACKEND_URL_PLACEHOLDER__||g' "$BUILD_DIR/src/$PackagePath/MainActivity.java"
+    echo "  No backend URL injected (empty)"
+fi
 
 echo "=== 7. Compile resources (aapt2) ==="
 cd "$BUILD_DIR"
