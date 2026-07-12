@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const { username, email, password } = await request.json();
-    const trimmedUsername = String(username || "").trim();
+    const trimmedUsername = String(username || "").trim().toLowerCase();
     const trimmedEmail = String(email || "").trim().toLowerCase();
 
     // Validate username

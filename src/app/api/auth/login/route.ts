@@ -7,12 +7,13 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
-    const trimmedUsername = String(username || "").trim();
+    const trimmedUsername = String(username || "").trim().toLowerCase();
 
     if (!trimmedUsername || !password) {
       return NextResponse.json({ success: false, error: "Nom d'utilisateur et mot de passe requis" }, { status: 400 });
     }
 
+    // Case-insensitive: search by lowercase (username stored in lowercase at registration)
     const user = await db.user.findUnique({ where: { username: trimmedUsername } });
     if (!user) {
       return NextResponse.json({ success: false, error: "Nom d'utilisateur ou mot de passe incorrect" }, { status: 401 });
