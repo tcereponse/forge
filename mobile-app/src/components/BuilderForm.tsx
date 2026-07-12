@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, ArrowLeft, Check, Loader2, AlertCircle, Wifi, Cpu } from 'lucide-react'
+import { Sparkles, ArrowLeft, Check, Loader2, AlertCircle, Wifi, Cpu, ChevronRight } from 'lucide-react'
 import { apiFetch, getApiBase, getStoredBackendUrl, setBackendUrl, isNativeAndroid } from '../api'
 import { hasNativeHttp } from '../glm-native'
-import { generateProjectOnDevice } from '../sovereign-generator'
+import { generateProjectOnDevice, generateGoldProjectOnDevice } from '../sovereign-generator'
 import { PROJECT_TEMPLATES, type ProjectTemplate } from '../templates'
 import type { Project } from '../useProjects'
 
@@ -96,6 +96,53 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
     }
   }
 
+  // Gold Grade generation — pipeline 5 passes (Architecture → Types → Logic → UI → Tests)
+  async function handleGoldGenerate() {
+    setError('')
+    const t = PROJECT_TEMPLATES[tpl]
+    const projectName = name.trim() || t.name
+    const projectDesc = desc.trim() || t.description
+    if (projectDesc.length < 10) { setError('Decris ton application (10 caracteres min.)'); return }
+
+    setGenerating(true)
+    onGeneratingStart?.()
+    try {
+      const result = await generateGoldProjectOnDevice(projectName, projectDesc, features, (phase, msg) => {
+        onProgress?.(phase, msg)
+      })
+
+      if (!result.success || result.files.length === 0) {
+        throw new Error(result.error || 'Echec du pipeline Gold')
+      }
+
+      const realProject: Project = {
+        id: `gold_${Date.now()}`,
+        name: projectName,
+        description: projectDesc,
+        slug: projectName.toLowerCase().replace(/\s+/g, '-'),
+        stack: 'vite',
+        typescript: true,
+        styling: 'tailwind',
+        routing: 'router',
+        stateMgmt: 'none',
+        uiLib: 'none',
+        features,
+        files: result.files,
+        prd: result.prd,
+        arsenal: null,
+        status: 'ready',
+        createdAt: Date.now(),
+      }
+      setGenerating(false)
+      onCreate(realProject)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erreur Gold'
+      setError(msg)
+      setGenerating(false)
+      onGeneratingError?.()
+    }
+  }
+
   const native = hasNativeHttp()
   const apiBase = getApiBase()
 
@@ -177,10 +224,14 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
         </div>
 
         <button onClick={handleGenerate} disabled={generating} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">{generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Generation IA en cours...</> : <><Sparkles className="h-4 w-4" /> Generer le projet</>}</button>
+
+        {/* Gold Grade Industrial — pipeline 5 passes */}
+        <button onClick={handleGoldGenerate} disabled={generating} className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 px-6 py-3 text-sm font-semibold text-amber-300 disabled:opacity-50">{generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Pipeline Gold en cours...</> : <><Sparkles className="h-4 w-4" /> Generer Gold Grade Industrial <ChevronRight className="h-4 w-4" /></>}</button>
+
         <p className="mt-2 text-center text-[10px] text-slate-500">
           {native
-            ? 'GLM-4.6 natif integre - 100% autonome, sans serveur PC. Generation on-device (30-120s).'
-            : 'GLM-4.6 via serveur - 100% gratuit, sans cle API. Generation reelle (30-120s).'}
+            ? 'GLM-4.6 natif - 100% autonome. Standard: 30-120s. Gold: 3-6min (5 passes + design system).'
+            : 'GLM-4.6 via serveur - Standard: 30-120s. Gold: 3-6min (Architecture → Types → Logic → UI → Tests).'}
         </p>
       </div>
     </div>
