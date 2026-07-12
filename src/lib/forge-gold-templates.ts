@@ -44,6 +44,10 @@ export function buildGoldPackageJson(
     "@typescript-eslint/parser": "^8.3.0",
     prettier: "^3.3.3",
     "eslint-config-prettier": "^9.1.0",
+    husky: "^9.1.5",
+    "@commitlint/cli": "^19.4.1",
+    "@commitlint/config-conventional": "^19.4.1",
+    "@vitest/coverage-v8": "^2.0.5",
   };
 
   // Add extra deps from architecture plan
@@ -76,6 +80,7 @@ export function buildGoldPackageJson(
         "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
         typecheck: "tsc --noEmit",
         verify: "tsc --noEmit && eslint . && prettier --check \"src/**/*.{ts,tsx}\" && vitest run",
+        prepare: "husky || true",
       },
       dependencies: deps,
       devDependencies: devDeps,
@@ -635,7 +640,587 @@ Généré par **React Forge** — Gold Grade Industrial
   };
 }
 
-/** All gold templates bundled. */
+// ── Phase 8: PWA + SEO + Deployment configs ─────────────────────────────────
+
+/** PWA manifest.json — installable web app. */
+export function buildGoldPwaManifest(config: ProjectConfig): GeneratedFile {
+  return {
+    path: "public/manifest.json",
+    language: "json",
+    content: JSON.stringify({
+      name: config.name,
+      short_name: config.name.slice(0, 12),
+      description: config.description,
+      start_url: "/",
+      display: "standalone",
+      background_color: "#0f172a",
+      theme_color: "#06b6d4",
+      orientation: "portrait-primary",
+      icons: [
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      ],
+      categories: ["productivity", "utilities"],
+      lang: "fr",
+      dir: "ltr",
+    }, null, 2),
+  };
+}
+
+/** Service worker — offline-first cache strategy. */
+export function buildGoldServiceWorker(): GeneratedFile {
+  return {
+    path: "public/sw.js",
+    language: "javascript",
+    content: `// Gold Grade Service Worker — offline-first cache strategy
+const CACHE_NAME = 'app-v1'
+const STATIC_ASSETS = ['/', '/index.html', '/manifest.json']
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+  )
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  )
+  self.clients.claim()
+})
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') return
+
+  // Skip cross-origin requests
+  const url = new URL(request.url)
+  if (url.origin !== location.origin) return
+
+  // Network-first for navigation requests, cache-first for assets
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          return response
+        })
+        .catch(() => caches.match(request).then((r) => r || caches.match('/index.html')))
+    )
+  } else {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+            return response
+          })
+      )
+    )
+  }
+})
+`,
+  }
+}
+
+/** PWA registration in main entry. */
+export function buildGoldPwaRegister(): GeneratedFile {
+  return {
+    path: "src/pwa-register.ts",
+    language: "typescript",
+    content: `// Register service worker for PWA offline support
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('SW registration failed:', error)
+    })
+  })
+}
+`,
+  }
+}
+
+/** SEO meta tags component. */
+export function buildGoldSeo(): GeneratedFile {
+  return {
+    path: "src/shared/seo.tsx",
+    language: "tsx",
+    content: `import { useEffect } from 'react'
+
+export interface SeoProps {
+  title: string
+  description?: string
+  image?: string
+  url?: string
+  type?: 'website' | 'article' | 'profile'
+  siteName?: string
+  twitterCard?: 'summary' | 'summary_large_image' | 'player' | 'app'
+  noindex?: boolean
+}
+
+/** Sets document title and meta tags for SEO + social sharing. */
+export function Seo({
+  title,
+  description,
+  image,
+  url,
+  type = 'website',
+  siteName,
+  twitterCard = 'summary_large_image',
+  noindex = false,
+}: SeoProps) {
+  useEffect(() => {
+    document.title = title
+
+    const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
+      let el = document.querySelector(\`meta[\${attr}="\${name}"]\`) as HTMLMetaElement | null
+      if (!el) {
+        el = document.createElement('meta')
+        el.setAttribute(attr, name)
+        document.head.appendChild(el)
+      }
+      el.setAttribute('content', content)
+    }
+
+    if (description) {
+      setMeta('description', description)
+      setMeta('og:description', description, 'property')
+      setMeta('twitter:description', description)
+    }
+
+    setMeta('og:title', title, 'property')
+    setMeta('twitter:title', title)
+    setMeta('og:type', type, 'property')
+
+    if (siteName) setMeta('og:site_name', siteName, 'property')
+    if (image) {
+      setMeta('og:image', image, 'property')
+      setMeta('twitter:image', image)
+    }
+    if (url) setMeta('og:url', url, 'property')
+
+    setMeta('twitter:card', twitterCard)
+
+    if (noindex) {
+      setMeta('robots', 'noindex, nofollow')
+    }
+
+    if (url) {
+      let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
+      if (!canonical) {
+        canonical = document.createElement('link')
+        canonical.rel = 'canonical'
+        document.head.appendChild(canonical)
+      }
+      canonical.href = url
+    }
+  }, [title, description, image, url, type, siteName, twitterCard, noindex])
+
+  return null
+}
+`,
+  }
+}
+
+/** robots.txt for SEO. */
+export function buildGoldRobotsTxt(): GeneratedFile {
+  return {
+    path: "public/robots.txt",
+    language: "text",
+    content: `User-agent: *
+Allow: /
+
+Sitemap: /sitemap.xml
+`,
+  }
+}
+
+/** sitemap.xml generator. */
+export function buildGoldSitemap(config: ProjectConfig): GeneratedFile {
+  return {
+    path: "public/sitemap.xml",
+    language: "xml",
+    content: `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+<!-- ${config.name} — Generated by React Forge Gold Grade -->
+`,
+  }
+}
+
+/** Vercel deployment config. */
+export function buildGoldVercelConfig(): GeneratedFile {
+  return {
+    path: "vercel.json",
+    language: "json",
+    content: JSON.stringify({
+      buildCommand: "npm run build",
+      outputDirectory: "dist",
+      framework: "vite",
+     rewrites: [{ source: "/(.*)", destination: "/index.html" }],
+      headers: [
+        {
+          source: "/sw.js",
+          headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+        },
+        {
+          source: "/assets/(.*)",
+          headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        },
+      ],
+    }, null, 2),
+  };
+}
+
+/** Netlify deployment config. */
+export function buildGoldNetlifyConfig(): GeneratedFile {
+  return {
+    path: "netlify.toml",
+    language: "toml",
+    content: `[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+`,
+  };
+}
+
+/** GitHub Actions CD (deploy to Vercel). */
+export function buildGoldCD(): GeneratedFile {
+  return {
+    path: ".github/workflows/deploy.yml",
+    language: "yaml",
+    content: `name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: \${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: \${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: \${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+`,
+  };
+}
+
+/** GitHub PR template. */
+export function buildGoldPRTemplate(): GeneratedFile {
+  return {
+    path: ".github/pull_request_template.md",
+    language: "markdown",
+    content: `## Description
+
+Décris brièvement les changements de cette PR.
+
+## Type de changement
+
+- [ ] Bug fix (changement non-cassant qui corrige un problème)
+- [ ] Nouvelle feature (changement non-cassant qui ajoute une fonctionnalité)
+- [ ] Breaking change (changement qui pourrait casser l'existant)
+- [ ] Refactoring
+- [ ] Documentation
+- [ ] Test
+
+## Checklist
+
+- [ ] Mon code suit le style du projet (ESLint + Prettier)
+- [ ] J'ai effectué une auto-revue de mon code
+- [ ] J'ai commenté mon code, particulièrement dans les parties complexes
+- [ ] J'ai mis à jour la documentation si nécessaire
+- [ ] Mes changements ne génèrent pas de nouveaux warnings
+- [ ] J'ai ajouté des tests qui prouvent que mon fix est efficace ou que ma feature fonctionne
+- [ ] Les tests existants passent toujours
+- [ ] \`npm run verify\` passe sans erreur
+`,
+  };
+}
+
+/** CONTRIBUTING.md — Gold grade contribution guide. */
+export function buildGoldContributing(config: ProjectConfig): GeneratedFile {
+  return {
+    path: "CONTRIBUTING.md",
+    language: "markdown",
+    content: `# Contribuer à ${config.name}
+
+Merci de votre intérêt pour contribuer ! Ce guide vous aidera à démarrer.
+
+## 🚀 Démarrage
+
+\`\`\`bash
+# Clone le repo
+git clone <repo-url>
+cd ${config.name.toLowerCase().replace(/\s+/g, '-')}
+
+# Installe les dépendances
+npm install
+
+# Lance le serveur de dev
+npm run dev
+
+# Vérifie que tout marche
+npm run verify
+\`\`\`
+
+## 📋 Prérequis
+
+- Node.js 20+
+- npm 10+
+
+## 🔄 Workflow de contribution
+
+1. **Fork** le projet
+2. Crée une **branche** : \`git checkout -b feature/ma-feature\`
+3. **Code** en suivant les conventions
+4. **Teste** : \`npm run verify\` doit passer
+5. **Commit** avec conventional commits
+6. **Push** et crée une **Pull Request**
+
+## 📝 Conventional Commits
+
+Nous utilisons les [conventional commits](https://www.conventionalcommits.org/) :
+
+\`\`\`
+feat: ajoute une nouvelle feature
+fix: corrige un bug
+docs: documentation
+style: formatage (pas de changement de code)
+refactor: refactoring
+test: ajout de tests
+chore: tâches de maintenance
+\`\`\`
+
+Exemple : \`feat: ajoute le filtrage des tâches par catégorie\`
+
+## 🎨 Style de code
+
+- **TypeScript strict** (pas de \`any\`)
+- **ESLint** + **Prettier** (config fournie)
+- Composants fonctionnels avec hooks
+- Props typées avec interfaces
+- Nomage : PascalCase pour composants, camelCase pour fonctions
+
+## 🧪 Tests
+
+- Couverture minimum : 80%
+- Tests unitaires : Vitest + React Testing Library
+- Nom des fichiers : \`*.test.tsx\`
+
+\`\`\`bash
+npm test           # Mode watch
+npm run test:coverage  # Coverage
+\`\`\`
+
+## 🏗️ Architecture
+
+Voir [ARCHITECTURE.md](./ARCHITECTURE.md) pour les décisions techniques.
+
+- **Feature-based** : chaque feature dans \`src/features/{feature}/\`
+- **Design system** : composants partagés dans \`src/shared/ui/\`
+- **Couche données** : repository pattern + TanStack Query
+
+## 🐛 Signaler un bug
+
+Ouvrez une [issue](../../issues) avec :
+- Description du bug
+- Étapes pour reproduire
+- Comportement attendu vs actuel
+- Screenshots si applicable
+
+## 💡 Proposer une feature
+
+Ouvrez une issue avec le label \`enhancement\` et décrivez :
+- Le problème que ça résout
+- La solution proposée
+- Les alternatives envisagées
+
+## 📜 Code de conduite
+
+Soyez respectueux et bienveillant. Voir [Code of Conduct](./CODE_OF_CONDUCT.md).
+
+---
+
+Généré par **React Forge** — Gold Grade Industrial
+`,
+  };
+}
+
+/** CODE_OF_CONDUCT.md. */
+export function buildGoldCodeOfConduct(): GeneratedFile {
+  return {
+    path: "CODE_OF_CONDUCT.md",
+    language: "markdown",
+    content: `# Code de Conduite
+
+## Notre engagement
+
+Nous nous engageons à offrir un environnement bienveillant et inclusif à tous, quelle que soit leur expérience, genre, identité, orientation, apparence, origine ou religion.
+
+## Nos standards
+
+**Comportements attendus :**
+- Faire preuve d'empathie et de respect
+- Accepter les critiques constructives
+- Se concentrer sur ce qui est best pour la communauté
+
+**Comportements inacceptables :**
+- Harcèlement, trolling, insultes
+- Publication d'informations privées sans consentement
+- Tout autre conduite inappropriée en milieu professionnel
+
+## Application
+
+Les violations peuvent être signalées. Des sanctions seront appliquées.
+
+## Attribution
+
+Adapté du [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+`,
+  };
+}
+
+/** CHANGELOG.md. */
+export function buildGoldChangelog(config: ProjectConfig): GeneratedFile {
+  return {
+    path: "CHANGELOG.md",
+    language: "markdown",
+    content: `# Changelog
+
+Tous les changements notables de ${config.name} seront documentés ici.
+
+Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
+et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
+
+## [Unreleased]
+
+### Added
+- Projet initial généré par React Forge Gold Grade
+
+## [0.1.0] - ${new Date().toISOString().slice(0, 10)}
+
+### Added
+- Architecture feature-based
+- Design system (32 composants)
+- Couche données typée (ApiClient + TanStack Query)
+- Tests Vitest + React Testing Library
+- PWA (manifest + service worker)
+- Docker + CI/CD
+- Documentation complète (README, ARCHITECTURE, CONTRIBUTING)
+
+---
+
+Généré par **React Forge** — Gold Grade Industrial
+`,
+  };
+}
+
+/** Husky pre-commit hook. */
+export function buildGoldHuskyPreCommit(): GeneratedFile {
+  return {
+    path: ".husky/pre-commit",
+    language: "text",
+    content: `#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+npm run typecheck
+npm run lint
+npm run format:check
+`,
+  };
+}
+
+/** Commitlint config. */
+export function buildGoldCommitlintConfig(): GeneratedFile {
+  return {
+    path: ".commitlintrc.json",
+    language: "json",
+    content: JSON.stringify({
+      extends: ["@commitlint/config-conventional"],
+      rules: {
+        "type-enum": [
+          2,
+          "always",
+          ["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "ci", "build", "revert"],
+        ],
+        "subject-max-length": [2, "always", 72],
+      },
+    }, null, 2),
+  };
+}
+
+/** VSCode settings + extensions recommendations. */
+export function buildGoldVsCodeSettings(): GeneratedFile {
+  return {
+    path: ".vscode/settings.json",
+    language: "json",
+    content: JSON.stringify({
+      "editor.formatOnSave": true,
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit",
+      },
+      "typescript.tsdk": "node_modules/typescript/lib",
+      "typescript.enablePromptUseWorkspaceTsdk": true,
+      "files.associations": { "*.css": "tailwindcss" },
+    }, null, 2),
+  };
+}
+
+export function buildGoldVsCodeExtensions(): GeneratedFile {
+  return {
+    path: ".vscode/extensions.json",
+    language: "json",
+    content: JSON.stringify({
+      recommendations: [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+      ],
+    }, null, 2),
+  };
+}
 export function buildAllGoldTemplates(
   config: ProjectConfig,
   extraDeps: { name: string; version: string; dev?: boolean }[] = []
@@ -656,6 +1241,25 @@ export function buildAllGoldTemplates(
     buildGoldReadme(config),
     buildGoldLicense(),
     buildGoldArchitectureDoc(config),
+    // ── Phase 8: PWA + SEO + DevOps ──
+    buildGoldPwaManifest(config),
+    buildGoldServiceWorker(),
+    buildGoldPwaRegister(),
+    buildGoldSeo(),
+    buildGoldRobotsTxt(),
+    buildGoldSitemap(config),
+    buildGoldVercelConfig(),
+    buildGoldNetlifyConfig(),
+    buildGoldCD(),
+    // ── Phase 9: Documentation gold ──
+    buildGoldContributing(config),
+    buildGoldCodeOfConduct(),
+    buildGoldChangelog(config),
+    buildGoldPRTemplate(),
+    buildGoldHuskyPreCommit(),
+    buildGoldCommitlintConfig(),
+    buildGoldVsCodeSettings(),
+    buildGoldVsCodeExtensions(),
     // ── Design System (30+ components) ──
     ...buildDesignSystem(),
     // Core boilerplate
@@ -667,6 +1271,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
+import './pwa-register'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -694,8 +1299,27 @@ createRoot(document.getElementById('root')!).render(
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="${config.description}" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="${config.name}" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${config.name}" />
+    <meta property="og:description" content="${config.description}" />
+    <meta property="og:site_name" content="${config.name}" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${config.name}" />
+    <meta name="twitter:description" content="${config.description}" />
+
     <title>${config.name}</title>
   </head>
   <body>
