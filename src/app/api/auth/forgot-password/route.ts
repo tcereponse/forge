@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendPasswordResetEmail } from "@/lib/email";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -17,12 +18,12 @@ export async function POST(request: NextRequest) {
 
     // Always return success (don't leak if email exists)
     if (!user) {
-      return NextResponse.json({ success: true, message: "Si cet email existe, un lien de réinitialisation a été généré." });
+      return NextResponse.json({ success: true, message: "Si cet email existe, un lien de réinitialisation a été envoyé." });
     }
 
     // Generate reset token (valid 1 hour)
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.user.update({
       where: { id: user.id },
@@ -34,13 +35,23 @@ export async function POST(request: NextRequest) {
     const protocol = request.headers.get("x-forwarded-proto") || "http";
     const resetUrl = `${protocol}://${host}/?reset=${resetToken}`;
 
-    // In production, send email here. For now, return the reset URL.
-    // (Email sending requires SMTP configuration — see .env SMTP_HOST)
-    return NextResponse.json({
-      success: true,
-      message: "Lien de réinitialisation généré.",
-      resetUrl, // In production, this would be sent by email instead
-    });
+    // Send the email
+    const emailResult = await sendPasswordResetEmail(user.email, user.username, resetUrl);
+
+    if (emailResult.sent) {
+      return NextResponse.json({
+        success: true,
+        message: `Un email de réinitialisation a été envoyé à ${user.email}. Vérifie ta boîte de réception (et tes spams).`,
+      });
+    } else {
+      // SMTP not configured — return the reset URL for dev mode
+      return NextResponse.json({
+        success: true,
+        message: "Email non envoyé (SMTP non configuré). Voici le lien de réinitialisation :",
+        resetUrl,
+        smtpError: emailResult.error,
+      });
+    }
   } catch (error) {
     console.error("[/api/auth/forgot-password]", error);
     return NextResponse.json({ success: false, error: "Erreur" }, { status: 500 });

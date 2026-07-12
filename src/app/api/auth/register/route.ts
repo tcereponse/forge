@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, validatePassword, createSession } from "@/lib/auth";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,9 @@ export async function POST(request: NextRequest) {
 
     // Create session
     const token = await createSession(user.id, user.username);
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.username).catch(() => {});
 
     const response = NextResponse.json({
       success: true,
