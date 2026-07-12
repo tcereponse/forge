@@ -2,6 +2,9 @@ import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
 
+// Re-export password functions from password-crypto (AES-256 reversible)
+export { encryptPassword as hashPassword, decryptPassword, verifyPassword, validatePassword } from "./password-crypto";
+
 const SESSIONS_FILE = path.join(process.cwd(), "db", "sessions.json");
 
 interface Session {
@@ -23,30 +26,6 @@ async function readSessions(): Promise<Record<string, Session>> {
 /** Writes sessions to the JSON file. */
 async function writeSessions(sessions: Record<string, Session>): Promise<void> {
   await fs.writeFile(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
-}
-
-/** Hashes a password using scrypt. */
-export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-/** Verifies a password against a stored hash. */
-export function verifyPassword(password: string, storedHash: string): boolean {
-  const [salt, hash] = storedHash.split(":");
-  const verifyHash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return hash === verifyHash;
-}
-
-/** Validates password strength: min 8 chars, 1 digit, 1 upper, 1 lower, 1 symbol. */
-export function validatePassword(password: string): { ok: boolean; error?: string } {
-  if (password.length < 6) return { ok: false, error: "Mot de passe: 6 caractères minimum" };
-  if (!/[0-9]/.test(password)) return { ok: false, error: "Mot de passe: 1 chiffre minimum" };
-  if (!/[a-z]/.test(password)) return { ok: false, error: "Mot de passe: 1 minuscule minimum" };
-  if (!/[A-Z]/.test(password)) return { ok: false, error: "Mot de passe: 1 majuscule minimum" };
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) return { ok: false, error: "Mot de passe: 1 symbole minimum (!@#$...)" };
-  return { ok: true };
 }
 
 /** Creates a new session token and stores it. */

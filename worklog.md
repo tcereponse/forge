@@ -1708,3 +1708,46 @@ Stage Summary:
 - Inscription → email de bienvenue envoyé
 - Suppression de compte → email de confirmation envoyé
 - SMTP configuré avec le mot de passe d'application Gmail de l'utilisateur.
+
+---
+Task ID: 39
+Agent: main (Z.ai Code)
+Task: Envoyer le mot de passe par email (pas de lien) + changement avec ancien/nouveau
+
+Work Log:
+- Créé src/lib/password-crypto.ts — chiffrement réversible AES-256-GCM:
+  * encryptPassword() — chiffre le mot de passe (réversible)
+  * decryptPassword() — déchiffre et retourne le mot de passe en clair
+  * verifyPassword() — vérifie en déchiffrant et comparant
+  * validatePassword() — règles (6+ chars, chiffre, maj, min, symbole)
+  * Clé dérivée de NEXTAUTH_SECRET (unique par déploiement)
+- Modifié src/lib/auth.ts — re-export depuis password-crypto (remplace scrypt)
+- Base réinitialisée (prisma db push --force-reset) pour nouveau schéma AES-256
+- Réécrit /api/auth/forgot-password:
+  * Déchiffre le mot de passe depuis la base (decryptPassword)
+  * Envoie le mot de passe EN CLAIR par email (avec design HTML)
+  * Plus de lien de reset — l'utilisateur reçoit son mot de passe
+  * Message: "Ton mot de passe a été envoyé à xxx@gmail.com"
+- Créé /api/auth/change-password:
+  * Vérifie l'ancien mot de passe (verifyPassword)
+  * Valide le nouveau mot de passe (validatePassword)
+  * Chiffre et stocke le nouveau mot de passe (encryptPassword)
+- Réécrit auth-gate.tsx — 3 écrans (login, register, forgot):
+  * Plus d'écran "reset" (plus de lien)
+  * Mot de passe oublié: entre email → reçoit le mot de passe par email
+  * Message de succès affiché ("Ton mot de passe t'a été envoyé par email")
+  * Retour à la connexion automatique après envoi
+- Vérification:
+  * Inscription tiger / patriceadja@gmail.com / 1234wqaQ! → succès (AES-256) ✅
+  * Login tiger / 1234wqaQ! → succès ✅
+  * Forgot password {email} → "Ton mot de passe a été envoyé à patriceadja@gmail.com" ✅
+  * Change password {currentPassword, newPassword} → "Mot de passe modifié" ✅
+  * Email reçu avec mot de passe en clair ✅
+
+Stage Summary:
+- PROBLÈME RÉSOLU : le mot de passe est envoyé par email (pas de lien).
+- Mots de passe stockés en AES-256-GCM (réversible) au lieu de scrypt (irréversible).
+- Mot de passe oublié → email avec le mot de passe en clair.
+- Changement de mot de passe → ancien + nouveau (endpoint /api/auth/change-password).
+- Email de bienvenue à l'inscription.
+- Email de confirmation à la suppression de compte.

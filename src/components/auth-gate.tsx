@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, KeyRound, Trash2, X } from "lucide-react";
+import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, CheckCircle2, KeyRound } from "lucide-react";
 
 interface AuthUser {
   id: string;
@@ -10,19 +10,13 @@ interface AuthUser {
   email?: string;
 }
 
-type Screen = "login" | "register" | "forgot" | "reset" | "delete";
+type Screen = "login" | "register" | "forgot";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [resetToken, setResetToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for reset token in URL
-    const params = new URLSearchParams(window.location.search);
-    const reset = params.get("reset");
-    if (reset) setResetToken(reset);
-
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((data) => {
@@ -41,36 +35,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return (
-      <LoginScreen
-        initialScreen={resetToken ? "reset" : "login"}
-        resetToken={resetToken}
-        onSuccess={setUser}
-      />
-    );
+    return <LoginScreen onSuccess={setUser} />;
   }
 
   return <>{children}</>;
 }
 
-function LoginScreen({
-  initialScreen,
-  resetToken,
-  onSuccess,
-}: {
-  initialScreen: Screen;
-  resetToken: string | null;
-  onSuccess: (user: AuthUser) => void;
-}) {
-  const [screen, setScreen] = useState<Screen>(initialScreen);
+function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
+  const [screen, setScreen] = useState<Screen>("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [resetUrl, setResetUrl] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,36 +82,11 @@ function LoginScreen({
         });
         const data = await res.json();
         if (!data.success) { setError(data.error); return; }
-        setInfo("Si cet email existe, un lien de réinitialisation a été généré.");
-        if (data.resetUrl) setResetUrl(data.resetUrl);
-      } else if (screen === "reset") {
-        const res = await fetch("/api/auth/reset-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: resetToken, password: newPassword }),
-        });
-        const data = await res.json();
-        if (!data.success) { setError(data.error); return; }
-        setInfo("Mot de passe réinitialisé ! Tu peux te connecter.");
+        setInfo(data.message || "Ton mot de passe t'a été envoyé par email.");
         setScreen("login");
       }
     } catch {
       setError("Erreur réseau");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDeleteAccount() {
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/delete-account", { method: "POST" });
-      const data = await res.json();
-      if (!data.success) { setError(data.error); return; }
-      window.location.reload();
-    } catch {
-      setError("Erreur");
     } finally {
       setLoading(false);
     }
@@ -152,8 +105,7 @@ function LoginScreen({
           <p className="mt-1 text-xs text-slate-500">
             {screen === "login" && "Connecte-toi pour accéder à tes projets"}
             {screen === "register" && "Crée ton compte pour commencer"}
-            {screen === "forgot" && "Récupère ton mot de passe"}
-            {screen === "reset" && "Définis un nouveau mot de passe"}
+            {screen === "forgot" && "Reçois ton mot de passe par email"}
           </p>
         </div>
 
@@ -161,12 +113,20 @@ function LoginScreen({
           {/* Toggle login/register */}
           {(screen === "login" || screen === "register") && (
             <div className="mb-4 flex gap-1 rounded-lg border border-slate-800 bg-slate-950/40 p-1">
-              <button onClick={() => { setScreen("login"); setError(""); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition ${screen === "login" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500"}`}>
+              <button onClick={() => { setScreen("login"); setError(""); setInfo(""); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition ${screen === "login" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500"}`}>
                 <LogIn className="h-3.5 w-3.5" /> Connexion
               </button>
-              <button onClick={() => { setScreen("register"); setError(""); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition ${screen === "register" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500"}`}>
+              <button onClick={() => { setScreen("register"); setError(""); setInfo(""); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition ${screen === "register" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500"}`}>
                 <UserPlus className="h-3.5 w-3.5" /> Inscription
               </button>
+            </div>
+          )}
+
+          {/* Info message (success) */}
+          {info && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+              <p className="text-xs text-emerald-300">{info}</p>
             </div>
           )}
 
@@ -175,7 +135,7 @@ function LoginScreen({
             {(screen === "login" || screen === "register") && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-400">Nom d'utilisateur</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ex: tiger" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" autoFocus={screen !== "register"} />
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ex: tiger" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" autoFocus={screen === "login"} />
               </div>
             )}
 
@@ -198,14 +158,6 @@ function LoginScreen({
               </div>
             )}
 
-            {/* New password — reset */}
-            {screen === "reset" && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-400">Nouveau mot de passe</label>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="ex: 1234wqaQ!" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" autoFocus />
-              </div>
-            )}
-
             {/* Error */}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5">
@@ -214,25 +166,10 @@ function LoginScreen({
               </div>
             )}
 
-            {/* Info */}
-            {info && (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5">
-                <p className="text-xs text-emerald-300">{info}</p>
-              </div>
-            )}
-
-            {/* Reset URL (dev mode — in production this would be sent by email) */}
-            {resetUrl && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
-                <p className="mb-1 text-[10px] text-amber-300">🔗 Lien de réinitialisation (envoyé par email en production):</p>
-                <a href={resetUrl} className="break-all text-[10px] text-cyan-400 underline">{resetUrl}</a>
-              </div>
-            )}
-
             {/* Submit */}
             <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : screen === "login" ? <LogIn className="h-4 w-4" /> : screen === "register" ? <UserPlus className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
-              {screen === "login" ? "Se connecter" : screen === "register" ? "Créer un compte" : screen === "forgot" ? "Envoyer le lien" : "Réinitialiser"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : screen === "login" ? <LogIn className="h-4 w-4" /> : screen === "register" ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+              {screen === "login" ? "Se connecter" : screen === "register" ? "Créer un compte" : "Recevoir mon mot de passe"}
             </button>
           </form>
 
@@ -243,9 +180,9 @@ function LoginScreen({
                 Mot de passe oublié ?
               </button>
             )}
-            {(screen === "forgot" || screen === "reset") && (
-              <button onClick={() => { setScreen("login"); setError(""); setInfo(""); setResetUrl(""); }} className="text-[11px] text-slate-500 hover:text-cyan-400">
-                ← Retour à la connexion
+            {screen === "forgot" && (
+              <button onClick={() => { setScreen("login"); setError(""); setInfo(""); }} className="text-[11px] text-slate-500 hover:text-cyan-400">
+                Retour a la connexion
               </button>
             )}
           </div>
@@ -254,21 +191,21 @@ function LoginScreen({
           {screen === "register" && (
             <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
               <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
-                <Lock className="h-3 w-3" /> Règles du mot de passe
+                <Lock className="h-3 w-3" /> Regles du mot de passe
               </p>
               <ul className="space-y-0.5 text-[10px] text-slate-500">
-                <li className={password.length >= 6 ? "text-emerald-400" : ""}>✓ 6 caractères minimum</li>
-                <li className={/[0-9]/.test(password) ? "text-emerald-400" : ""}>✓ 1 chiffre</li>
-                <li className={/[a-z]/.test(password) ? "text-emerald-400" : ""}>✓ 1 minuscule</li>
-                <li className={/[A-Z]/.test(password) ? "text-emerald-400" : ""}>✓ 1 majuscule</li>
-                <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? "text-emerald-400" : ""}>✓ 1 symbole (!@#$...)</li>
+                <li className={password.length >= 6 ? "text-emerald-400" : ""}>6 caracteres minimum</li>
+                <li className={/[0-9]/.test(password) ? "text-emerald-400" : ""}>1 chiffre</li>
+                <li className={/[a-z]/.test(password) ? "text-emerald-400" : ""}>1 minuscule</li>
+                <li className={/[A-Z]/.test(password) ? "text-emerald-400" : ""}>1 majuscule</li>
+                <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? "text-emerald-400" : ""}>1 symbole (!@#$...)</li>
               </ul>
             </div>
           )}
         </div>
 
         <p className="mt-4 text-center text-[10px] text-slate-600">
-          Tes projets sont privés et associés à ton compte
+          Tes projets sont prives et associes a ton compte
         </p>
       </motion.div>
     </div>
