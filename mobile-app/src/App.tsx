@@ -7,6 +7,7 @@ import { GenerationOverlay } from './components/GenerationOverlay'
 import { SetupScreen } from './components/SetupScreen'
 import { useBackendStatus } from './useBackendStatus'
 import { useProjects, type Project } from './useProjects'
+import { hasNativeHttp } from './glm-native'
 
 type View = 'welcome' | 'builder' | 'workspace'
 
@@ -18,6 +19,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [genPhase, setGenPhase] = useState<'prd' | 'arsenal' | 'code' | 'saving' | 'done' | 'error'>('prd')
+  const [genMessage, setGenMessage] = useState('')
   const [setupDone, setSetupDone] = useState(false)
 
   // When backend comes online (either auto or after setup), sync projects
@@ -39,6 +41,15 @@ export default function App() {
   function handleGeneratingStart() {
     setGenerating(true)
     setGenPhase('prd')
+    setGenMessage('Initialisation...')
+  }
+
+  function handleProgress(phase: 'prd' | 'code' | 'merge' | 'done', message: string) {
+    setGenMessage(message)
+    if (phase === 'prd') setGenPhase('prd')
+    else if (phase === 'code') setGenPhase('code')
+    else if (phase === 'merge') setGenPhase('saving')
+    else if (phase === 'done') setGenPhase('done')
   }
 
   function handleCreate(p: Project) {
@@ -64,13 +75,17 @@ export default function App() {
     backend.recheck()
   }
 
-  // Show setup screen if backend is offline (after initial check completes)
-  if (backend.state === 'offline') {
+  // In sovereign mode (APK with NativeHttp), skip the backend check entirely —
+  // the app generates projects on-device, no server needed.
+  const sovereign = hasNativeHttp()
+
+  // Show setup screen if backend is offline AND we're not in sovereign mode
+  if (!sovereign && backend.state === 'offline') {
     return <SetupScreen onConnected={handleSetupConnected} />
   }
 
-  // Show loading while checking backend
-  if (backend.state === 'checking') {
+  // Show loading while checking backend (only in server mode)
+  if (!sovereign && backend.state === 'checking') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-slate-100">
         <div className="text-center">
@@ -107,11 +122,11 @@ export default function App() {
       <main className="relative flex min-w-0 flex-1 flex-col pt-12 md:pt-0">
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {view === 'welcome' && <WelcomeView onNew={() => setView('builder')} projectCount={projects.length} />}
-          {view === 'builder' && <BuilderForm onCreate={handleCreate} onCancel={() => setView('welcome')} onGeneratingStart={handleGeneratingStart} onGeneratingError={handleGeneratingError} />}
+          {view === 'builder' && <BuilderForm onCreate={handleCreate} onCancel={() => setView('welcome')} onGeneratingStart={handleGeneratingStart} onGeneratingError={handleGeneratingError} onProgress={handleProgress} />}
           {view === 'workspace' && currentProject && <Workspace project={currentProject} onBack={() => setView('welcome')} onUpdateProject={(files, prd) => updateProject(currentProject.id, files, prd)} allProjects={projects} />}
         </div>
       </main>
-      {generating && <GenerationOverlay phase={genPhase} projectName={currentProject?.name || 'Nouveau projet'} />}
+      {generating && <GenerationOverlay phase={genPhase} projectName={currentProject?.name || 'Nouveau projet'} message={genMessage} />}
     </div>
   )
 }

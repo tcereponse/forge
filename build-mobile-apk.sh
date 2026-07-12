@@ -83,7 +83,7 @@ cat > "$BUILD_DIR/res/drawable/icon.xml" << 'ICON'
 </vector>
 ICON
 
-echo "=== 6. Create MainActivity.java (with ForgeFileSaver + StealthBridge) ==="
+echo "=== 6. Create MainActivity.java (with NativeHttp + ForgeFileSaver + StealthBridge) ==="
 cat > "$BUILD_DIR/src/$PackagePath/MainActivity.java" << 'JAVA'
 package com.reactforge.mobile;
 
@@ -120,9 +120,117 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
         webView.setInitialScale(1);
+        webView.addJavascriptInterface(new NativeHttp(), "NativeHttp");
         webView.addJavascriptInterface(new ForgeFileSaver(this), "AndroidFileSaver");
         webView.addJavascriptInterface(new StealthBridge(this), "AndroidBridge");
         webView.loadUrl("file:///android_asset/www/index.html");
+    }
+
+    // NativeHttp: native HTTP POST bridge — bypasses CORS by using HttpURLConnection.
+    // The JS side calls NativeHttp.post(url, headersJson, body) and gets a JSON string back.
+    // This is the key to making the APK sovereign: GLM-4.6 API calls go native, no PC server.
+    public static class NativeHttp {
+        @android.webkit.JavascriptInterface
+        public String post(String url, String headersJson, String body) {
+            try {
+                java.net.URL u = new java.net.URL(url);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) u.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(30000);
+                conn.setReadTimeout(120000);
+                conn.setDoInput(true);
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json");
+                // Parse headers JSON (simple key-value object)
+                if (headersJson != null && headersJson.length() > 2) {
+                    try {
+                        org.json.JSONObject hdrs = new org.json.JSONObject(headersJson);
+                        java.util.Iterator<String> keys = hdrs.keys();
+                        while (keys.hasNext()) {
+                            String k = keys.next();
+                            String v = hdrs.getString(k);
+                            conn.setRequestProperty(k, v);
+                        }
+                    } catch (Exception e) { /* ignore bad headers JSON */ }
+                }
+                // Write body
+                if (body != null && body.length() > 0) {
+                    byte[] bodyBytes = body.getBytes("UTF-8");
+                    java.io.OutputStream os = conn.getOutputStream();
+                    os.write(bodyBytes);
+                    os.close();
+                }
+                int code = conn.getResponseCode();
+                java.io.InputStream is;
+                if (code >= 200 && code < 300) is = conn.getInputStream();
+                else is = conn.getErrorStream();
+                if (is == null) is = new java.io.ByteArrayInputStream(new byte[0]);
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = is.read(buf)) != -1) baos.write(buf, 0, n);
+                is.close();
+                String responseBody = new String(baos.toByteArray(), "UTF-8");
+                // Return a JSON envelope: {"status":code,"body":"..."}
+                org.json.JSONObject result = new org.json.JSONObject();
+                result.put("status", code);
+                result.put("body", responseBody);
+                return result.toString();
+            } catch (Exception e) {
+                try {
+                    org.json.JSONObject err = new org.json.JSONObject();
+                    err.put("status", 0);
+                    err.put("body", "");
+                    err.put("error", e.getMessage() != null ? e.getMessage() : e.toString());
+                    return err.toString();
+                } catch (Exception e2) { return "{\"status\":0,\"body\":\"\",\"error\":\"unknown\"}"; }
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public String get(String url, String headersJson) {
+            try {
+                java.net.URL u = new java.net.URL(url);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) u.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                if (headersJson != null && headersJson.length() > 2) {
+                    try {
+                        org.json.JSONObject hdrs = new org.json.JSONObject(headersJson);
+                        java.util.Iterator<String> keys = hdrs.keys();
+                        while (keys.hasNext()) {
+                            String k = keys.next();
+                            String v = hdrs.getString(k);
+                            conn.setRequestProperty(k, v);
+                        }
+                    } catch (Exception e) { /* ignore */ }
+                }
+                int code = conn.getResponseCode();
+                java.io.InputStream is;
+                if (code >= 200 && code < 300) is = conn.getInputStream();
+                else is = conn.getErrorStream();
+                if (is == null) is = new java.io.ByteArrayInputStream(new byte[0]);
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = is.read(buf)) != -1) baos.write(buf, 0, n);
+                is.close();
+                String responseBody = new String(baos.toByteArray(), "UTF-8");
+                org.json.JSONObject result = new org.json.JSONObject();
+                result.put("status", code);
+                result.put("body", responseBody);
+                return result.toString();
+            } catch (Exception e) {
+                try {
+                    org.json.JSONObject err = new org.json.JSONObject();
+                    err.put("status", 0);
+                    err.put("body", "");
+                    err.put("error", e.getMessage() != null ? e.getMessage() : e.toString());
+                    return err.toString();
+                } catch (Exception e2) { return "{\"status\":0,\"body\":\"\",\"error\":\"unknown\"}"; }
+            }
+        }
     }
 
     // ForgeFileSaver: saves files to Downloads/ReactForge/

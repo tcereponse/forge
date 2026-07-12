@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Sparkles, ArrowLeft, Check, Loader2, AlertCircle, Wifi } from 'lucide-react'
+import { Sparkles, ArrowLeft, Check, Loader2, AlertCircle, Wifi, Cpu } from 'lucide-react'
 import { apiFetch, getApiBase, getStoredBackendUrl, setBackendUrl, isNativeAndroid } from '../api'
+import { hasNativeHttp } from '../glm-native'
+import { generateProjectOnDevice } from '../sovereign-generator'
 import type { Project } from '../useProjects'
 
 const TEMPLATES = [
@@ -15,15 +17,19 @@ const TEMPLATES = [
 ]
 const FEATURES = ['darkmode', 'auth', 'api', 'forms', 'charts', 'tables', 'pwa', 'i18n', 'tests', 'animations']
 
-export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratingError }: { onCreate: (p: Project) => void; onCancel: () => void; onGeneratingStart?: () => void; onGeneratingError?: () => void }) {
+export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratingError, onProgress }: {
+  onCreate: (p: Project) => void
+  onCancel: () => void
+  onGeneratingStart?: () => void
+  onGeneratingError?: () => void
+  onProgress?: (phase: 'prd' | 'code' | 'merge' | 'done', message: string) => void
+}) {
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   const [tpl, setTpl] = useState(0)
   const [features, setFeatures] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
-  const [showConfig, setShowConfig] = useState(false)
-  const [backendInput, setBackendInput] = useState(getStoredBackendUrl())
 
   function toggle(f: string) { setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]) }
 
@@ -37,12 +43,24 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
     setGenerating(true)
     onGeneratingStart?.()
     try {
-      // 1. Create the project in the backend (Prisma) — same endpoint as PC
-      const createData = await apiFetch<{ success: boolean; project: any; error?: string }>('/api/projects', {
-        method: 'POST',
-        body: JSON.stringify({
+      const native = hasNativeHttp()
+      let result
+
+      if (native) {
+        // ── Sovereign mode: generate on-device via GLM-4.6 (NativeHttp bridge) ──
+        result = await generateProjectOnDevice(projectName, projectDesc, features, (phase, msg) => {
+          onProgress?.(phase, msg)
+        })
+
+        if (!result.success || result.files.length === 0) {
+          throw new Error(result.error || 'Echec de la generation on-device')
+        }
+
+        const realProject: Project = {
+          id: `local_${Date.now()}`,
           name: projectName,
           description: projectDesc,
+          slug: projectName.toLowerCase().replace(/\s+/g, '-'),
           stack: 'vite',
           typescript: true,
           styling: 'tailwind',
@@ -50,48 +68,65 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
           stateMgmt: 'none',
           uiLib: 'none',
           features,
-          selectedPacks: [],
-        }),
-      })
-      if (!createData.success || !createData.project) throw new Error(createData.error || 'Echec creation projet')
-      const projectId = createData.project.id
+          files: result.files,
+          prd: result.prd,
+          arsenal: null,
+          status: 'ready',
+          createdAt: Date.now(),
+        }
+        setGenerating(false)
+        onCreate(realProject)
+      } else {
+        // ── Server mode: use the PC backend (web mobile same-origin) ──
+        const createData = await apiFetch<{ success: boolean; project: any; error?: string }>('/api/projects', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: projectName,
+            description: projectDesc,
+            stack: 'vite',
+            typescript: true,
+            styling: 'tailwind',
+            routing: 'router',
+            stateMgmt: 'none',
+            uiLib: 'none',
+            features,
+            selectedPacks: [],
+          }),
+        })
+        if (!createData.success || !createData.project) throw new Error(createData.error || 'Echec creation projet')
+        const projectId = createData.project.id
 
-      // 2. Generate files via GLM-4.6 — same endpoint as PC
-      const genData = await apiFetch<{ success: boolean; project: any; error?: string; rawExcerpt?: string }>(`/api/projects/${projectId}/generate`, {
-        method: 'POST',
-      })
-      if (!genData.success || !genData.project) throw new Error(genData.error || 'Echec generation')
+        onProgress?.('code', 'Generation via serveur GLM-4.6...')
+        const genData = await apiFetch<{ success: boolean; project: any; error?: string }>(`/api/projects/${projectId}/generate`, {
+          method: 'POST',
+        })
+        if (!genData.success || !genData.project) throw new Error(genData.error || 'Echec generation')
 
-      // 3. Build the mobile Project object from the real backend data
-      const realProject: Project = {
-        id: genData.project.id,
-        name: genData.project.name,
-        description: genData.project.description,
-        slug: genData.project.slug,
-        stack: genData.project.stack,
-        typescript: genData.project.typescript,
-        styling: genData.project.styling,
-        routing: genData.project.routing,
-        stateMgmt: genData.project.stateMgmt,
-        uiLib: genData.project.uiLib,
-        features: genData.project.features || [],
-        files: genData.project.files || [],
-        prd: genData.project.prd || '',
-        arsenal: genData.project.arsenal && Array.isArray(genData.project.arsenal.documents)
-          ? genData.project.arsenal.documents
-          : null,
-        status: 'ready',
-        createdAt: genData.project.createdAt || Date.now(),
+        const realProject: Project = {
+          id: genData.project.id,
+          name: genData.project.name,
+          description: genData.project.description,
+          slug: genData.project.slug,
+          stack: genData.project.stack,
+          typescript: genData.project.typescript,
+          styling: genData.project.styling,
+          routing: genData.project.routing,
+          stateMgmt: genData.project.stateMgmt,
+          uiLib: genData.project.uiLib,
+          features: genData.project.features || [],
+          files: genData.project.files || [],
+          prd: genData.project.prd || '',
+          arsenal: genData.project.arsenal && Array.isArray(genData.project.arsenal.documents) ? genData.project.arsenal.documents : null,
+          status: 'ready',
+          createdAt: genData.project.createdAt || Date.now(),
+        }
+        setGenerating(false)
+        onCreate(realProject)
       }
-      setGenerating(false)
-      onCreate(realProject)
     } catch (e) {
       let msg = e instanceof Error ? e.message : 'Erreur'
-      // Translate common network errors into actionable messages
       if (/failed to fetch/i.test(msg)) {
-        msg = 'Connexion au serveur impossible. Verifie que le serveur React Forge est demarre et que l URL est configuree (bouton Configurer).'
-      } else if (/abort|timeout/i.test(msg)) {
-        msg = 'Le serveur a mis trop de temps a repondre. Reessaie.'
+        msg = 'Connexion au serveur impossible. En APK, la generation est on-device (pas de serveur). En navigateur web, verifie que le serveur React Forge est demarre.'
       }
       setError(msg)
       setGenerating(false)
@@ -99,8 +134,8 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
     }
   }
 
+  const native = hasNativeHttp()
   const apiBase = getApiBase()
-  const needsConfig = isNativeAndroid() && !apiBase
 
   return (
     <div className="custom-scroll h-full overflow-y-auto">
@@ -113,32 +148,22 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
           </div>
         </div>
 
-        {/* Backend status indicator */}
+        {/* Sovereign mode indicator */}
         <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
           <div className="flex items-center gap-2">
-            <Wifi className={`h-3.5 w-3.5 ${apiBase === '' && !isNativeAndroid() ? 'text-emerald-400' : apiBase ? 'text-cyan-400' : 'text-amber-400'}`} />
+            {native ? <Cpu className="h-3.5 w-3.5 text-emerald-400" /> : <Wifi className={`h-3.5 w-3.5 ${apiBase === '' && !isNativeAndroid() ? 'text-emerald-400' : apiBase ? 'text-cyan-400' : 'text-amber-400'}`} />}
             <span className="text-[11px] text-slate-400">
-              {apiBase === '' && !isNativeAndroid() ? 'Backend: serveur local (meme origine)' : apiBase ? `Backend: ${apiBase}` : 'Backend: non configure'}
+              {native
+                ? 'Mode souverain : generation on-device (GLM-4.6 natif, sans serveur PC)'
+                : apiBase === '' && !isNativeAndroid()
+                  ? 'Mode serveur : backend local (meme origine)'
+                  : apiBase
+                    ? `Mode serveur : ${apiBase}`
+                    : 'Aucun backend configure'}
             </span>
           </div>
-          <button onClick={() => setShowConfig(!showConfig)} className="text-[10px] text-cyan-400 hover:underline">Configurer</button>
+          {native && <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-300">100% AUTONOME</span>}
         </div>
-        {showConfig && (
-          <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-            <label className="mb-1 block text-[11px] font-medium text-slate-300">URL du serveur React Forge</label>
-            <div className="flex gap-2">
-              <input value={backendInput} onChange={e => setBackendInput(e.target.value)} placeholder="https://votre-serveur.exemple.com" className="flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
-              <button onClick={() => { setBackendUrl(backendInput); setShowConfig(false) }} className="rounded-md bg-cyan-500/20 px-3 py-1.5 text-xs font-medium text-cyan-300">OK</button>
-            </div>
-            <p className="mt-1.5 text-[10px] text-slate-500">Indique l'URL du serveur React Forge (le meme que dans le navigateur PC). Utilisez-le si l'app est dans un APK sans URL auto-injectee.</p>
-          </div>
-        )}
-
-        {needsConfig && (
-          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-            <div className="flex items-start gap-2"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" /><div><p className="text-xs font-semibold text-amber-300">Configuration requise</p><p className="mt-1 text-[11px] text-slate-400">L'APK a besoin de l'URL du serveur. Clique sur "Configurer" et entre l'URL affichee dans le navigateur PC.</p></div></div>
-          </div>
-        )}
 
         {error && (
           <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3">
@@ -162,7 +187,11 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
         </div>
 
         <button onClick={handleGenerate} disabled={generating} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">{generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Generation IA en cours...</> : <><Sparkles className="h-4 w-4" /> Generer le projet</>}</button>
-        <p className="mt-2 text-center text-[10px] text-slate-500">GLM-4.6 integre - 100% gratuit, sans cle API. Generation reelle via le serveur (30-120s).</p>
+        <p className="mt-2 text-center text-[10px] text-slate-500">
+          {native
+            ? 'GLM-4.6 natif integre - 100% autonome, sans serveur PC. Generation on-device (30-120s).'
+            : 'GLM-4.6 via serveur - 100% gratuit, sans cle API. Generation reelle (30-120s).'}
+        </p>
       </div>
     </div>
   )

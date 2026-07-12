@@ -5,7 +5,7 @@ const PHASES = [
   { key: 'code', label: 'Generation du code', icon: Code2 },
   { key: 'saving', label: 'Sauvegarde', icon: Save },
 ]
-export function GenerationOverlay({ phase, projectName }: { phase: string; projectName: string }) {
+export function GenerationOverlay({ phase, projectName, message }: { phase: string; projectName: string; message?: string }) {
   const idx = PHASES.findIndex(p => p.key === phase)
   const done = phase === 'done'
   return (
@@ -26,7 +26,10 @@ export function GenerationOverlay({ phase, projectName }: { phase: string; proje
                 <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${completed ? 'bg-emerald-500/20 text-emerald-400' : active ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-600'}`}>
                   {completed ? <CheckCircle2 className="h-4 w-4" /> : active ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
                 </div>
-                <div><p className={`text-sm font-medium ${completed ? 'text-slate-400' : active ? 'text-cyan-200' : 'text-slate-500'}`}>{p.label}</p></div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-medium ${completed ? 'text-slate-400' : active ? 'text-cyan-200' : 'text-slate-500'}`}>{p.label}</p>
+                  {active && message && <p className="mt-0.5 truncate text-[10px] text-slate-500">{message}</p>}
+                </div>
               </div>
             )
           })}

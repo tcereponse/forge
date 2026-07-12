@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Rocket, Loader2, CheckCircle2, AlertCircle, RefreshCw, FileText, Code2, Zap, Cpu } from 'lucide-react'
 import { apiFetch } from '../api'
+import { hasNativeHttp } from '../glm-native'
+import { generateProjectOnDevice } from '../sovereign-generator'
 import type { Project } from '../useProjects'
 
 type Phase = 'idle' | 'generating' | 'done' | 'error'
@@ -16,16 +18,29 @@ export function DeepseekWebview({ project, onFilesGenerated }: { project: Projec
 
   async function handleGenerate() {
     setPhase('generating'); setError(''); setPrd(''); setFiles([])
+    const native = hasNativeHttp()
     addLog(`Regeneration du projet "${project.name}" via GLM-4.6...`)
-    addLog('Appel au serveur React Forge (/api/projects/[id]/generate)...')
+    if (native) addLog('Mode souverain : generation on-device (NativeHttp bridge)')
+    else addLog('Mode serveur : appel /api/projects/[id]/generate')
     try {
-      // Real backend call — same endpoint as PC. GLM-4.6 generates PRD + Arsenal + code in one shot.
-      const data = await apiFetch<{ success: boolean; project: any; error?: string }>(`/api/projects/${project.id}/generate`, {
-        method: 'POST',
-      })
-      if (!data.success || !data.project) throw new Error(data.error || 'Echec de la generation')
-      const newPrd = data.project.prd || ''
-      const newFiles = data.project.files || []
+      let newPrd = ''
+      let newFiles: { path: string; content: string; language: string }[] = []
+
+      if (native) {
+        // Sovereign mode: generate on-device
+        const result = await generateProjectOnDevice(project.name, project.description, project.features || [], (ph, msg) => addLog(msg))
+        if (!result.success || result.files.length === 0) throw new Error(result.error || 'Echec generation on-device')
+        newPrd = result.prd
+        newFiles = result.files
+      } else {
+        // Server mode
+        const data = await apiFetch<{ success: boolean; project: any; error?: string }>(`/api/projects/${project.id}/generate`, {
+          method: 'POST',
+        })
+        if (!data.success || !data.project) throw new Error(data.error || 'Echec de la generation')
+        newPrd = data.project.prd || ''
+        newFiles = data.project.files || []
+      }
       setPrd(newPrd); setFiles(newFiles)
       addLog(`PRD genere (${newPrd.length} chars)`)
       addLog(`${newFiles.length} fichiers generes via GLM-4.6`)
@@ -45,7 +60,7 @@ export function DeepseekWebview({ project, onFilesGenerated }: { project: Projec
     <div className="flex h-full flex-col">
       <div className="border-b border-slate-800 bg-slate-950/40 px-4 py-3">
         <div className="flex items-center gap-2"><Cpu className="h-5 w-5 text-cyan-300" /><h2 className="text-base font-bold text-slate-100">DeepSeek Auto - GLM-4.6</h2><span className={`ml-auto flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${colors[phase]}`}>{loading && <Loader2 className="h-2.5 w-2.5 animate-spin" />}{labels[phase]}</span></div>
-        <p className="mt-1 text-xs text-slate-400">100% gratuit - GLM-4.6 integre, sans cle API. Regeneration reelle via le serveur.</p>
+        <p className="mt-1 text-xs text-slate-400">{hasNativeHttp() ? '100% autonome - GLM-4.6 natif on-device, sans serveur PC.' : '100% gratuit - GLM-4.6 via serveur, sans cle API.'}</p>
       </div>
       <div className="custom-scroll flex-1 overflow-y-auto p-4"><div className="mx-auto max-w-3xl">
         {(phase === 'idle' || phase === 'error') && (<>
