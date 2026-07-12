@@ -116,6 +116,7 @@ function isNetworkError(error: string): boolean {
 /**
  * Generates a project using the PC server (fallback mode).
  * Creates the project in Prisma + calls /api/projects/[id]/generate.
+ * Uses fire-and-forget + polling to avoid 504 Gateway Timeout.
  */
 async function generateViaServer(
   name: string,
@@ -123,7 +124,7 @@ async function generateViaServer(
   features: string[],
   onProgress?: (phase: 'prd' | 'code' | 'merge' | 'done', message: string) => void
 ): Promise<GenerationResult> {
-  onProgress?.('prd', 'Creation du projet sur le serveur...')
+  onProgress?.('prd', 'Création du projet sur le serveur...')
   try {
     // 1. Create project
     const createData = await apiFetch<{ success: boolean; project: any; error?: string }>('/api/projects', {
@@ -138,22 +139,50 @@ async function generateViaServer(
     }
     const projectId = createData.project.id
 
-    // 2. Generate
-    onProgress?.('code', 'Generation GLM-4.6 via serveur...')
-    const genData = await apiFetch<{ success: boolean; project: any; error?: string }>(`/api/projects/${projectId}/generate`, {
-      method: 'POST',
-    })
-    if (!genData.success || !genData.project) {
-      return { success: false, files: [], prd: '', error: genData.error || 'Echec generation serveur', mode: 'failed' }
+    // 2. Generate — fire-and-forget (don't wait for response to avoid 504 timeout)
+    onProgress?.('code', 'Génération GLM-4.6 via serveur (peut prendre 30-120s)...')
+    try {
+      // Fire the generate request but don't await it fully — if it times out, we poll instead
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 55000) // 55s (before gateway 60s)
+      await fetch(apiUrl(`/api/projects/${projectId}/generate`), {
+        method: 'POST',
+        signal: controller.signal,
+      }).catch(() => { /* ignore — we'll poll */ })
+      clearTimeout(timeout)
+    } catch { /* ignore — we'll poll */ }
+
+    // 3. Poll the project status until ready or failed
+    onProgress?.('code', 'Vérification du statut...')
+    let pollCount = 0
+    const maxPolls = 60 // 60 × 3s = 180s max
+    while (pollCount < maxPolls) {
+      await new Promise(r => setTimeout(r, 3000))
+      pollCount++
+
+      try {
+        const statusData = await apiFetch<{ success: boolean; project: any }>(`/api/projects/${projectId}`)
+        if (statusData.success && statusData.project) {
+          const status = statusData.project.status
+          if (status === 'ready') {
+            onProgress?.('done', `${statusData.project.files?.length || 0} fichiers générés`)
+            return {
+              success: true,
+              files: statusData.project.files || [],
+              prd: statusData.project.prd || '',
+              mode: 'server',
+            }
+          }
+          if (status === 'failed') {
+            return { success: false, files: [], prd: '', error: 'La génération a échoué sur le serveur', mode: 'failed' }
+          }
+          // Still generating — update progress
+          onProgress?.('code', `Génération en cours... (${pollCount * 3}s)`)
+        }
+      } catch { /* keep polling */ }
     }
 
-    onProgress?.('done', `${genData.project.files?.length || 0} fichiers generes`)
-    return {
-      success: true,
-      files: genData.project.files || [],
-      prd: genData.project.prd || '',
-      mode: 'server',
-    }
+    return { success: false, files: [], prd: '', error: 'Timeout: la génération prend trop de temps (180s). Réessayez.', mode: 'failed' }
   } catch (e) {
     return {
       success: false,
@@ -167,7 +196,8 @@ async function generateViaServer(
 
 /**
  * Gold Grade generation via server endpoint.
- * Calls /api/projects/[id]/generate-gold (5-pass pipeline with validation gates).
+ * Uses fire-and-forget + polling to avoid 504 Gateway Timeout.
+ * The Gold pipeline takes 3-6 minutes (5 LLM passes).
  */
 async function generateGoldViaServer(
   name: string,
@@ -189,21 +219,59 @@ async function generateGoldViaServer(
     }
     const projectId = createData.project.id
 
-    onProgress?.('code', 'Pipeline Gold 5 passes (Architecture → Types → Logic → UI → Tests)...')
-    const genData = await apiFetch<{ success: boolean; project: any; error?: string; pipeline?: any }>(`/api/projects/${projectId}/generate-gold`, {
-      method: 'POST',
-    })
-    if (!genData.success || !genData.project) {
-      return { success: false, files: [], prd: '', error: genData.error || 'Echec pipeline Gold', mode: 'failed' }
+    // Fire-and-forget the Gold generation (avoids 504 timeout)
+    onProgress?.('code', 'Pipeline Gold 5 passes démarré (Architecture → Types → Logic → UI → Tests)...')
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 55000)
+      await fetch(apiUrl(`/api/projects/${projectId}/generate-gold`), {
+        method: 'POST',
+        signal: controller.signal,
+      }).catch(() => { /* ignore — we'll poll */ })
+      clearTimeout(timeout)
+    } catch { /* ignore — we'll poll */ }
+
+    // Poll project status — Gold takes 3-6 min, so poll up to 6 min
+    onProgress?.('code', 'Génération Gold en cours...')
+    let pollCount = 0
+    const maxPolls = 120 // 120 × 3s = 360s = 6 min max
+    while (pollCount < maxPolls) {
+      await new Promise(r => setTimeout(r, 3000))
+      pollCount++
+
+      try {
+        // Check progress endpoint first (more detailed)
+        const progressData = await apiFetch<{ success: boolean; progress: any; project: any }>(`/api/projects/${projectId}/progress`).catch(() => null)
+        if (progressData?.success && progressData.project) {
+          const status = progressData.project.status
+          if (progressData.progress) {
+            const phases = progressData.progress.phases || []
+            const currentPhase = phases.find((p: any) => p.status === 'running')
+            if (currentPhase) {
+              onProgress?.('code', `${currentPhase.name}: ${currentPhase.message || 'en cours...'} (${pollCount * 3}s)`)
+            }
+          }
+          if (status === 'ready') {
+            // Fetch full project with files
+            const fullData = await apiFetch<{ success: boolean; project: any }>(`/api/projects/${projectId}`)
+            if (fullData.success && fullData.project) {
+              onProgress?.('done', `${fullData.project.files?.length || 0} fichiers Gold Grade générés`)
+              return {
+                success: true,
+                files: fullData.project.files || [],
+                prd: fullData.project.prd || '',
+                mode: 'server',
+              }
+            }
+          }
+          if (status === 'failed') {
+            return { success: false, files: [], prd: '', error: 'Le pipeline Gold a échoué sur le serveur', mode: 'failed' }
+          }
+        }
+      } catch { /* keep polling */ }
     }
 
-    onProgress?.('done', `${genData.project.files?.length || 0} fichiers générés (Gold Grade)`)
-    return {
-      success: true,
-      files: genData.project.files || [],
-      prd: genData.project.prd || '',
-      mode: 'server',
-    }
+    return { success: false, files: [], prd: '', error: 'Timeout: le pipeline Gold prend trop de temps (6 min). Réessayez.', mode: 'failed' }
   } catch (e) {
     return {
       success: false,

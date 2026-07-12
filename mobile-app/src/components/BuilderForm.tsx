@@ -87,11 +87,14 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
       onCreate(realProject)
     } catch (e) {
       let msg = e instanceof Error ? e.message : 'Erreur'
-      if (/failed to fetch/i.test(msg)) {
-        msg = 'Connexion impossible. Clique sur "Configurer" et entre l URL du serveur React Forge (l URL dans le navigateur PC) pour utiliser le serveur comme relais.'
-      }
-      if (/network_redirect|redirigee|html|operateur/i.test(msg)) {
-        msg = 'Votre reseau operateur bloque l API GLM-4.6. Cliquez sur "Configurer" et entrez l URL du serveur React Forge (l URL affichee dans le navigateur PC) pour creer des projets via le serveur.'
+      if (/504|gateway.{0,10}time/i.test(msg)) {
+        msg = 'Le serveur met trop de temps a generer (timeout 60s). Le projet est peut-etre en cours de creation. Retour a l accueil dans 10s pour verifier...'
+        // Check if the project was actually created despite the timeout
+        setTimeout(() => { window.location.reload() }, 10000)
+      } else if (/failed to fetch/i.test(msg)) {
+        msg = 'Connexion impossible. Le serveur met peut-etre trop de temps. Reessayez ou utilisez le mode DeepSeek Gold (onglet DeepSeek Gold du projet).'
+      } else if (/network_redirect|redirigee|html|operateur/i.test(msg)) {
+        msg = 'Votre reseau operateur bloque l API GLM-4.6. Utilisez l onglet "DeepSeek Gold" du projet pour creer via chat.deepseek.com (gratuit, sans serveur).'
       }
       // Truncate long HTML errors
       if (msg.length > 300) {

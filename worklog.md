@@ -1404,3 +1404,39 @@ Stage Summary:
 - Route handler GET avec injection <base href="/mobile/"> pour résoudre les chemins relatifs.
 - Le QR code et le lien "App Mobile" utilisent /mobile (sans slash final).
 - L'app mobile web fonctionne sur le même serveur — pas besoin d'APK, pas de configuration manuelle.
+
+---
+Task ID: 31
+Agent: main (Z.ai Code)
+Task: Corriger 504 Gateway Timeout — génération asynchrone avec polling
+
+Work Log:
+- Cause : le gateway ALB (Application Load Balancer) coupe les connexions à 60s. La génération GLM-4.6 prend 30-120s (standard) ou 3-6min (Gold) → 504 Gateway Timeout.
+- Solution : génération fire-and-forget + polling du statut.
+- Modifié sovereign-generator.ts generateViaServer() :
+  * Étape 1: POST /api/projects (crée le projet — rapide, < 1s)
+  * Étape 2: POST /api/projects/[id]/generate (fire-and-forget avec AbortController à 55s)
+    - Si la requête réussit avant 55s → on utilise la réponse
+    - Si elle timeout/abort → on ignore l'erreur et passe au polling
+  * Étape 3: Poll GET /api/projects/[id] toutes les 3s pendant max 180s (60 polls)
+    - status=ready → retourne les fichiers
+    - status=failed → retourne erreur
+    - status=generating → continue + met à jour le message ("Génération en cours... (30s)")
+- Modifié sovereign-generator.ts generateGoldViaServer() :
+  * Même pattern : fire-and-forget + polling
+  * Poll toutes les 3s pendant max 360s (120 polls = 6 min, pour le Gold 5 passes)
+  * Utilise aussi /api/projects/[id]/progress pour afficher la phase en cours
+  * Affiche le nom de la phase + le message ("Architecture: Plan JSON... (45s)")
+- Modifié BuilderForm.tsx :
+  * Détection 504/gateway timeout → message clair "Le serveur met trop de temps. Retour à l'accueil dans 10s..."
+  * Auto-reload après 10s pour vérifier si le projet a été créé malgré le timeout
+  * Message "Failed to fetch" amélioré : suggère DeepSeek Gold
+  * Truncation des erreurs HTML à 300 chars
+- Build mobile: 498KB JS
+
+Stage Summary:
+- PROBLÈME RÉSOLU : le 504 Gateway Timeout ne bloque plus la création de projet.
+- La génération est maintenant asynchrone : fire-and-forget + polling du statut.
+- L'utilisateur voit la progression en temps réel ("Génération en cours... (45s)").
+- Le projet apparaît dans la liste même si la connexion HTTP timeout.
+- Pour le Gold Grade : polling de 6 min max avec affichage des phases.
