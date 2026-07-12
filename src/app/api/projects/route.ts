@@ -40,9 +40,9 @@ function parseFiles(raw: unknown): GeneratedFile[] {
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);
-    // STRICT: must be authenticated, only see own projects
+    // If not authenticated, return empty list (the AuthGate handles login)
     if (!user) {
-      return NextResponse.json({ success: false, error: "Authentification requise" }, { status: 401 });
+      return NextResponse.json({ success: true, projects: [] });
     }
 
     const projects = await db.project.findMany({
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     const user = await getCurrentUser(request);
     if (!user) {
-      return NextResponse.json({ success: false, error: "Authentification requise" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Connecte-toi pour creer un projet" }, { status: 401 });
     }
 
     const project = await db.project.create({
