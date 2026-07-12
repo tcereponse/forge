@@ -120,6 +120,15 @@ export function WelcomeView() {
               Créer un projet
             </Button>
             <a
+              href="/mobile/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-6 text-sm font-semibold text-cyan-300 shadow-lg shadow-cyan-500/10 transition hover:border-cyan-500/60 hover:bg-cyan-500/20"
+            >
+              <Smartphone className="h-4 w-4" />
+              App Mobile
+            </a>
+            <a
               href="/react-forge-mobile.apk"
               download="react-forge-mobile.apk"
               className="inline-flex h-11 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-6 text-sm font-semibold text-emerald-300 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-500/60 hover:bg-emerald-500/20"

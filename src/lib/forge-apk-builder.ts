@@ -34,16 +34,26 @@ export interface ApkBuildResult {
   log: string;
 }
 
+export interface ApkBuildOptions {
+  /** Backend URL baked into the APK (returned by ForgeFileSaver.getBackendUrl()). Empty = not injected. */
+  backendUrl?: string;
+  /** When true, adds ForgeFileSaver + StealthBridge JavascriptInterfaces (for the React Forge mobile app itself). */
+  includeForgeInterfaces?: boolean;
+}
+
 export async function buildApk(
   projectId: string,
   config: ProjectConfig,
-  distDir: string
+  distDir: string,
+  options?: ApkBuildOptions
 ): Promise<ApkBuildResult> {
   const log: string[] = [];
   const appName = config.name;
   const packageName = `com.reactforge.${appName.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const packagePath = packageName.replace(/\./g, "/");
   const buildDir = path.join(APK_DIR, projectId);
+  const backendUrl = (options?.backendUrl || "").trim();
+  const includeForge = options?.includeForgeInterfaces ?? false;
 
   try {
     // Clean and create build directory
@@ -76,14 +86,21 @@ export async function buildApk(
     log.push("📄 Création de AndroidManifest.xml...");
     const manifest = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="${packageName}">
+    package="${packageName}"
+    android:versionCode="1"
+    android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <application
         android:label="${appName}"
         android:icon="@drawable/icon"
         android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="true">
-        <activity android:name=".MainActivity" android:exported="true">
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true">
+        <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -147,8 +164,85 @@ export async function buildApk(
       log.push(`  ⚠ dist/ non trouvé: ${e instanceof Error ? e.message : "erreur"}`);
     }
 
-    // Step 5: Create MainActivity.java (simpler than Kotlin — no Kotlin compiler needed)
+    // Step 5: Create MainActivity.java + ForgeFileSaver + StealthBridge (JavascriptInterfaces)
     log.push("⚙️ Création de MainActivity.java...");
+    const backendUrlLiteral = backendUrl.replace(/"/g, '\\"');
+    // ForgeFileSaver: saves files to Downloads/ReactForge/, exposes getBackendUrl() to JS.
+    // StealthBridge: native clipboard access.
+    // Both are registered as JavascriptInterfaces so the WebView JS can call them directly.
+    const forgeInterfacesBlock = includeForge
+      ? `
+    // ── ForgeFileSaver: native file saving + backend URL injection ──
+    public static class ForgeFileSaver {
+        private final Activity activity;
+        private final String backendUrl;
+        public ForgeFileSaver(Activity a, String url) { activity = a; backendUrl = url; }
+        @android.webkit.JavascriptInterface
+        public String getBackendUrl() { return backendUrl; }
+        @android.webkit.JavascriptInterface
+        public String getForgePath() {
+            java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "ReactForge");
+            if (!dir.exists()) dir.mkdirs();
+            return dir.getAbsolutePath();
+        }
+        @android.webkit.JavascriptInterface
+        public String saveFile(String filename, String base64) {
+            try {
+                java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "ReactForge");
+                if (!dir.exists()) dir.mkdirs();
+                java.io.File out = new java.io.File(dir, filename);
+                byte[] data = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(out);
+                fos.write(data); fos.close();
+                return out.getAbsolutePath();
+            } catch (Exception e) { return "ERROR:" + e.getMessage(); }
+        }
+        @android.webkit.JavascriptInterface
+        public String listForgeFiles() {
+            try {
+                java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "ReactForge");
+                if (!dir.exists()) return "[]";
+                java.io.File[] files = dir.listFiles();
+                if (files == null) return "[]";
+                StringBuilder sb = new StringBuilder("[");
+                for (int i = 0; i < files.length; i++) {
+                    if (i > 0) sb.append(",");
+                    sb.append("{\\"name\\":\\"").append(files[i].getName()).append("\\",\\"size\\":").append(files[i].length()).append("}");
+                }
+                sb.append("]");
+                return sb.toString();
+            } catch (Exception e) { return "[]"; }
+        }
+    }
+    // ── StealthBridge: native clipboard ──
+    public static class StealthBridge {
+        private final Activity activity;
+        public StealthBridge(Activity a) { activity = a; }
+        @android.webkit.JavascriptInterface
+        public boolean copyToClipboard(String text) {
+            try {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("forge", text));
+                return true;
+            } catch (Exception e) { return false; }
+        }
+        @android.webkit.JavascriptInterface
+        public String getClipboard() {
+            try {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                if (cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0)
+                    return String.valueOf(cm.getPrimaryClip().getItemAt(0).getText());
+            } catch (Exception e) {}
+            return "";
+        }
+    }`
+      : "";
+
+    const addJavascriptInterfaces = includeForge
+      ? `        webView.addJavascriptInterface(new ForgeFileSaver(this, "${backendUrlLiteral}"), "AndroidFileSaver");
+        webView.addJavascriptInterface(new StealthBridge(this), "AndroidBridge");`
+      : "";
+
     const javaCode = `package ${packageName};
 
 import android.app.Activity;
@@ -156,27 +250,43 @@ import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebSettings;
+import android.webkit.WebChromeClient;
+import android.view.KeyEvent;
+import android.view.View;
 
 public class MainActivity extends Activity {
     private WebView webView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Edge-to-edge fullscreen
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
         webView = new WebView(this);
         setContentView(webView);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
+        settings.setSupportZoom(false);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
         webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
+        webView.setInitialScale(1);
+${addJavascriptInterfaces}
         webView.loadUrl("file:///android_asset/www/index.html");
     }
+${forgeInterfacesBlock}
     @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) { webView.goBack(); }
-        else { super.onBackPressed(); }
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && webView != null && webView.canGoBack()) { webView.goBack(); return true; }
+        return super.onKeyDown(keyCode, event);
     }
 }`;
     const javaFile = path.join(srcDir, "MainActivity.java");
