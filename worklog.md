@@ -1792,3 +1792,45 @@ Stage Summary:
 - Les erreurs communes du LLM (Select compound, Dialog compound, Table compound, RequestOptions, onValueChange) sont auto-corrigées.
 - Les nouveaux projets Gold auront ces corrections automatiquement.
 - Les projets existants peuvent être réparés manuellement (comme ExpenseTracker ci-dessus).
+
+---
+Task ID: 41
+Agent: main (Z.ai Code)
+Task: Préparer le projet pour Vercel — vercel.json, PostgreSQL, migrations, guide
+
+Work Log:
+- Créé vercel.json :
+  * Framework: nextjs
+  * Build command: next build
+  * Install: bun install
+  * Functions serverless: maxDuration 60s pour generate, generate-gold, build-apk, install, build
+- Schéma Prisma migré de SQLite → PostgreSQL :
+  * datasource db provider: "postgresql"
+  * Suppression de l'index userEmail (remplacé par userId)
+  * Types compatibles PostgreSQL (String, DateTime, Boolean, Int, Text)
+- Créé migration SQL initiale : prisma/migrations/0001_init/migration.sql
+  * CREATE TABLE User, Project, Snapshot
+  * Index + contraintes uniques
+  * Foreign keys avec CASCADE
+- Modifié db.ts : logs réduits en production (error seulement)
+- Modifié package.json :
+  * build: "prisma generate && next build"
+  * postinstall: "prisma generate" (auto-génère le client à l'install)
+  * vercel-build: "prisma generate && prisma migrate deploy && next build"
+  * db:deploy: "prisma migrate deploy"
+- Créé .env.vercel : template des variables d'environnement pour Vercel
+- Créé DEPLOY-VERCEL.md : guide complet de déploiement (4 étapes)
+  * Étape 1: Créer base PostgreSQL sur Neon (gratuit)
+  * Étape 2: Push sur GitHub
+  * Étape 3: Déployer sur Vercel + variables d'env
+  * Étape 4: Configurer NEXTAUTH_URL
+  * Limites du plan gratuit + mises à jour
+
+Stage Summary:
+- PROJET PRÊT POUR VERCEL.
+- Base PostgreSQL (Neon) pour la persistance des données.
+- Migrations Prisma prêtes (prisma migrate deploy au build).
+- vercel.json avec timeouts 60s pour les fonctions longues.
+- Guide de déploiement complet (DEPLOY-VERCEL.md).
+- Variables d'environnement documentées (.env.vercel).
+- Tout fonctionne : auth, génération GLM-4.6, emails, isolation, mobile.

@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -26,46 +26,42 @@ model Project {
   name        String
   slug        String   @unique
   description String
-  userEmail   String   @default("") // Email (legacy)
-  userId      String?  // FK to User
+  userEmail   String   @default("")
+  userId      String?  
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // Stack config (stored as plain values for easy querying)
-  stack       String   @default("vite") // vite | next | cra
+  stack       String   @default("vite")
   typescript  Boolean  @default(true)
-  styling     String   @default("tailwind") // tailwind | css | styled
-  routing     String   @default("router") // router | none
-  stateMgmt   String   @default("none") // zustand | context | redux | none
-  uiLib       String   @default("none") // shadcn | mui | none
-  features    String   @default("[]") // JSON array of strings
-  selectedPacks String @default("[]") // JSON array of manually selected extension pack IDs
-  // AI generation outputs (JSON strings)
-  prd         String   @default("") // Product Requirements Document (markdown)
-  arsenalJson String   @default("") // JSON: 10 structured PRD documents (Arsenal Grade Diamond)
-  filesJson   String   @default("[]") // JSON array of { path, content, language }
+  styling     String   @default("tailwind")
+  routing     String   @default("router")
+  stateMgmt   String   @default("none")
+  uiLib       String   @default("none")
+  features    String   @default("[]")
+  selectedPacks String @default("[]")
+  prd         String   @default("")
+  arsenalJson String   @default("")
+  filesJson   String   @default("[]")
   fileCount   Int      @default(0)
-  validationJson String @default("") // JSON validation report from post-processing
-  installStatus String  @default("pending") // pending | installing | installed | failed
-  buildStatus  String   @default("pending") // pending | building | built | failed
-  status      String   @default("draft") // draft | generating | ready | failed
+  validationJson String @default("")
+  installStatus String  @default("pending")
+  buildStatus  String   @default("pending")
+  status      String   @default("draft")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   snapshots   Snapshot[]
 
   @@index([createdAt])
-  @@index([userEmail])
+  @@index([userId])
 }
 
-// Versioned snapshots of a project's generated files — lets users save
-// restore points before evolving/regenerating, and roll back if needed.
 model Snapshot {
   id        String   @id @default(cuid())
   projectId String
-  label     String   @default("Snapshot") // user-provided or auto label
-  filesJson String   @default("[]") // JSON array of { path, content, language }
+  label     String   @default("Snapshot")
+  filesJson String   @default("[]")
   fileCount Int      @default(0)
-  prd       String   @default("") // PRD at snapshot time (markdown)
-  note      String   @default("") // optional user note
+  prd       String   @default("")
+  note      String   @default("")
   createdAt DateTime @default(now())
 
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
