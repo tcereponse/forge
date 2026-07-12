@@ -78,7 +78,17 @@ export function glmChat(messages: ChatMessage[], options?: { thinking?: 'enabled
   }
 
   if (result.status < 200 || result.status >= 300) {
-    return { content: '', raw: result, error: `HTTP ${result.status}: ${result.body.slice(0, 200)}` }
+    return { content: '', raw: result, error: `HTTP ${result.status}` }
+  }
+
+  // Detect HTML responses (DNS redirect/proxy — common on mobile carriers)
+  const bodyStr = result.body || ''
+  if (bodyStr.trimStart().startsWith('<!doctype') || bodyStr.trimStart().startsWith('<html')) {
+    return {
+      content: '',
+      raw: result,
+      error: 'network_redirect: L API GLM a ete redirigee vers une page HTML (probablement DeepSeek). Votre reseau operateur bloque l acces a l API. Configurez l URL du serveur (bouton Configurer) pour utiliser le serveur comme relais.'
+    }
   }
 
   try {

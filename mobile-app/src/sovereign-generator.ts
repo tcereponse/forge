@@ -95,13 +95,17 @@ function isNetworkError(error: string): boolean {
   const lower = error.toLowerCase()
   return lower.includes('failed to connect') ||
     lower.includes('network') ||
+    lower.includes('network_redirect') ||
+    lower.includes('redirigee') ||
     lower.includes('unreachable') ||
     lower.includes('timeout') ||
     lower.includes('timed out') ||
     lower.includes('unknown host') ||
     lower.includes('unable to resolve') ||
     lower.includes('connection refused') ||
-    lower.includes('connection reset')
+    lower.includes('connection reset') ||
+    lower.includes('html') ||
+    lower.includes('operateur')
 }
 
 /**

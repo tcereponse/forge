@@ -88,7 +88,14 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
     } catch (e) {
       let msg = e instanceof Error ? e.message : 'Erreur'
       if (/failed to fetch/i.test(msg)) {
-        msg = 'Connexion impossible. En APK, l application tente d abord GLM-4.6 on-device, puis bascule vers le serveur si configure (bouton Configurer).'
+        msg = 'Connexion impossible. Clique sur "Configurer" et entre l URL du serveur React Forge (l URL dans le navigateur PC) pour utiliser le serveur comme relais.'
+      }
+      if (/network_redirect|redirigee|html|operateur/i.test(msg)) {
+        msg = 'Votre reseau operateur bloque l API GLM-4.6. Cliquez sur "Configurer" et entrez l URL du serveur React Forge (l URL affichee dans le navigateur PC) pour creer des projets via le serveur.'
+      }
+      // Truncate long HTML errors
+      if (msg.length > 300) {
+        msg = msg.slice(0, 300) + '...'
       }
       setError(msg)
       setGenerating(false)
@@ -177,12 +184,16 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
 
         {showConfig && (
           <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-            <label className="mb-1 block text-[11px] font-medium text-slate-300">URL du serveur React Forge (fallback)</label>
+            <label className="mb-1 block text-[11px] font-medium text-slate-300">URL du serveur React Forge (relais)</label>
             <div className="flex gap-2">
-              <input value={backendInput} onChange={e => setBackendInput(e.target.value)} placeholder="https://votre-serveur.exemple.com" className="flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
+              <input value={backendInput} onChange={e => setBackendInput(e.target.value)} placeholder="https://preview-xxx.space-z.ai" className="flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
               <button onClick={() => { setBackendUrl(backendInput); setShowConfig(false) }} className="rounded-md bg-cyan-500/20 px-3 py-1.5 text-xs font-medium text-cyan-300">OK</button>
             </div>
-            <p className="mt-1.5 text-[10px] text-slate-500">Si l API GLM-4.6 est bloquee par votre reseau, l app utilisera ce serveur comme relais. Entrez l URL de preview affichee dans le navigateur PC.</p>
+            <p className="mt-1.5 text-[10px] text-slate-500">
+              IMPORTANT : Entrez l URL du serveur React Forge (commence par https://preview-), PAS l URL de DeepSeek.
+              Ouvrez React Forge sur PC et copiez l URL de la barre d adresse.
+              Si l API GLM est bloquee par votre reseau, l app utilisera ce serveur pour creer les projets.
+            </p>
           </div>
         )}
 

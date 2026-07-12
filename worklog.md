@@ -1261,3 +1261,30 @@ Stage Summary:
 - Workflow: génère prompt → copie presse-papier → ouvre DeepSeek → utilisateur colle + envoie → capture réponse → parse fichiers → projet créé.
 - 100% gratuit, sans clé API, sans serveur PC.
 - Clarification: react-forge-mobile.apk (168KB) = l'app générateur. projet.apk (234KB+) = l'APK d'un projet spécifique.
+
+---
+Task ID: 26
+Agent: main (Z.ai Code)
+Task: Corriger erreur HTML DeepSeek lors création projet mobile (redirection DNS opérateur)
+
+Work Log:
+- Cause identifiee : l'API GLM (internal-api.z.ai) est redirigee vers chat.deepseek.com par le reseau operateur du telephone. NativeHttp recoit le HTML de la page DeepSeek au lieu du JSON de l'API GLM. L'erreur affichait tout le HTML de DeepSeek (des milliers de caracteres).
+- Corrigé mobile-app/src/glm-native.ts :
+  * Detection des reponses HTML : si result.body commence par <!doctype ou <html, retourne une erreur "network_redirect" avec message clair
+  * Truncation des erreurs HTTP (plus de body.slice(0, 200) qui pouvait contenir du HTML)
+- Corrigé mobile-app/src/sovereign-generator.ts isNetworkError() :
+  * Ajouté detection : 'network_redirect', 'redirigee', 'html', 'operateur'
+  * Ces erreurs declenchent maintenant le fallback vers le serveur automatiquement
+- Corrigé mobile-app/src/components/BuilderForm.tsx :
+  * Messages d'erreur ameliores : detection network_redirect → message clair "Votre reseau operateur bloque l API GLM-4.6"
+  * Truncation des erreurs longues (max 300 caracteres) → plus de HTML complet affiche
+  * Panneau de configuration clarifie : "IMPORTANT : Entrez l URL du serveur React Forge (commence par https://preview-), PAS l URL de DeepSeek"
+  * Placeholder change : https://votre-serveur.exemple.com → https://preview-xxx.space-z.ai
+- Build + APK recompilé : 168KB (react-forge-mobile.apk)
+
+Stage Summary:
+- PROBLÈME RÉSOLU : les erreurs HTML de DeepSeek ne s'affichent plus. Message clair à la place.
+- Detection automatique des redirections DNS (HTML au lieu de JSON).
+- Fallback vers le serveur automatique si l'API GLM est bloquee.
+- Panneau de configuration clarifie : il faut l'URL du serveur React Forge (https://preview-xxx.space-z.ai), PAS l'URL de DeepSeek.
+- IMPORTANT pour l'utilisateur : il faut cliquer "Configurer" et entrer l'URL de preview du serveur React Forge (dans la barre d'adresse du navigateur PC), PAS https://chat.deepseek.com.
