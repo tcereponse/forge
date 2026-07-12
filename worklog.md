@@ -319,3 +319,44 @@ Stage Summary:
 - L'app web mobile (/mobile/) et l'APK standalone ont tous deux les 10 onglets identiques au PC.
 - Fichiers créés : KirovPanel.tsx, KirovLauncher.tsx, build-mobile-apk.sh
 - Fichiers modifiés : Workspace.tsx (10 onglets + panneaux enrichis)
+
+---
+Task ID: 7
+Agent: main (Z.ai Code)
+Task: Corriger l'erreur "Failed to fetch" sur mobile lors de la creation d'un projet
+
+Work Log:
+- Cause identifiee : l'APK mobile a getBackendUrl() qui retourne "" (vide). getApiBase() retourne "" → les URLs relatives /api/projects deviennent file:///api/projects → "Failed to fetch". L'utilisateur n'etait pas guide pour configurer l'URL du serveur.
+- Créé mobile-app/src/useBackendStatus.ts : hook useBackendStatus qui teste la connectivite au backend via GET /api/projects avec timeout 8s. Fonction testBackend() avec gestion d'erreurs specifiques (AbortError=timeout, TypeError=fetch failed, HTTP status, non-JSON). Retourne { state: 'checking'|'online'|'offline', error, recheck }.
+- Créé mobile-app/src/components/SetupScreen.tsx : ecran de configuration plein ecran qui s'affiche quand le backend est injoignable. Contient :
+  * Logo React Forge + titre "Configuration du serveur"
+  * Carte d'avertissement "Serveur injoignable" avec explication contextuelle (APK vs web)
+  * Champ URL avec icone Globe + bouton "Tester"
+  * Test de connexion en temps reel avec feedback (success vert / erreur rouge avec message specifique)
+  * Instructions detaillees : "Comment trouver l'URL" (5 etapes : ouvrir PC, barre d'adresse, copier URL, coller, tester)
+  * Bouton "Essayer sans configurer" pour web mobile same-origin
+  * Debug : affiche l'URL actuelle si configuree
+- Réécrit mobile-app/src/App.tsx : 
+  * Utilise useBackendStatus() au demarrage
+  * Affiche SetupScreen si backend.state === 'offline'
+  * Affiche spinner "Connexion au serveur..." si checking
+  * Sync automatique des projets quand backend devient online
+  * Indicateur de statut backend (point vert/rouge) dans la barre top
+- Amélioré mobile-app/src/components/BuilderForm.tsx : traduction des erreurs réseau en messages actionnables :
+  * "failed to fetch" → "Connexion au serveur impossible. Verifie que le serveur React Forge est demarre et que l URL est configuree (bouton Configurer)."
+  * "abort/timeout" → "Le serveur a mis trop de temps a repondre. Reessaie."
+- TypeScript check : 0 erreur
+- Build Vite : 440KB JS + 23KB CSS → public/mobile/
+- APK recompilé : 152KB (public/react-forge-mobile.apk, versionCode 2)
+- Vérification Agent Browser :
+  * Test same-origin (http://localhost:3000/mobile/) : 10 projets synchronises, pas de setup screen (backend online)
+  * Simulation backend injoignable (localStorage rf-backend-url = http://192.168.99.99:9999) → SetupScreen apparait avec "Serveur injoignable", champ URL pre-rempli, bouton Tester
+  * Test avec bonne URL (http://localhost:3000) → clic Tester → "Connexion reussie" → sync projets → app principale avec 10 projets
+  * BuilderForm s'affiche avec bouton "Generer le projet" et indicateur backend
+
+Stage Summary:
+- PROBLEME RÉSOLU : l'erreur "Failed to fetch" est maintenant interceptée et transformée en ecran de configuration guide.
+- L'APK detecte automatiquement que le backend est injoignable et affiche le SetupScreen avec instructions claires.
+- L'utilisateur entre l'URL du serveur PC, clique "Tester", et l'app se connecte + synchronise les projets.
+- Messages d'erreur specifiques remplacent le generic "Failed to fetch".
+- APK recompilé avec les nouvelles ameliorations UX (152KB).

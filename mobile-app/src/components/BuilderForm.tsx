@@ -86,7 +86,13 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
       setGenerating(false)
       onCreate(realProject)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erreur'
+      let msg = e instanceof Error ? e.message : 'Erreur'
+      // Translate common network errors into actionable messages
+      if (/failed to fetch/i.test(msg)) {
+        msg = 'Connexion au serveur impossible. Verifie que le serveur React Forge est demarre et que l URL est configuree (bouton Configurer).'
+      } else if (/abort|timeout/i.test(msg)) {
+        msg = 'Le serveur a mis trop de temps a repondre. Reessaie.'
+      }
       setError(msg)
       setGenerating(false)
       onGeneratingError?.()
