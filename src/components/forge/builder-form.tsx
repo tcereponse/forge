@@ -261,6 +261,82 @@ export function BuilderForm() {
     }
   }
 
+  // Gold Grade generation — multi-pass pipeline (Architecture → Types → Logic → UI → Tests)
+  async function handleGoldGenerate() {
+    if (!name.trim()) {
+      toast.error("Donne un nom à ton projet");
+      return;
+    }
+    if (description.trim().length < 10) {
+      toast.error("Décris ton application (10 caractères min.)");
+      return;
+    }
+
+    setCreating(true);
+    setGenerating(true);
+    setPhase("prd");
+
+    try {
+      // 1. Create project
+      const createRes = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description,
+          stack,
+          typescript,
+          styling,
+          routing,
+          stateMgmt,
+          uiLib,
+          features,
+          selectedPacks,
+        } satisfies ProjectConfig),
+      });
+      const createData = await createRes.json();
+      if (!createData.success) throw new Error(createData.error);
+      const project: ProjectRecord = createData.project;
+
+      toast.success("Projet créé — lancement du pipeline Gold Grade (5 passes)…");
+
+      fetchProjects();
+
+      // 2. Generate via Gold pipeline (5 passes with validation gates)
+      setPhase("code");
+      const genRes = await fetch(`/api/projects/${project.id}/generate-gold`, {
+        method: "POST",
+      });
+      const genData = await genRes.json();
+
+      if (!genData.success) {
+        setPhase("error");
+        setGenerating(false);
+        toast.error(genData.error || "Échec du pipeline Gold");
+        await fetchProject(project.id);
+        fetchProjects();
+        return;
+      }
+
+      setPhase("saving");
+      await new Promise((r) => setTimeout(r, 400));
+      setPhase("done");
+      setGenerating(false);
+
+      await fetchProject(project.id);
+      fetchProjects();
+      toast.success(
+        `Projet « ${name} » généré Gold Grade ! ${genData.project.fileCount} fichiers, pipeline ${genData.pipeline?.ok ? "✓" : "⚠"}`
+      );
+    } catch (e) {
+      setPhase("error");
+      setGenerating(false);
+      toast.error(e instanceof Error ? e.message : "Échec de la génération Gold");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <motion.form
       initial={{ opacity: 0, y: 12 }}
@@ -589,7 +665,7 @@ export function BuilderForm() {
       </div>
 
       {/* Submit */}
-      <div className="sticky bottom-4 z-10">
+      <div className="sticky bottom-4 z-10 space-y-2">
         <Button
           type="submit"
           disabled={creating}
@@ -608,6 +684,28 @@ export function BuilderForm() {
             </>
           )}
         </Button>
+        <Button
+          type="button"
+          onClick={handleGoldGenerate}
+          disabled={creating}
+          className="h-12 w-full border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 text-base font-semibold text-amber-300 shadow-xl shadow-amber-500/20 hover:from-amber-500/20 hover:to-yellow-500/20"
+        >
+          {creating ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Pipeline Gold en cours…
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-5 w-5" />
+              Générer Gold Grade Industrial
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </>
+          )}
+        </Button>
+        <p className="text-center text-[10px] text-slate-500">
+          Gold Grade : pipeline 5 passes (Architecture → Types → Logic → UI → Tests) + Docker, CI/CD, ESLint, Vitest, docs complètes
+        </p>
       </div>
     </motion.form>
   );

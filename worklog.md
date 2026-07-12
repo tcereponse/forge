@@ -591,3 +591,72 @@ Stage Summary:
 - Le SDK Android est installe sur le serveur (/tmp/android-sdk + /tmp/jdk-17.0.13+11).
 - L'APK est telecharge automatiquement dans le navigateur.
 - Compilation reussie en 13.1s pour un projet de 22 fichiers.
+
+---
+Task ID: 13
+Agent: main (Z.ai Code)
+Task: Phase 1 — Pipeline Gold Grade Industrial (5 passes avec gates de validation)
+
+Work Log:
+- Créé src/lib/forge-validators.ts — 5 gates de validation:
+  * Gate 1 (Syntax): accolades/parenthèses/crochets équilibrés, template literals fermés, JSX tags
+  * Gate 2 (Imports): tous les imports relatifs résolus vers un fichier existant
+  * Gate 3 (Exports): App.tsx a export default, composants ont export default, named imports matchent les exports
+  * Gate 4 (Architecture): pas de hooks conditionnels, pas de composants async, pas de manipulation DOM directe
+  * Gate 5 (TypeSafety): pas de 'any' excessif, props typées, pas de @ts-ignore
+  * runAllValidationGates() — exécute les 5 gates, retourne {ok, totalErrors, totalWarnings, results}
+  * buildCorrectivePrompt() — génère un prompt de correction à partir des erreurs
+- Créé src/lib/forge-pipeline.ts — orchestrateur multi-passes:
+  * Pass 1 (Architecture): génère un plan JSON {folders, features, dependencies, routes, components}
+  * Gate 1: valide le plan
+  * Pass 2 (Types): génère types TypeScript + schémas Zod par feature
+  * Gate 2: valide les types (retry 1x si échec avec prompt correctif)
+  * Pass 3 (Business Logic): génère composants + hooks (TanStack Query) + repository pattern
+  * Gate 3: valide la logique (retry 1x)
+  * Pass 4 (UI): génère design system (button, input, card, badge, skeleton, empty-state, error-state, async-boundary)
+  * Gate 4: valide l'UI (retry 1x)
+  * Pass 5 (Tests): génère tests Vitest + React Testing Library
+  * Final validation: runAllValidationGates sur tous les fichiers merged
+  * Retourne {success, files, phases, validation}
+- Créé src/lib/forge-gold-templates.ts — templates déterministes Gold Grade:
+  * buildGoldPackageJson — deps complètes (React, TanStack Query, Zustand, Zod, Vitest, ESLint, etc.)
+  * buildGoldTsconfig — strict+ (noUncheckedIndexedAccess, exactOptionalPropertyTypes, noUnusedLocals, etc.)
+  * buildGoldViteConfig — aliases @/, @/shared, @/features + config Vitest
+  * buildGoldEslintConfig — règles TypeScript + React + a11y
+  * buildGoldPrettierConfig — formatage standard
+  * buildGoldTestSetup — setup React Testing Library + jest-dom
+  * buildGoldDockerfile — multi-stage build (deps → builder → nginx)
+  * buildGoldDockerCompose — dev + prod
+  * buildGoldCI — GitHub Actions (typecheck + lint + test + build)
+  * buildGoldReadme — documentation complète (scripts, architecture, tests, déploiement)
+  * buildGoldArchitectureDoc — ADRs (décisions architecturales)
+  * buildGoldLicense — MIT
+  * buildGoldEnvExample, buildGoldEditorConfig
+  * buildAllGoldTemplates() — bundle tous les templates + boilerplate (main.tsx, index.html, tailwind, postcss, index.css, .gitignore)
+- Créé src/app/api/projects/[id]/generate-gold/route.ts — endpoint POST:
+  * Phase 0: Arsenal PRD (10 documents, non-bloquant)
+  * Phase 1-5: runPipeline(config) — les 5 passes LLM avec gates
+  * Merge: LLM files + Gold templates (templates win sur config, LLM win sur src/)
+  * Post-process: postProcessProject (validators existants + auto-repair)
+  * Save en DB + writeProjectFiles + runInstall
+  * Retourne {success, project, validation, pipeline: {phases, ok, totalErrors, totalWarnings}}
+- Modifié src/components/forge/builder-form.tsx:
+  * Bouton "Générer Gold Grade Industrial" (amber, avec icône Sparkles) ajouté sous le bouton standard
+  * handleGoldGenerate() — crée le projet + POST /generate-gold + toast succès/erreur
+  * Description du pipeline affichée sous le bouton
+- Vérification Agent Browser:
+  * Projet "GoldTaskFlow" généré avec SUCCÈS via le pipeline Gold
+  * 48 fichiers générés (vs 13 pour un projet standard) — ratio 3.7x plus de fichiers
+  * Architecture feature-based: src/features/tasks/, src/features/stats/, src/features/filters/
+  * Design system complet: src/shared/ui/ (button, input, card, badge, skeleton, empty-state, error-state, async-boundary)
+  * Tests générés: 5 fichiers de test (App.test.tsx, TaskList.test.tsx, TaskForm.test.tsx, TaskItem.test.tsx, PrioritySelector.test.tsx)
+  * Configs Gold: tsconfig strict+, ESLint, Prettier, Vitest, Dockerfile, docker-compose, CI GitHub Actions
+  * Documentation: README.md (2062 chars), ARCHITECTURE.md (2834 chars avec ADRs), LICENSE MIT
+  * PRD: 462 chars, Arsenal: 10 documents
+
+Stage Summary:
+- PHASE 1 RÉUSSIE : le pipeline Gold Grade Industrial génère des projets enterprise-grade.
+- 5 passes LLM avec gates de validation + retry automatique.
+- 48 fichiers générés (vs 13 standard) — architecture feature-based, design system, tests, configs qualité, Docker, CI/CD, docs.
+- Bouton "Générer Gold Grade Industrial" disponible dans le BuilderForm PC.
+- Prochaines phases possibles: Phase 2 (architecture feature-based avancée), Phase 3 (design system 30+ composants), Phase 5 (couche données typée).
