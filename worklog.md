@@ -1378,3 +1378,29 @@ Stage Summary:
   1. "App Mobile" (lien) → ouvre /mobile/ dans un nouvel onglet (même appareil)
   2. "QR Mobile" (bouton) → QR code à scanner avec le téléphone (appareil différent)
   3. "APK Mobile" (bouton) → compile un APK avec URL injectée (offline)
+
+---
+Task ID: 30
+Agent: main (Z.ai Code)
+Task: Corriger /mobile/ qui retournait 404 "This page could not be found"
+
+Work Log:
+- Cause : Next.js App Router ne sert pas automatiquement public/mobile/index.html à /mobile ou /mobile/. /mobile/ → 308 redirect → /mobile → 404 (pas de route). Les assets (/mobile/assets/xxx.js) fonctionnaient car servis en static, mais pas l'index.html.
+- Créé src/app/mobile/route.ts — route handler GET qui :
+  * Lit public/mobile/index.html
+  * Injecte <base href="/mobile/"> après <head> pour que les URLs relatives (./assets/...) se résolvent correctement vers /mobile/assets/... même sans slash final
+  * Retourne le HTML avec Content-Type: text/html
+- Modifié welcome-view.tsx :
+  * QR code encode ${serverUrl}/mobile (sans slash final)
+  * Lien "App Mobile" utilise /mobile (sans slash final)
+- Vérification Agent Browser :
+  * /mobile → HTTP 200, HTML de l'app mobile servi
+  * Script src = /mobile/assets/index-BZmtt5bq.js (chemin correct grâce au <base>)
+  * #root contient le rendu React de l'app mobile (sidebar, boutons, etc.)
+  * document.title = "React Forge" (pas "Générateur de projets React par IA" qui est le PC)
+
+Stage Summary:
+- PROBLÈME RÉSOLU : /mobile affiche maintenant l'app mobile correctement.
+- Route handler GET avec injection <base href="/mobile/"> pour résoudre les chemins relatifs.
+- Le QR code et le lien "App Mobile" utilisent /mobile (sans slash final).
+- L'app mobile web fonctionne sur le même serveur — pas besoin d'APK, pas de configuration manuelle.

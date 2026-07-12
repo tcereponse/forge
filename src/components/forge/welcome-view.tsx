@@ -159,7 +159,7 @@ export function WelcomeView() {
               Créer un projet
             </Button>
             <a
-              href="/mobile/"
+              href="/mobile"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-6 text-sm font-semibold text-cyan-300 shadow-lg shadow-cyan-500/10 transition hover:border-cyan-500/60 hover:bg-cyan-500/20"
@@ -304,7 +304,7 @@ export function WelcomeView() {
             </p>
             <div className="mb-4 flex justify-center rounded-xl bg-white p-4">
               <QRCodeSVG
-                value={`${serverUrl}/mobile/`}
+                value={`${serverUrl}/mobile`}
                 size={200}
                 level="M"
                 includeMargin={false}
