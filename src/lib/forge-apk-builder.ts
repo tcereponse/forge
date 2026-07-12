@@ -326,7 +326,20 @@ ${forgeInterfacesBlock}
     // Step 8: Compile Java with javac
     log.push("☕ Compilation Java (javac)...");
     const classesDir = path.join(buildDir, "obj");
-    const javacPath = "/tmp/jdk-21.0.11/bin/javac";
+    // Find javac: prefer JDK 17, fallback to JDK 21, fallback to system javac
+    const javacCandidates = [
+      "/tmp/jdk-17.0.13+11/bin/javac",
+      "/tmp/jdk-21.0.11/bin/javac",
+      "/usr/bin/javac",
+    ];
+    let javacPath = "";
+    for (const candidate of javacCandidates) {
+      try { await fs.access(candidate); javacPath = candidate; break } catch { /* try next */ }
+    }
+    if (!javacPath) {
+      return { success: false, error: "javac introuvable. Installez OpenJDK 17+.", log: log.join("\n") };
+    }
+    log.push(`  javac: ${javacPath}`);
     const r3 = await run(javacPath, [
       "-source", "8",
       "-target", "8",

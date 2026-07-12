@@ -563,3 +563,31 @@ Stage Summary:
 - Bouton "Configurer" dans le BuilderForm pour saisir l'URL du serveur PC.
 - Avertissement proactive en mode APK sans serveur de fallback.
 - APK recompilé : 164KB avec le fallback automatique.
+
+---
+Task ID: 12
+Agent: main (Z.ai Code)
+Task: Ajouter le bouton APK dans l'onglet Apercu du PC (PreviewPanel)
+
+Work Log:
+- Corrigé forge-apk-builder.ts : le chemin javac etait hardcode sur /tmp/jdk-21.0.11/bin/javac (n'existe plus). Remplace par une detection automatique qui cherche dans /tmp/jdk-17.0.13+11/bin/javac, /tmp/jdk-21.0.11/bin/javac, /usr/bin/javac.
+- Modifié src/components/forge/preview-panel.tsx :
+  * Import icone Smartphone depuis lucide-react
+  * Etat apkBuilding + fonction handleApk()
+  * handleApk() : POST /api/build-apk avec projectId, telecharge le blob .apk, toast de succes/erreur
+  * Bouton "APK" (gradient cyan, icone Smartphone) ajoute dans la barre de statut, AVANT le bouton "Builder/Rebuilder"
+  * Le bouton APK est toujours disponible (pas besoin que le build soit pret)
+  * Affiche "Compilation…" avec spinner pendant la compilation
+- Vérification Agent Browser (PC, viewport 1280x800) :
+  * Ouverture projet ExpenseTracker → onglet Apercu
+  * Bouton "APK" visible a cote de "Builder" et "Logs build"
+  * Clic sur APK → bouton desactive "Compilation…" → serveur compile l'APK
+  * POST /api/build-apk 200 en 13.1s → APK telecharge
+  * Bouton revient a l'etat normal (compilation reussie)
+
+Stage Summary:
+- PROBLEME RÉSOLU : le bouton APK est maintenant visible dans l'onglet Apercu du PC, a cote des boutons Builder/Rebuilder et Refresh.
+- Le bouton compile un VRAI APK Android (aapt2 + javac + d8 + apksigner) via /api/build-apk.
+- Le SDK Android est installe sur le serveur (/tmp/android-sdk + /tmp/jdk-17.0.13+11).
+- L'APK est telecharge automatiquement dans le navigateur.
+- Compilation reussie en 13.1s pour un projet de 22 fichiers.

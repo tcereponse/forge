@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  Smartphone,
 } from "lucide-react";
 import { useProcessStatus } from "@/hooks/use-process-status";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
   const { status, triggerBuild, refresh } = useProcessStatus(projectId, true);
   const [showLogs, setShowLogs] = useState<"install" | "build" | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
+  const [apkBuilding, setApkBuilding] = useState(false);
 
   const installDone = status?.install === "installed";
   const buildDone = status?.build === "built";
@@ -58,6 +60,41 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
     }
     toast.success("Build démarré…");
     await triggerBuild();
+  }
+
+  async function handleApk() {
+    setApkBuilding(true);
+    toast.success("Compilation de l'APK en cours… (30-90s)");
+    try {
+      const res = await fetch("/api/build-apk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}`;
+        try { const ej = await res.json(); errMsg = ej.error || errMsg } catch {}
+        throw new Error(errMsg);
+      }
+      const blob = await res.blob();
+      if (blob.size < 1000) throw new Error("APK trop petit (compilation échouée)");
+
+      // Download the APK
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${projectId}.apk`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`APK généré ! (${(blob.size / 1024).toFixed(0)} Ko)`);
+    } catch (e) {
+      toast.error(`Échec APK : ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setApkBuilding(false);
+    }
   }
 
   function handleRefreshPreview() {
@@ -80,10 +117,25 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button
+            onClick={handleApk}
+            disabled={apkBuilding}
+            size="sm"
+            className="h-8 bg-gradient-to-r from-cyan-500 to-teal-500 text-xs text-slate-950 hover:from-cyan-400 hover:to-teal-400"
+            title="Compiler l'application mobile Android (APK)"
+          >
+            {apkBuilding ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {apkBuilding ? "Compilation…" : "APK"}
+          </Button>
+          <Button
             onClick={handleBuild}
             disabled={!installDone || status?.build === "building"}
             size="sm"
-            className="h-8 bg-gradient-to-r from-cyan-500 to-teal-500 text-xs text-slate-950 hover:from-cyan-400 hover:to-teal-400"
+            variant="outline"
+            className="h-8 border-slate-700 text-slate-300 hover:text-cyan-300"
           >
             {status?.build === "building" ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
