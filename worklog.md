@@ -1596,3 +1596,37 @@ Stage Summary:
 - Chaque utilisateur ne voit que ses propres projets.
 - Session persistante 30 jours (cookie httpOnly).
 - Inscription + connexion + déconnexion fonctionnels.
+
+---
+Task ID: 36
+Agent: main (Z.ai Code)
+Task: Forcer l'authentification avant accès aux projets (PC + mobile)
+
+Work Log:
+- Créé src/components/auth-gate.tsx — AuthGate:
+  * Vérifie /api/auth/me au montage
+  * Si non connecté → affiche LoginScreen (plein écran)
+  * Si connecté → affiche les enfants (ForgeApp)
+  * LoginScreen: toggle Connexion/Inscription, champs username/password, validation temps réel, règles mot de passe affichées
+- Modifié src/app/page.tsx — AuthGate wrap ForgeApp
+- Modifié mobile-app/src/App.tsx:
+  * Ajouté état authUser + authChecking
+  * Au montage: fetch /api/auth/me → si connecté, affiche MainApp; sinon, affiche LoginScreen
+  * LoginScreen mobile: même design que PC (logo, toggle, champs, validation)
+  * MainApp: bouton déconnexion dans la barre top mobile + username affiché
+  * handleLogout: POST /api/auth/logout → onLogout → retour à LoginScreen
+- Build mobile: 500KB JS
+- Vérification Agent Browser:
+  * Ouverture http://localhost:3000/ → LOGIN SCREEN (pas accès aux projets)
+  * Champ "Nom d'utilisateur" + "Mot de passe" visibles
+  * Remplissage tiger / 1234wqaQ! + clic "Se connecter"
+  * → "LOGGED IN" — l'app principale s'affiche (Créer un projet)
+  * Les projets ne sont plus visibles sans authentification
+
+Stage Summary:
+- PROBLÈME RÉSOLU : les projets ne sont plus visibles tant que l'utilisateur n'est pas connecté.
+- Écran de connexion plein écran (PC + mobile) avec logo React Forge.
+- Toggle Connexion / Inscription.
+- Validation en temps réel des règles de mot de passe (6+ chars, chiffre, maj, min, symbole).
+- Après connexion: accès aux projets (filtrés par userId).
+- Bouton déconnexion dans le sidebar (PC) et la barre top (mobile).

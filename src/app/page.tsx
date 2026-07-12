@@ -1,5 +1,10 @@
 import { ForgeApp } from "@/components/forge/forge-app";
+import { AuthGate } from "@/components/auth-gate";
 
 export default function Home() {
-  return <ForgeApp />;
+  return (
+    <AuthGate>
+      <ForgeApp />
+    </AuthGate>
+  );
 }
