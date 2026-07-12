@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, CheckCircle2, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 interface AuthUser {
   id: string;
@@ -15,6 +15,7 @@ type Screen = "login" | "register" | "forgot";
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bypass, setBypass] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -23,7 +24,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         if (data.authenticated && data.user) setUser(data.user);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        // If session check fails, allow bypass (show app without auth)
+        setBypass(true);
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
@@ -34,14 +39,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // If session check failed (network error), bypass auth
+  if (bypass) {
+    return <>{children}</>;
+  }
+
   if (!user) {
-    return <LoginScreen onSuccess={setUser} />;
+    return <LoginScreen onSuccess={setUser} onSkip={() => setUser({ id: "guest", username: "Invité" })} />;
   }
 
   return <>{children}</>;
 }
 
-function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
+function LoginScreen({ onSuccess, onSkip }: { onSuccess: (user: AuthUser) => void; onSkip: () => void }) {
   const [screen, setScreen] = useState<Screen>("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -66,7 +76,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
         });
         const data = await res.json();
         if (!data.success) { setError(data.error); return; }
-        // Small delay to ensure cookie is set before rendering the app
         await new Promise(r => setTimeout(r, 200));
         onSuccess(data.user);
       } else if (screen === "register") {
@@ -102,7 +111,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
     <div className="flex h-screen w-full items-center justify-center bg-slate-950 p-4">
       <div className="pointer-events-none absolute h-64 w-96 rounded-full bg-cyan-500/10 blur-[100px]" />
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative w-full max-w-sm">
-        {/* Logo */}
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 ring-1 ring-cyan-500/30">
             <Hammer className="h-8 w-8 text-cyan-300" />
@@ -116,7 +124,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl">
-          {/* Toggle login/register */}
           {(screen === "login" || screen === "register") && (
             <div className="mb-4 flex gap-1 rounded-lg border border-slate-800 bg-slate-950/40 p-1">
               <button onClick={() => { setScreen("login"); setError(""); setInfo(""); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition ${screen === "login" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500"}`}>
@@ -128,7 +135,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
             </div>
           )}
 
-          {/* Info message (success) */}
           {info && (
             <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
@@ -137,7 +143,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Username — login + register */}
             {(screen === "login" || screen === "register") && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-400">Nom d'utilisateur</label>
@@ -145,7 +150,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
               </div>
             )}
 
-            {/* Email — register + forgot */}
             {(screen === "register" || screen === "forgot") && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-400">Email</label>
@@ -156,7 +160,6 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
               </div>
             )}
 
-            {/* Password — login + register */}
             {(screen === "login" || screen === "register") && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-400">Mot de passe</label>
@@ -168,19 +171,13 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
                     placeholder="ex: 1234wqaQ!"
                     className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 pr-10 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400"
-                    title={showPassword ? "Masquer" : "Afficher"}
-                  >
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400" title={showPassword ? "Masquer" : "Afficher"}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Error */}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
@@ -188,33 +185,27 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
               </div>
             )}
 
-            {/* Submit */}
             <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : screen === "login" ? <LogIn className="h-4 w-4" /> : screen === "register" ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
               {screen === "login" ? "Se connecter" : screen === "register" ? "Créer un compte" : "Recevoir mon mot de passe"}
             </button>
           </form>
 
-          {/* Links */}
           <div className="mt-4 flex flex-col gap-2 text-center">
             {screen === "login" && (
-              <button onClick={() => { setScreen("forgot"); setError(""); setInfo(""); }} className="text-[11px] text-slate-500 hover:text-cyan-400">
-                Mot de passe oublié ?
-              </button>
+              <>
+                <button onClick={() => { setScreen("forgot"); setError(""); setInfo(""); }} className="text-[11px] text-slate-500 hover:text-cyan-400">Mot de passe oublié ?</button>
+                <button onClick={onSkip} className="text-[11px] text-slate-600 hover:text-slate-400">Continuer sans compte</button>
+              </>
             )}
             {screen === "forgot" && (
-              <button onClick={() => { setScreen("login"); setError(""); setInfo(""); }} className="text-[11px] text-slate-500 hover:text-cyan-400">
-                Retour a la connexion
-              </button>
+              <button onClick={() => { setScreen("login"); setError(""); setInfo(""); }} className="text-[11px] text-slate-500 hover:text-cyan-400">Retour a la connexion</button>
             )}
           </div>
 
-          {/* Password rules (register only) */}
           {screen === "register" && (
             <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
-                <Lock className="h-3 w-3" /> Regles du mot de passe
-              </p>
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400"><Lock className="h-3 w-3" /> Regles du mot de passe</p>
               <ul className="space-y-0.5 text-[10px] text-slate-500">
                 <li className={password.length >= 6 ? "text-emerald-400" : ""}>6 caracteres minimum</li>
                 <li className={/[0-9]/.test(password) ? "text-emerald-400" : ""}>1 chiffre</li>
@@ -226,10 +217,9 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
           )}
         </div>
 
-        <p className="mt-4 text-center text-[10px] text-slate-600">
-          Tes projets sont prives et associes a ton compte
-        </p>
+        <p className="mt-4 text-center text-[10px] text-slate-600">Tes projets sont prives et associes a ton compte</p>
       </motion.div>
     </div>
   );
 }
+
