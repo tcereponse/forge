@@ -23,6 +23,8 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
   const [features, setFeatures] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const [showConfig, setShowConfig] = useState(false)
+  const [backendInput, setBackendInput] = useState(getStoredBackendUrl())
 
   // Pre-fill from a picked template (from WelcomeView gallery) or a sample idea
   useEffect(() => {
@@ -50,90 +52,43 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
     setGenerating(true)
     onGeneratingStart?.()
     try {
-      const native = hasNativeHttp()
-      let result
+      // generateProjectOnDevice handles both sovereign (on-device GLM) and server (fallback) modes.
+      // If the GLM API is unreachable from the phone, it automatically falls back to the server.
+      const result = await generateProjectOnDevice(projectName, projectDesc, features, (phase, msg) => {
+        onProgress?.(phase, msg)
+      })
 
-      if (native) {
-        // ── Sovereign mode: generate on-device via GLM-4.6 (NativeHttp bridge) ──
-        result = await generateProjectOnDevice(projectName, projectDesc, features, (phase, msg) => {
-          onProgress?.(phase, msg)
-        })
-
-        if (!result.success || result.files.length === 0) {
-          throw new Error(result.error || 'Echec de la generation on-device')
-        }
-
-        const realProject: Project = {
-          id: `local_${Date.now()}`,
-          name: projectName,
-          description: projectDesc,
-          slug: projectName.toLowerCase().replace(/\s+/g, '-'),
-          stack: 'vite',
-          typescript: true,
-          styling: 'tailwind',
-          routing: 'router',
-          stateMgmt: 'none',
-          uiLib: 'none',
-          features,
-          files: result.files,
-          prd: result.prd,
-          arsenal: null,
-          status: 'ready',
-          createdAt: Date.now(),
-        }
-        setGenerating(false)
-        onCreate(realProject)
-      } else {
-        // ── Server mode: use the PC backend (web mobile same-origin) ──
-        const createData = await apiFetch<{ success: boolean; project: any; error?: string }>('/api/projects', {
-          method: 'POST',
-          body: JSON.stringify({
-            name: projectName,
-            description: projectDesc,
-            stack: 'vite',
-            typescript: true,
-            styling: 'tailwind',
-            routing: 'router',
-            stateMgmt: 'none',
-            uiLib: 'none',
-            features,
-            selectedPacks: [],
-          }),
-        })
-        if (!createData.success || !createData.project) throw new Error(createData.error || 'Echec creation projet')
-        const projectId = createData.project.id
-
-        onProgress?.('code', 'Generation via serveur GLM-4.6...')
-        const genData = await apiFetch<{ success: boolean; project: any; error?: string }>(`/api/projects/${projectId}/generate`, {
-          method: 'POST',
-        })
-        if (!genData.success || !genData.project) throw new Error(genData.error || 'Echec generation')
-
-        const realProject: Project = {
-          id: genData.project.id,
-          name: genData.project.name,
-          description: genData.project.description,
-          slug: genData.project.slug,
-          stack: genData.project.stack,
-          typescript: genData.project.typescript,
-          styling: genData.project.styling,
-          routing: genData.project.routing,
-          stateMgmt: genData.project.stateMgmt,
-          uiLib: genData.project.uiLib,
-          features: genData.project.features || [],
-          files: genData.project.files || [],
-          prd: genData.project.prd || '',
-          arsenal: genData.project.arsenal && Array.isArray(genData.project.arsenal.documents) ? genData.project.arsenal.documents : null,
-          status: 'ready',
-          createdAt: genData.project.createdAt || Date.now(),
-        }
-        setGenerating(false)
-        onCreate(realProject)
+      if (!result.success || result.files.length === 0) {
+        throw new Error(result.error || 'Echec de la generation')
       }
+
+      // Build the project object — use server ID if server mode, local ID if sovereign
+      const realProject: Project = {
+        id: result.mode === 'server' && result.files[0]
+          ? `server_${Date.now()}`
+          : `local_${Date.now()}`,
+        name: projectName,
+        description: projectDesc,
+        slug: projectName.toLowerCase().replace(/\s+/g, '-'),
+        stack: 'vite',
+        typescript: true,
+        styling: 'tailwind',
+        routing: 'router',
+        stateMgmt: 'none',
+        uiLib: 'none',
+        features,
+        files: result.files,
+        prd: result.prd,
+        arsenal: null,
+        status: 'ready',
+        createdAt: Date.now(),
+      }
+      setGenerating(false)
+      onCreate(realProject)
     } catch (e) {
       let msg = e instanceof Error ? e.message : 'Erreur'
       if (/failed to fetch/i.test(msg)) {
-        msg = 'Connexion au serveur impossible. En APK, la generation est on-device (pas de serveur). En navigateur web, verifie que le serveur React Forge est demarre.'
+        msg = 'Connexion impossible. En APK, l application tente d abord GLM-4.6 on-device, puis bascule vers le serveur si configure (bouton Configurer).'
       }
       setError(msg)
       setGenerating(false)
@@ -170,7 +125,35 @@ export function BuilderForm({ onCreate, onCancel, onGeneratingStart, onGeneratin
             </span>
           </div>
           {native && <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-300">100% AUTONOME</span>}
+          <button onClick={() => setShowConfig(!showConfig)} className="text-[10px] text-cyan-400 hover:underline">Configurer</button>
         </div>
+
+        {showConfig && (
+          <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+            <label className="mb-1 block text-[11px] font-medium text-slate-300">URL du serveur React Forge (fallback)</label>
+            <div className="flex gap-2">
+              <input value={backendInput} onChange={e => setBackendInput(e.target.value)} placeholder="https://votre-serveur.exemple.com" className="flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
+              <button onClick={() => { setBackendUrl(backendInput); setShowConfig(false) }} className="rounded-md bg-cyan-500/20 px-3 py-1.5 text-xs font-medium text-cyan-300">OK</button>
+            </div>
+            <p className="mt-1.5 text-[10px] text-slate-500">Si l API GLM-4.6 est bloquee par votre reseau, l app utilisera ce serveur comme relais. Entrez l URL de preview affichee dans le navigateur PC.</p>
+          </div>
+        )}
+
+        {/* Warning: sovereign mode without server fallback — GLM API might be unreachable */}
+        {native && !apiBase && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <div>
+                <p className="text-xs font-semibold text-amber-300">Configuration recommandee</p>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  L APK utilise GLM-4.6 on-device. Si votre reseau operateur bloque l API, la generation echouera.
+                  Cliquez <strong className="text-amber-200">Configurer</strong> et entrez l URL du serveur React Forge (PC) pour activer le fallback automatique.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3">

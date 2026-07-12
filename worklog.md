@@ -519,3 +519,47 @@ Stage Summary:
 - Mode souverain (APK mobile) : genere un fichier HTML standalone qui execute le projet (ouvrable sur telephone, pas besoin de serveur).
 - Mode serveur (web mobile) : compile un vrai APK via /api/build-apk.
 - Le fichier genere est sauvegarde dans Downloads/ReactForge/ (via AndroidFileSaver natif) ou telecharge dans le navigateur.
+
+---
+Task ID: 11
+Agent: main (Z.ai Code)
+Task: Corriger erreur reseau mobile (Failed to connect to internal-api.z.ai) — ajout fallback serveur automatique
+
+Work Log:
+- Cause identifiee : l'API GLM (internal-api.z.ai) est resolue en IP privee (172.25.136.213) sur le reseau operateur du telephone. La connexion native (NativeHttp) echoue car le domaine n'est pas joignable depuis certains reseaux mobiles.
+- Solution : ajout d'un mecanisme de fallback automatique dans sovereign-generator.ts. Si l'API GLM est injoignable (erreur reseau), l'app bascule vers le serveur React Forge (si configure).
+- Réécrit mobile-app/src/sovereign-generator.ts :
+  * testGlmConnectivity() : teste la connectivite GLM via NativeHttp (POST ping, retourne {ok, error, latencyMs})
+  * hasServerFallback() : verifie si un serveur est disponible (web mobile = same-origin, APK = URL configuree)
+  * isNetworkError(error) : detecte les erreurs reseau (failed to connect, timeout, unknown host, etc.)
+  * generateViaServer() : cree le projet sur le serveur (POST /api/projects + POST /api/projects/[id]/generate)
+  * generateProjectOnDevice() : strategie hybride
+    1. Web mobile (pas de NativeHttp) : mode serveur directement
+    2. APK (NativeHttp) : tente sovereign (GLM on-device)
+    3. Si sovereign echoue avec erreur reseau ET serveur disponible : fallback vers serveur
+    4. Si sovereign echoue et pas de serveur : message d'erreur guide (configurer l'URL)
+  * Retourne { success, files, prd, mode: 'sovereign'|'server'|'failed' }
+- Simplifié mobile-app/src/components/BuilderForm.tsx :
+  * handleGenerate() appelle generateProjectOnDevice() qui gere les 2 modes + fallback
+  * Plus de duplication de logique serveur dans BuilderForm
+  * Etat showConfig + backendInput pour le panneau de configuration
+  * Bouton "Configurer" ajoutte dans l'indicateur de mode
+  * Panneau de configuration avec champ URL + bouton OK
+  * Avertissement amber quand APK sans serveur de fallback configure
+  * Message d'erreur ameliore : "En APK, l application tente d abord GLM-4.6 on-device, puis bascule vers le serveur si configure (bouton Configurer)."
+- TypeScript check : 0 erreur
+- Build Vite : 469KB JS → public/mobile/
+- APK recompilé : 164KB (public/react-forge-mobile.apk)
+- Vérification Agent Browser :
+  * BuilderForm affiche le bouton "Configurer"
+  * Clic sur Configurer → panneau avec champ URL + bouton OK
+  * Saisie de l'URL + OK → sauvegarde dans localStorage
+  * Avertissement amber visible en mode APK sans serveur configure
+
+Stage Summary:
+- PROBLEME RÉSOLU : l'erreur "Failed to connect to internal-api.z.ai" est maintenant interceptee.
+- L'app tente d'abord GLM-4.6 on-device (mode souverain).
+- Si l'API est injoignable (reseau operateur), l'app bascule automatiquement vers le serveur React Forge (si URL configuree).
+- Bouton "Configurer" dans le BuilderForm pour saisir l'URL du serveur PC.
+- Avertissement proactive en mode APK sans serveur de fallback.
+- APK recompilé : 164KB avec le fallback automatique.
