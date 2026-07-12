@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, FileText, Code2, Layers, Calendar, Hash, Sparkles, CheckCircle2, History, ShieldCheck, Activity, Play, Download, Loader2, Rocket, Cpu, Zap, AlertCircle } from 'lucide-react'
+import { ArrowLeft, FileText, Code2, Layers, Calendar, Hash, Sparkles, CheckCircle2, History, ShieldCheck, Activity, Play, Download, Loader2, Rocket, Cpu, Zap, AlertCircle, Smartphone } from 'lucide-react'
 import JSZip from 'jszip'
 import type { Project } from '../useProjects'
 import { FileExplorer } from './FileExplorer'
@@ -7,6 +7,8 @@ import { DeepseekWebview } from './DeepseekWebview'
 import { KirovPanel } from './KirovPanel'
 import { KirovLauncher } from './KirovLauncher'
 import { saveFile } from '../fileSaver'
+import { buildProjectApk } from '../apk-builder'
+import { hasNativeHttp } from '../glm-native'
 
 type Tab = 'code' | 'prd' | 'arsenal' | 'validation' | 'perf' | 'preview' | 'snapshots' | 'kirov' | 'launcher' | 'deepseek'
 
@@ -37,6 +39,8 @@ function MetaPill({ icon: Icon, label, value }: { icon: typeof Hash; label: stri
 export function Workspace({ project: p, onBack, onUpdateProject, allProjects }: { project: Project; onBack: () => void; onUpdateProject?: (files: { path: string; content: string; language: string }[], prd: string) => void; allProjects?: Project[] }) {
   const [tab, setTab] = useState<Tab>('code')
   const [downloading, setDownloading] = useState(false)
+  const [apkBuilding, setApkBuilding] = useState(false)
+  const [apkStatus, setApkStatus] = useState('')
 
   async function handleZip() {
     setDownloading(true)
@@ -47,6 +51,27 @@ export function Workspace({ project: p, onBack, onUpdateProject, allProjects }: 
       const b = await z.generateAsync({ type: 'blob' })
       await saveFile(`${r}.zip`, b)
     } catch { /* ignore */ } finally { setDownloading(false) }
+  }
+
+  async function handleApk() {
+    setApkBuilding(true)
+    setApkStatus('')
+    const native = hasNativeHttp()
+    setApkStatus(native ? 'Generation du HTML standalone...' : 'Compilation APK sur le serveur...')
+    try {
+      const result = await buildProjectApk({ project: p })
+      if (result.success) {
+        setApkStatus(native ? `HTML sauvegarde: ${result.filename}` : `APK sauvegarde: ${result.filename}`)
+        await saveFile(result.filename, result.blob)
+      } else {
+        setApkStatus(`Erreur: ${result.error}`)
+      }
+    } catch (e) {
+      setApkStatus(`Erreur: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setApkBuilding(false)
+      setTimeout(() => setApkStatus(''), 6000)
+    }
   }
 
   const isReady = p.status === 'ready' && p.files.length > 0
@@ -76,9 +101,18 @@ export function Workspace({ project: p, onBack, onUpdateProject, allProjects }: 
               <div className="mt-2 flex flex-wrap gap-1.5">{p.features.map(f => <span key={f} className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 text-[10px] text-cyan-300/80">{f}</span>)}</div>
             )}
           </div>
-          <button onClick={handleZip} disabled={downloading} className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 disabled:opacity-50">{downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} ZIP</button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button onClick={handleApk} disabled={apkBuilding || !isReady} className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-cyan-500 to-teal-500 px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50">{apkBuilding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Smartphone className="h-3.5 w-3.5" />} APK</button>
+            <button onClick={handleZip} disabled={downloading} className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 disabled:opacity-50">{downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} ZIP</button>
+          </div>
         </div>
       </div>
+
+      {apkStatus && (
+        <div className="border-b border-cyan-500/20 bg-cyan-500/5 px-4 py-2">
+          <p className="text-xs text-cyan-300">{apkStatus}</p>
+        </div>
+      )}
 
       {/* Tabs — exact 10 tabs matching PC */}
       <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-800 px-4 py-1">
