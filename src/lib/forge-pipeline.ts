@@ -26,6 +26,9 @@ import {
   type ValidationGateResult,
 } from "./forge-validators";
 import { unescapeJsonString } from "./forge-anticorruption";
+import { detectFeatures, scaffoldFeatures } from "./forge-scaffolder";
+import { buildDesignSystem } from "./forge-design-system";
+import { buildDataLayer } from "./forge-data-layer";
 
 export interface PipelinePhase {
   name: string;
@@ -512,10 +515,11 @@ export async function runPipeline(
 ): Promise<PipelineResult> {
   const phases: PipelinePhase[] = [
     { name: "Architecture", pass: 1, status: "pending" },
-    { name: "Types", pass: 2, status: "pending" },
-    { name: "Business Logic", pass: 3, status: "pending" },
-    { name: "UI Design System", pass: 4, status: "pending" },
-    { name: "Tests", pass: 5, status: "pending" },
+    { name: "Scaffold (Design System + Data Layer + Features)", pass: 2, status: "pending" },
+    { name: "Types (LLM)", pass: 3, status: "pending" },
+    { name: "Business Logic (LLM)", pass: 4, status: "pending" },
+    { name: "UI Components (LLM)", pass: 5, status: "pending" },
+    { name: "Tests (LLM)", pass: 6, status: "pending" },
   ];
 
   const updatePhase = (idx: number, patch: Partial<PipelinePhase>) => {
@@ -538,62 +542,77 @@ export async function runPipeline(
       };
     }
 
-    // ── Pass 2: Types ──
+    // ── Pass 2: Scaffold (deterministic — no LLM) ──
+    // Injects: design system (33 components) + data layer (10 files) + detected features (26+ files)
     updatePhase(1, { status: "running" });
-    let typeFiles = await passTypes(config, arch, phases[1]);
     onProgress?.(phases);
 
-    // Gate 2: Validate types (retry once if failed)
+    const designSystemFiles = buildDesignSystem();
+    const dataLayerFiles = buildDataLayer();
+    const detectedFeatures = detectFeatures(config);
+    const featureFiles = scaffoldFeatures(config, detectedFeatures);
+
+    phases[1].status = "done";
+    phases[1].message = `${designSystemFiles.length} composants UI + ${dataLayerFiles.length} fichiers data + ${featureFiles.length} fichiers features (${detectedFeatures.length} features détectées)`;
+    phases[1].filesGenerated = designSystemFiles.length + dataLayerFiles.length + featureFiles.length;
+    onProgress?.(phases);
+
+    // ── Pass 3: Types (LLM) ──
+    updatePhase(2, { status: "running" });
+    let typeFiles = await passTypes(config, arch, phases[2]);
+    onProgress?.(phases);
+
+    // Gate 3: Validate types (retry once if failed)
     for (let retry = 0; retry < 1; retry++) {
       const validation = runAllValidationGates(typeFiles);
       if (validation.ok || validation.totalErrors === 0) break;
       const errors = validation.results
         .filter((r) => !r.result.ok)
         .flatMap((r) => r.result.errors);
-      typeFiles = await retryPass("Types", config, typeFiles, errors, phases[1]);
+      typeFiles = await retryPass("Types", config, typeFiles, errors, phases[2]);
       onProgress?.(phases);
     }
 
-    // ── Pass 3: Business Logic ──
-    updatePhase(2, { status: "running" });
-    let logicFiles = await passLogic(config, arch, typeFiles, phases[2]);
+    // ── Pass 4: Business Logic (LLM) ──
+    updatePhase(3, { status: "running" });
+    let logicFiles = await passLogic(config, arch, typeFiles, phases[3]);
     onProgress?.(phases);
 
-    // Gate 3: Validate logic (retry once)
+    // Gate 4: Validate logic (retry once)
     for (let retry = 0; retry < 1; retry++) {
       const validation = runAllValidationGates(logicFiles);
       if (validation.ok || validation.totalErrors === 0) break;
       const errors = validation.results
         .filter((r) => !r.result.ok)
         .flatMap((r) => r.result.errors);
-      logicFiles = await retryPass("Logic", config, logicFiles, errors, phases[2]);
+      logicFiles = await retryPass("Logic", config, logicFiles, errors, phases[3]);
       onProgress?.(phases);
     }
 
-    // ── Pass 4: UI ──
-    updatePhase(3, { status: "running" });
-    let uiFiles = await passUi(config, logicFiles, phases[3]);
+    // ── Pass 5: UI Components (LLM) — only project-specific, design system is already scaffolded ──
+    updatePhase(4, { status: "running" });
+    let uiFiles = await passUi(config, logicFiles, phases[4]);
     onProgress?.(phases);
 
-    // Gate 4: Validate UI (retry once)
+    // Gate 5: Validate UI (retry once)
     for (let retry = 0; retry < 1; retry++) {
       const validation = runAllValidationGates(uiFiles);
       if (validation.ok || validation.totalErrors === 0) break;
       const errors = validation.results
         .filter((r) => !r.result.ok)
         .flatMap((r) => r.result.errors);
-      uiFiles = await retryPass("UI", config, uiFiles, errors, phases[3]);
+      uiFiles = await retryPass("UI", config, uiFiles, errors, phases[4]);
       onProgress?.(phases);
     }
 
-    // ── Pass 5: Tests ──
-    updatePhase(4, { status: "running" });
-    const allFilesSoFar = [...typeFiles, ...logicFiles, ...uiFiles];
-    const testFiles = await passTests(config, allFilesSoFar, phases[4]);
+    // ── Pass 6: Tests (LLM) ──
+    updatePhase(5, { status: "running" });
+    const allFilesSoFar = [...designSystemFiles, ...dataLayerFiles, ...featureFiles, ...typeFiles, ...logicFiles, ...uiFiles];
+    const testFiles = await passTests(config, allFilesSoFar, phases[5]);
     onProgress?.(phases);
 
     // ── Merge all files ──
-    const allFiles = [...typeFiles, ...logicFiles, ...uiFiles, ...testFiles];
+    const allFiles = [...designSystemFiles, ...dataLayerFiles, ...featureFiles, ...typeFiles, ...logicFiles, ...uiFiles, ...testFiles];
 
     // Dedupe (later files win on path conflicts)
     const deduped: GeneratedFile[] = [];

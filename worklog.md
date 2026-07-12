@@ -660,3 +660,189 @@ Stage Summary:
 - 48 fichiers générés (vs 13 standard) — architecture feature-based, design system, tests, configs qualité, Docker, CI/CD, docs.
 - Bouton "Générer Gold Grade Industrial" disponible dans le BuilderForm PC.
 - Prochaines phases possibles: Phase 2 (architecture feature-based avancée), Phase 3 (design system 30+ composants), Phase 5 (couche données typée).
+
+---
+Task ID: 14-a
+Agent: Phase 2 subagent
+Task: Phase 2 — Feature scaffolder (`src/lib/forge-scaffolder.ts`). Génère des templates de features réutilisables (auth, crud, dashboard, search-filter) que le pipeline peut injecter déterministiquement (sans round-trip LLM) pour un output senior-engineer-grade sur les features communes.
+
+Work Log:
+- Lu worklog + forge-config.ts (types `ProjectConfig`, `GeneratedFile`) + forge-gold-templates.ts (patterns de génération déterministe) pour aligner le style et les conventions.
+- Créé `src/lib/forge-scaffolder.ts` (2418 lignes) avec 9 sections clairement délimitées:
+  * **Public types** — `FeatureTemplate` (id, name, description, detect, generateFiles), `DetectInput`.
+  * **Naming helpers** — `singularize` (rules: ies→y, sses→drop es, xes/shes/ches/zes→drop es, s→drop s), `toPascalCase` (slug → singular PascalCase), `toCamelCase`, `capitalize`.
+  * **CRUD entity detection** — 15 patterns regex (FR + EN) couvrant tâches, recettes, notes, dépenses, contacts, courses, projets, clients, produits, événements, réservations, liens, articles, vêtements, boissons. Fallback `items`. `deriveCrudEntityName(config)` retourne le slug pluriel.
+  * **AUTH feature** (7 fichiers): `types.ts` (User/LoginInput/RegisterInput + Zod schemas avec regex password), `api/auth-repository.ts` (classe AuthRepository avec login/register/me/logout + Map in-memory + sessions token + seed demo@forge.dev), `hooks/use-auth.ts` (useAuth: useQuery pour /me + 3 useMutation avec invalidation + localStorage token), `components/LoginForm.tsx` (email/password + validation + error states), `components/RegisterForm.tsx` (name/email/password + règles visuelles), `components/UserMenu.tsx` (dropdown avec click-outside + ESC + avatar initials), `index.ts` (barrel).
+  * **CRUD feature** (7 fichiers générés dynamiquement à partir du nom d'entité): `types.ts` (Entity/CreateInput/UpdateInput + Zod + enum status active/done/archived), `api/{name}-repository.ts` (classe Repository avec list/get/create/update/delete + seed 3 items + tri par date), `hooks/use-{name}.ts` (5 hooks: useEntities, useEntity(id), useCreateEntity, useUpdateEntity, useDeleteEntity — TanStack Query avec invalidation automatique de la liste + cache par id), `components/{Entity}List.tsx` (loading spinner + error + retry + empty state avec CTA + isFetching indicator), `components/{Entity}Form.tsx` (create/edit switch + validation + status select + password rules), `components/{Entity}Item.tsx` (status badge coloré + delete avec confirmation inline + edit + a11y role/keydown), `index.ts` (barrel avec named + default exports).
+  * **Dashboard feature** (6 fichiers): `types.ts` (Stat/ChartPoint/ChartData + Zod + tone enum), `components/StatCard.tsx` (label + value + unit + trend avec TrendingUp/Down/Minus + tone colors), `components/StatsGrid.tsx` (grid responsive 1-4 colonnes + empty state), `components/SimpleChart.tsx` (SVG bar chart zéro-dépendance avec viewBox responsive + zero baseline + tooltips + labels tronqués + barres rouges pour valeurs négatives), `components/DashboardLayout.tsx` (composition header + stats + charts grid + children), `index.ts`.
+  * **Search-filter feature** (6 fichiers): `types.ts` (FilterState/SortOption/FilterDefinition + Zod), `hooks/use-filters.ts` (store Zustand: search/filters/sort/sortDirection + actions toggle/clear/reset + `useActiveFilterCount` selector), `components/SearchBar.tsx` (debounce 250ms + clear button + loading spinner), `components/FilterPanel.tsx` (checkbox multi + radio single + collapsible mode + reset + active count), `components/SortDropdown.tsx` (select + direction toggle button), `index.ts`.
+  * **Public registry** — `FEATURE_TEMPLATES: Record<string, FeatureTemplate>` (4 templates: auth, crud, dashboard, search-filter).
+  * **Public API** — `detectFeatures(config)` (itére sur FEATURE_TEMPLATES et appelle `.detect()`), `deriveFeatureName(templateId, config)` (crud → deriveCrudEntityName, search-filter → "filters", autres → templateId), `scaffoldFeatures(config, featureIds)` (génère tous les fichiers avec déduplication par path).
+- Toutes les specs respectées:
+  * TypeScript strict ✓ (vérifié avec `tsc --noEmit --strict`)
+  * Tailwind classes partout ✓
+  * Props interfaces typées ✓
+  * TanStack Query (useQuery, useMutation, useQueryClient) ✓
+  * Repository pattern avec mock in-memory (arrays/Maps) ✓
+  * Default export pour composants, named pour types/hooks ✓
+  * lucide-react icons ✓
+  * `cn()` depuis `@/shared/lib/utils` ✓
+  * Pas de tests (Phase 5) ✓
+  * Loading/error/empty states partout ✓
+- Validation:
+  * `tsc --noEmit --strict src/lib/forge-scaffolder.ts` → 0 erreur.
+  * `tsc -p /tmp/forge-gen/tsconfig.json` (projet généré avec 26 fichiers + node_modules symlinkés) → 0 erreur en strict mode. Tous les fichiers générés compilent.
+  * Smoke test `scaffoldFeatures(cfg, ['auth','crud','dashboard','search-filter'])` sur "Application de gestion de tâches avec authentification et dashboard analytique" → 26 fichiers, entité CRUD = "tasks", paths corrects.
+  * Tests de détection CRUD sur 16 descriptions FR/EN → 16/16 passent (tâches→tasks, recettes→recipes, dépenses→expenses, notes→notes, produits→products, contacts→contacts, courses→items, projets→projects, clients→customers, réservations→bookings, liens→bookmarks, articles→posts, événements→events, boissons→drinks, adresses→contacts, fallback→items).
+- Bugs trouvés et corrigés pendant le dev:
+  1. `singularize("expenses")` → "expens" ❌ (règle "ses" trop agressive). Corrigé avec règles différenciées sses/xes/shes/ches/zes → drop "es", s → drop "s".
+  2. `singularize("recipes")` ne passait pas par la règle "ies" (correct — "ipes" pas "ies"). Vérifié: "recipes" → "recipe" via drop "s".
+  3. `deriveCrudEntityName("Carnet de liens favoris")` → "notes" ❌ (à cause du pattern "carnet" ambigu). Corrigé en supprimant "carnet" et "inventaire" des patterns (ils matchent via le mot-clé spécifique qui suit).
+  4. `useAuth` retournait `user: ReturnType<typeof useQuery>['data'] | null` → inférait `{}`. Corrigé en `user: User | null` + import `User` ajouté.
+  5. `FilterPanel` utilisait `useState` mais l'import était en bas du fichier. Corrigé: import `useState` en haut avec les autres imports React.
+
+Stage Summary:
+- PHASE 2 RÉUSSIE : `src/lib/forge-scaffolder.ts` génère 26 fichiers de features déterministes pour 4 templates (auth, crud, dashboard, search-filter).
+- Le pipeline Gold Grade peut désormais injecter ces features sans round-trip LLM pour un output senior-engineer-grade garanti sur les patterns communs.
+- Détection automatique multilingue (FR + EN) à partir de la description du projet + features array.
+- Dérivation automatique du nom d'entité CRUD (15 patterns, fallback "items").
+- Tous les fichiers générés passent `tsc --strict` sans erreur (vérifié sur 26 fichiers).
+- API publique: `FEATURE_TEMPLATES`, `detectFeatures`, `scaffoldFeatures`, `deriveCrudEntityName`, `deriveFeatureName`, `singularize`, `toPascalCase`, `toCamelCase`, types `FeatureTemplate` + `DetectInput`.
+- Aucun autre fichier modifié. Prêt pour intégration dans le pipeline (Pass 3 Business Logic peut désormais fallback sur `scaffoldFeatures` pour les features détectées au lieu de tout demander au LLM).
+
+
+---
+Task ID: 14-c
+Agent: Phase 5 subagent
+Task: Phase 5 — Couche données typée (data layer generator). Créer `/home/z/my-project/src/lib/forge-data-layer.ts` qui exporte `buildDataLayer(): GeneratedFile[]` retournant 10 fichiers formant la shared data layer (ApiClient + repository pattern + TanStack Query v5 hooks + MSW mocks + utils + validation + constants).
+
+Work Log:
+- Lu worklog.md pour contexte : Phases 1 (pipeline Gold Grade 5-passes), 2 (feature-based archi), 3 (design system 30+ composants) déjà en place. `GeneratedFile` défini dans `src/lib/forge-config.ts` (`{ path: string; content: string; language: string }`). Phase 1 génère déjà `package.json` avec deps `@tanstack/react-query ^5.52`, `zod ^3.23`, `clsx`, `tailwind-merge`, et `tsconfig` strict+ (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, `noImplicitOverride`).
+- Créé `src/lib/forge-data-layer.ts` (un seul fichier, ~960 lignes) qui exporte `buildDataLayer(): GeneratedFile[]` retournant 10 fichiers :
+  1. `src/shared/api/types.ts` (89 lignes) — `ApiResponse<T>` (envelope standard), `PaginatedResponse<T>` (items/total/page/pageSize/hasNext), `QueryKey` (alias TanStack), `FetcherOptions` (signal AbortSignal), classe `ApiError extends Error` avec `status`, `details`, getters `isClientError`/`isServerError`/`isNetworkError`, factory methods `unauthorized`/`notFound`, `toJSON()`.
+  2. `src/shared/lib/constants.ts` (66 lignes) — `API_URL` (depuis `import.meta.env.VITE_API_URL`, default "" pour same-origin/MSW), `APP_NAME`, `APP_VERSION`, `STORAGE_KEYS` (AUTH_TOKEN, USER_PREFS, THEME, REDIRECT_AFTER_LOGIN), `ROUTES` (HOME, LOGIN, DASHBOARD, etc.), `LOGIN_ROUTE`, `DEFAULT_PAGE_SIZE=20`, `API_TIMEOUT_MS=30_000`, `DEBOUNCE` (SEARCH/AUTOSAVE/INPUT/RESIZE), `QUERY_DEFAULTS` (staleTime 60s, gcTime 5min, retry 1, refetchOnWindowFocus false). Triple-slash `/// <reference types="vite/client" />` en tête.
+  3. `src/shared/api/client.ts` (225 lignes) — classe `ApiClient` : base URL depuis `VITE_API_URL`, headers par défaut (Content-Type + Accept), intercepteur de requête (injecte `Bearer ${token}` depuis localStorage), intercepteur de réponse (401 → clear token + redirect `/login?from=...`), unwrap automatique de l'envelope `ApiResponse<T>`, timeout 30s via `AbortController` (composé avec le signal caller), 1 retry sur erreur réseau (pas sur abort/timeout/4xx), méthodes `get/post/put/patch/delete<T>`. Helper privé `extractErrorMessage` pour parser `{ error: string }`. Singleton `apiClient` exporté. `RequestOptions` (signal, headers, timeoutMs, skipAuth).
+  4. `src/shared/api/query-client.ts` (45 lignes) — `createQueryClient()` retournant un `QueryClient` configuré : staleTime 60s, gcTime 5min, retry 1 (mais jamais sur 4xx sauf 408/429, logique via `error instanceof ApiError`), mutations `retry: false`, `refetchOnWindowFocus: false`.
+  5. `src/shared/api/hooks.ts` (143 lignes) — 4 hooks génériques typés `ApiError` :
+     - `useQuery<T>(key, fetcher, options?)` — wrapper avec defaults, `queryFn: ({ signal }) => fetcher({ signal })`.
+     - `useMutation<TData, TVariables, TContext>(mutationFn, options?)` — wrapper avec helpers d'optimistic update (exemple JSDoc complet avec `onMutate`/`onError`/`onSettled`).
+     - `useInfiniteQuery<T>(key, fetcher, options)` — `getNextPageParam` required (logique : pas d'infinite scroll sans savoir comment charger la page suivante), `initialPageParam` default 1, destructuring `{ initialPageParam, ...rest }` pour éviter l'écrasement du fallback par le spread.
+     - `usePaginatedQuery<T>(key, fetcher, page, options?)` — clé de query suffixée par `{ page }`, `placeholderData: (prev) => prev` pour garder la page précédente visible pendant le chargement.
+  6. `src/shared/api/mock-server.ts` (113 lignes) — `setupMockServer(handlers)` (idempotent, `import { setupWorker } from "msw/browser"`), `createMockHandler(method, path, resolver)` (factory qui mappe vers `http.get/post/put/patch/delete`), `mockDelay(ms=300)`, helpers d'envelope `okResponse<T>`, `errorResponse(msg, status, details)`, `paginatedResponse<T>(items, page, total)`. Type `MockWorker = ReturnType<typeof setupWorker>`. SW URL résolue depuis `import.meta.env.BASE_URL`.
+  7. `src/shared/api/index.ts` (29 lignes) — barrel export.
+  8. `src/shared/lib/utils.ts` (159 lignes) — `cn` (clsx + tailwind-merge), `formatPrice`/`formatDate`/`formatDateTime`/`formatRelativeTime` (Intl, "il y a 2 min"), `formatNumber`, `slugify` (NFKD + strip diacritics), `debounce<A>` (trailing edge), `sleep`, `isEmpty` (null/undefined/""/[]/{}), `groupBy<T,K>` (Map), `unique<T>` overload (primitives ou keyFn), `truncate`, `safeJsonParse<T>`.
+  9. `src/shared/lib/validation.ts` (77 lignes) — schemas Zod : `emailSchema`, `passwordSchema` (min 8 + 1 uppercase + 1 number), `uuidSchema`, `urlSchema`, `phoneSchema` (regex international), `dateSchema` (YYYY-MM-DD), `nonEmptyStringSchema`, `positiveIntSchema`, `nonNegativeIntSchema`. `validate<T>(schema, data)` retourne discriminated union `{ success: true; data: T; error: null } | { success: false; data: null; error: ZodError }`. `parseOrThrow<T>`. `zodErrorToRecord` (flatten erreurs par champ).
+  10. `src/shared/lib/index.ts` (9 lignes) — barrel export.
+- Vérification TypeScript stricte :
+  * Créé projet temporaire `/tmp/data-layer-out` avec `@tanstack/react-query@5.101.2`, `zod@3.25.76`, `msw@2.15.0`, `clsx@2.1.1`, `tailwind-merge@3.3.1`, `react@18.3.1`, `vite@5.4`, `typescript@5.5`.
+  * `npx tsc --noEmit` avec tsconfig **identique au Gold tsconfig de Phase 1** (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `noFallthroughCasesInSwitch`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, `isolatedModules`, `moduleResolution: bundler`) → **0 erreur** sur les 10 fichiers générés (953 lignes au total).
+  * Vérifié absence de `any` explicite (`grep '\bany\b'` → 0 match hors commentaires).
+  * Vérifié runtime via `npx tsx` : `buildDataLayer()` retourne bien 10 `GeneratedFile` valides (path/content/language), chemins exacts conformes au spec.
+- Bugs trouvés et corrigés pendant la vérification type :
+  1. `(raw as Record<string, { error: string }>).error` → accédait à la valeur Record (type `{ error: string }`) au lieu du champ `error` de la payload. Refactorisé en helper `extractErrorMessage(raw)` qui caste en `{ error?: unknown }` puis `{ error: string }` après narrowing.
+  2. `useInfiniteQuery` avec 6 type args `<T, ApiError, T, T, QueryKey, number>` — TanStack v5.101 n'a que 5 params (`<TQueryFnData, TError, TData, TQueryKey, TPageParam>`, pas de `TQueryData` séparé pour infinite). Corrigé en 5 args.
+  3. `getNextPageParam` optional → TanStack requiert la fonction quand `TPageParam = number`. Rendu required dans le type `options` (logique : pas d'infinite scroll sans next-page resolver).
+  4. Redéfinition de `getNextPageParam`/`getPreviousPageParam`/`initialPageParam` puis `...options` qui les écrasaient → destructuré `{ initialPageParam, ...rest }` pour appliquer le fallback `?? 1` sans conflit.
+  5. `HttpHandler` n'est pas exporté de `msw/browser` (seulement `setupWorker`) → split import : `setupWorker` de `msw/browser`, tout le reste (`http`, `HttpResponse`, `HttpHandler`, `HttpResponseResolver`, `PathParams`, `DefaultBodyType`) de `msw`.
+  6. `HttpResponse` comme type de retour → requiert un type arg en v2.15. Remplacé par `Response` (classe parente standard) pour les helpers `okResponse`/`errorResponse`/`paginatedResponse`.
+  7. `SafeParseReturnType<T>` → 2 type args en Zod 3.25 (`<Input, Output>`). Supprimé l'annotation explicite, laissé inférer par `schema.safeParse(data)`.
+  8. `exactOptionalPropertyTypes` → `fetch(url, { body: payload })` avec `payload: string | undefined` rejette `undefined`. Refactorisé en `const init: RequestInit = {...}; if (payload !== undefined) init.body = payload;`.
+  9. `import.meta.env` → ajouté `/// <reference types="vite/client" />` en tête de `constants.ts` (les projets générés par Phase 1 sont des projets Vite, donc le type est toujours disponible).
+- Conformité au cahier des charges :
+  * TypeScript strict : tous types explicites, generics partout (`<T>`, `<TData, TVariables, TContext>`, `<RequestBody extends DefaultBodyType>`), `unknown` au lieu de `any` partout.
+  * Zod pour validation runtime (9 schemas + 3 helpers).
+  * TanStack Query v5 (`useQuery`, `useMutation`, `useInfiniteQuery`, `usePaginatedQuery`).
+  * clsx + tailwind-merge via `cn()`.
+  * MSW `import { setupWorker } from "msw/browser"` + helpers.
+  * JSDoc sur toutes les fonctions publiques + exemples d'usage dans les JSDoc des hooks.
+  * `ApiError` classe dédiée avec status/message/details + helpers (`isClientError`, etc.).
+  * Pas de fichier de test.
+  * Un seul fichier créé (`/home/z/my-project/src/lib/forge-data-layer.ts`), aucun autre fichier modifié.
+
+Stage Summary:
+- PHASE 5 RÉUSSIE : `src/lib/forge-data-layer.ts` génère une shared data layer enterprise-grade en 10 fichiers (953 lignes de TS strict).
+- Architecture repository pattern : hooks acceptent un `fetcher` (typiquement une méthode de repository), le repository propriétaire du transport (ApiClient), l'UI reste découplée de HTTP.
+- ApiClient fonctionne à la fois avec backends réels et MSW (base URL vide = same-origin, MSW intercepte transparent).
+- 4 hooks TanStack Query v5 typés `ApiError` avec gestion d'erreurs cohérente (retry 4xx never, retry network 1x).
+- Vérifié : 0 erreur `tsc --strict` + tous les flags strict du Gold tsconfig Phase 1 sur les 10 fichiers générés.
+- Prêt pour intégration : le pipeline Phase 1 (Pass 3 Business Logic) peut désormais appeler `buildDataLayer()` et merger les 10 fichiers dans le projet généré, en complément de `buildAllGoldTemplates()` (Phase 1) et `scaffoldFeatures()` (Phase 2).
+
+---
+Task ID: 14-b
+Agent: Phase 3 subagent
+Task: Phase 3 — Design system generator (`src/lib/forge-design-system.ts`). Créer un générateur déterministe de design system shadcn/ui-style avec 30+ composants (objectif: 33 fichiers = 32 composants + 1 utils) que le pipeline peut injecter sans round-trip LLM pour un output senior-engineer-grade garanti sur l'UI shared.
+
+Work Log:
+- Lu worklog.md pour contexte : Phase 1 (pipeline Gold Grade 5-passes + forge-gold-templates), Phase 2 (forge-scaffolder: 4 feature templates), Phase 5 (forge-data-layer: ApiClient + TanStack Query v5 hooks). Phase 1 génère déjà `package.json` avec deps `clsx`, `tailwind-merge`, `class-variance-authority`, `react@18.3`, et `tsconfig` strict+ (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, `noImplicitOverride`, `noFallthroughCasesInSwitch`). Le Pass 4 (UI) actuel demande au LLM 9 composants seulement (button, input, card, badge, skeleton, empty-state, error-state, async-boundary, utils) — Phase 3 porte ce total à 33.
+- Créé `/home/z/my-project/src/lib/forge-design-system.ts` (2689 lignes, 89 KB) qui exporte `buildDesignSystem(): GeneratedFile[]` retournant 33 fichiers :
+  * **Shared lib (1)** — `src/shared/lib/utils.ts`: `cn()` (clsx + tailwind-merge), `formatPrice` (Intl currency), `formatDate` (Intl date), `formatRelativeTime` (Intl.RelativeTimeFormat avec 6 unités year→second).
+  * **Layout (5)** — `container.tsx` (maxWidth sm/md/lg/xl/full via cva), `stack.tsx` (Stack + VStack + HStack avec direction/gap/align/justify/wrap + maps typés Record<NonNullable<...>, string>), `grid.tsx` (cols 1-12 + responsive smCols/mdCols/lgCols + gap), `sidebar.tsx` (items + collapsible state + aria-expanded + aria-current + title + nav role), `header.tsx` (logo + title + nav + actions + sticky + role banner).
+  * **Form (6)** — `button.tsx` (cva 6 variants × 4 sizes, default type=button pour éviter soumission accidentelle de form), `input.tsx` (label + required asterisk + error/hint avec aria-describedby + aria-invalid), `textarea.tsx` (label + error + rows=4 default), `select.tsx` (options + placeholder + native select stylé), `checkbox.tsx` (label + description + error avec role=alert), `switch.tsx` (role=switch + aria-checked + onCheckedChange callback + track/thumb animé translate-x-5).
+  * **Feedback (6)** — `badge.tsx` (cva 6 variants default/success/warning/error/info/outline), `skeleton.tsx` (shape rect/circle/text + animate-pulse + aria-hidden), `progress.tsx` (value/max + role=progressbar + aria-valuemin/max/now + showValue % + label + width via style), `spinner.tsx` (size sm/md/lg + role=status + sr-only label), `empty-state.tsx` (icon + title + description + action + role=status), `error-state.tsx` (title + message + retry button + role=alert).
+  * **Overlay (6)** — `dialog.tsx` (Dialog orchestrator React.FC avec Escape handler + DialogContent/Header/Footer/Title/Description/Close via forwardRef, fixed inset + backdrop click-to-close + role=dialog aria-modal=true), `sheet.tsx` (Sheet orchestrator avec side left/right/top/bottom + sideClassMap + SheetContent/Header/Title/Description/Footer/Close), `popover.tsx` (Popover context provider + click-outside + Escape + PopoverTrigger avec aria-haspopup/expanded + PopoverContent avec align start/center/end + side top/bottom), `tooltip.tsx` (forwardRef + side top/right/bottom/left + delay 300ms + show/hide sur mouseenter/leave/focus/blur + role=tooltip), `dropdown-menu.tsx` (DropdownMenu context + click-outside + DropdownMenuTrigger/Content/Item/Label/Separator + variant destructive + inset + fermeture auto sur item click), `alert.tsx` (cva 4 variants info/success/warning/error + AlertTitle/Description).
+  * **Data (5)** — `card.tsx` (Card/Header/Title/Description/Content/Footer), `tabs.tsx` (Tabs context provider + controlled/uncontrolled + TabsList role=tablist + TabsTrigger role=tab aria-selected/controls + TabsContent role=tabpanel aria-labelledby + IDs reliés via baseId+value), `accordion.tsx` (type single/multiple + defaultValue + AccordionItem/Trigger (aria-expanded + chevron rotate-180) /Content (role=region)), `table.tsx` (Table/Header/Body/Footer/Row/Head/Cell/Caption avec hover + responsive overflow-auto wrapper), `pagination.tsx` (currentPage/totalPages/siblingCount + getPageRange avec ellipsis + prev/next buttons disabled + aria-current=page + sr-only labels).
+  * **Navigation (4)** — `breadcrumb.tsx` (Breadcrumb context pour separator + ol wrapper + BreadcrumbItem/Link/Page (aria-current=page) /Separator), `nav.tsx` (cva orientation horizontal/vertical + items avec icon/href/active/disabled + aria-current/aria-disabled), `async-boundary.tsx` (4 états déclaratifs loading/error/empty/success + aria-busy + aria-live=polite + délègue à Spinner/ErrorState/EmptyState), `separator.tsx` (cva orientation horizontal/vertical + decorative role=none vs role=separator + aria-orientation safe via effectiveOrientation computed).
+- **Manifest** — `DESIGN_SYSTEM_MANIFEST` (readonly DesignSystemEntry[]) avec nom/catégorie/path pour introspection (33 entrées).
+- **Conformité technique** — chaque composant:
+  * TypeScript strict (compatible `noUncheckedIndexedAccess` via maps typés `Record<NonNullable<...>, string>`, `exactOptionalPropertyTypes` via `xxx !== undefined && map[xxx]` au lieu de `xxx && map[xxx]` pour éviter de passer false à cn, et conditional spread `{...(cond ? { prop } : {})}` pour props optionnelles passées entre composants).
+  * cva pour variants (button, badge, alert, container, nav, separator).
+  * React.forwardRef sur tous les composants qui rendent du DOM (primitives + sous-composants comme Card/Header/etc.). React.FC pour orchestrateurs purs sans ref naturelle (Dialog, Sheet, Popover, DropdownMenu, AsyncBoundary — leurs wrappers internes utilisent forwardRef).
+  * Tailwind + CSS variables (`bg-primary`, `text-foreground`, `border-border`, `bg-muted`, `text-destructive`, `bg-accent`, etc.) — compatible avec le `tailwind.config` généré par Phase 1 (qui définit `--primary`, `--foreground`, etc.).
+  * Accessibilité: `aria-label`, `aria-expanded`, `aria-controls`, `aria-labelledby`, `aria-current`, `aria-invalid`, `aria-describedby`, `aria-busy`, `aria-live`, `role` (alert, banner, dialog, menu, menuitem, navigation, none, progressbar, separator, status, switch, tab, tablist, tabpanel, toolbar, tooltip), `sr-only` pour labels cachés, `aria-hidden` pour icônes décoratives, `aria-modal` pour overlays, `aria-haspopup` pour triggers.
+  * Keyboard: Escape pour fermer Dialog/Sheet/Popover/DropdownMenu (addEventListener keydown), click-outside pour Popover/DropdownMenu (addEventListener mousedown + contains check), focus-visible:ring-2 pour tous les éléments interactifs.
+  * Export default + named exports pour chaque composant. Sous-composants (Card/CardHeader/CardTitle/etc.) en named exports seulement (pas de default pour éviter l'ambiguïté).
+  * `cn()` depuis `@/shared/lib/utils` pour merge classes.
+  * Pas de dépendance Radix UI — overlays implémentés from scratch avec `useState` + positionnement `fixed`/`absolute` (pas de portals, plus simple, pas de dépendance).
+  * Pas de fichier de test.
+  * Pas de backtick ni `${...}` dans le code généré (string concatenation partout: `inputId + '-error'`, `ctx.baseId + '-trigger-' + value`, `pct + '%'`, `'Page ' + p`) pour permettre l'imbrication propre dans les template literals du générateur.
+- **Vérifications**:
+  * `npx tsc --noEmit src/lib/forge-design-system.ts` → 0 erreur sur le fichier générateur lui-même.
+  * Test runtime via `npx tsx`: `buildDesignSystem()` retourne bien 33 `GeneratedFile` valides (paths, content, language). Manifest = 33 entrées. Catégories: lib=1, layout=5, form=6, feedback=6, overlay=6, data=5, navigation=4 (= 33).
+  * Grep `${` dans le contenu généré: 0 occurrence. Grep backtick: 0 occurrence. (Les règles d'échappement sont respectées.)
+  * Tous les 33 fichiers écrits sur disque dans `/tmp/forge-ds-test` et parse-checkés via `ts.createSourceFile` → 0 erreur de parse (syntaxe TS/TSX valide pour chaque fichier).
+  * **Test strict gold-grade**: créé projet temporaire `/tmp/forge-ds-strict-test` avec `tsconfig.json` identique au Gold tsconfig de Phase 1 (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `noFallthroughCasesInSwitch`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, `moduleResolution: bundler`, `jsx: react-jsx`, paths `@/*` + `@/shared/*`), `node_modules` symlinké vers le projet hôte (pour résoudre `clsx`, `tailwind-merge`, `class-variance-authority`, `@types/react`). `npx tsx test-strict-compile.mjs` → **0 diagnostic** sur les 33 fichiers après corrections.
+- **Bugs trouvés et corrigés pendant le test strict**:
+  1. `async-boundary.tsx` passait `onRetry={onRetry}` (type `(() => void) | undefined`) à `ErrorState` dont la prop est `onRetry?: () => void` — rejeté par `exactOptionalPropertyTypes` (undefined ne peut être passé explicitement à une prop optionnelle). Corrigé avec conditional spread `{...(onRetry !== undefined ? { onRetry } : {})}`.
+  2. Même problème pour `description={emptyDescription}` et `action={emptyAction}` passés à `EmptyState`. Corrigé avec conditional spread.
+  3. `separator.tsx` passait `aria-orientation={decorative ? undefined : orientation}` où `orientation` venant de `VariantProps<typeof separatorVariants>` est `'horizontal' | 'vertical' | null | undefined` — le `null` n'est pas assignable à `aria-orientation?: 'horizontal' | 'vertical' | undefined`. Corrigé en calculant `effectiveOrientation: 'horizontal' | 'vertical' = orientation === 'vertical' ? 'vertical' : 'horizontal'` (default explicite horizontal) puis passage de `effectiveOrientation` à la fois à cva et à aria-orientation.
+- **Aucun autre fichier modifié**. Un seul fichier créé: `/home/z/my-project/src/lib/forge-design-system.ts`.
+
+Stage Summary:
+- PHASE 3 RÉUSSIE : `src/lib/forge-design-system.ts` génère un design system complet de 33 fichiers (32 composants + 1 utils) de qualité senior-engineer.
+- Couverture: 5 layouts + 6 forms + 6 feedback + 6 overlays + 5 data + 4 navigation = 32 composants UI.
+- Toutes les specs respectées: TypeScript strict (0 diagnostic sous gold tsconfig strict+ avec `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`), cva variants, React.forwardRef partout sur les primitives, accessibilité complète (aria-*, roles, keyboard nav, sr-only), Tailwind + CSS vars, cn() partagé, default + named exports, pas de Radix (overlays from scratch avec useState), pas de test, pas de portals.
+- API publique: `buildDesignSystem()` (retourne `GeneratedFile[]`), `DESIGN_SYSTEM_MANIFEST` (introspection), types `DesignSystemCategory` + `DesignSystemEntry`.
+- Prêt pour intégration: le pipeline Phase 1 (Pass 4 UI) peut désormais appeler `buildDesignSystem()` et merger les 33 fichiers déterministes dans le projet généré, en complément de `buildAllGoldTemplates()` (Phase 1), `scaffoldFeatures()` (Phase 2) et `buildDataLayer()` (Phase 5). Le LLM peut alors se concentrer sur les composants business spécifiques au projet plutôt que sur la plomberie UI générique.
+
+---
+Task ID: 15
+Agent: main (Z.ai Code)
+Task: Intégration Phases 2/3/5 dans le pipeline Gold Grade v2 + test
+
+Work Log:
+- 3 subagents ont créé en parallèle :
+  * Phase 2: forge-scaffolder.ts (2418 lignes) — 4 feature templates (auth, crud, dashboard, search-filter) avec détection automatique depuis la description. 26 fichiers générés par scaffold.
+  * Phase 3: forge-design-system.ts (2689 lignes) — 33 composants UI (layout, form, feedback, overlay, data, navigation) avec cva, forwardRef, a11y, Tailwind. 0 erreurs TypeScript strict+.
+  * Phase 5: forge-data-layer.ts (960 lignes) — 10 fichiers (ApiClient typé, TanStack Query hooks, MSW mocks, Zod validation, utils, constants). 0 erreurs TypeScript strict+.
+- Intégration dans forge-pipeline.ts :
+  * Ajouté imports: detectFeatures, scaffoldFeatures, buildDesignSystem, buildDataLayer
+  * Ajouté Phase 2 "Scaffold" (déterministe, pas de LLM) entre Architecture et Types
+  * Le scaffold injecte : 33 composants design system + 10 fichiers data layer + 26+ fichiers features détectées
+  * Pipeline passe de 5 à 6 phases : Architecture → Scaffold → Types (LLM) → Logic (LLM) → UI (LLM) → Tests (LLM)
+  * Les phases LLM se concentrent maintenant sur le code métier spécifique (le design system et la couche données sont déterministes)
+- TypeScript check : 0 erreur sur tous les nouveaux fichiers
+- Test Agent Browser : projet "GoldRecipeBox" généré avec Gold Grade v2
+  * 100 fichiers générés (vs 48 en v1, vs 13 standard — ratio 7.7x)
+  * Design system : 32 composants UI (container, stack, grid, sidebar, header, button, input, textarea, select, checkbox, switch, progress, etc.)
+  * Features détectées automatiquement : recipes (CRUD), dashboard (stats), filters (recherche/filtrage), favorites, portions, fullscreen, search
+  * 33 fichiers features avec architecture feature-based
+  * 5 fichiers de test générés
+  * Couche données complète : ApiClient typé, TanStack Query hooks, MSW mocks, Zod validation
+  * Configs Gold : tsconfig strict+, ESLint, Prettier, Vitest, Docker, CI/CD, README, ARCHITECTURE.md, LICENSE
+
+Stage Summary:
+- GOLDE GRADE INDUSTRIAL v2 OPÉRATIONNEL.
+- Le pipeline génère maintenant 100 fichiers enterprise-grade en une seule génération.
+- Architecture feature-based + design system 33 composants + couche données typée + tests + DevOps.
+- Détection automatique des features depuis la description (auth, crud, dashboard, search-filter).
+- 3 phases supplémentaires (2, 3, 5) intégrées sans casser la Phase 1 existante.
