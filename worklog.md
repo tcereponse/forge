@@ -279,3 +279,43 @@ Stage Summary:
 - /api/build-apk compile de VRAIS .apk pour les projets sélectionnés (npm build + aapt2/d8/apksigner).
 - Note : le SDK Android n'est pas disponible dans cette session, donc l'APK React Forge mobile standalone (public/react-forge-mobile.apk) n'a pas pu être recompilé. L'app web mobile (/mobile/) remplace complètement l'APK pour l'utilisation en ligne.
 - Fichiers clés modifiés : forge-apk-builder.ts, /api/build-apk/route.ts, mobile-app/src/api.ts, useProjects.ts, BuilderForm.tsx, App.tsx, DeepseekWebview.tsx, ForgeFolder.tsx, vite.config.ts, fileSaver.ts, Sidebar.tsx, welcome-view.tsx
+
+---
+Task ID: 6
+Agent: main (Z.ai Code)
+Task: APK mobile identique au PC — ajouter les 10 onglets (Code source, PRD, Arsenal PRD, Validation, Perf IA, Aperçu, Snapshots, KIROV Bridge, Launcher, DeepSeek Auto)
+
+Work Log:
+- Examiné le workspace PC (src/components/forge/workspace.tsx) : 10 onglets exacts dans cet ordre : Code source (Code2), PRD (FileText), Arsenal PRD (Layers), Validation (ShieldCheck), Perf IA (Activity), Aperçu (Play), Snapshots (History), KIROV Bridge (Rocket), Launcher (Zap), DeepSeek Auto (Cpu).
+- Le workspace mobile avait seulement 9 onglets (manquait KIROV Bridge + Launcher, et avait "Dossier Forge" en trop).
+- Créé mobile-app/src/components/KirovPanel.tsx : version mobile du KIROV Bridge — statut bridge online/offline, formulaire de mission, phases 0-5, PRD + fichiers affichés, instructions. Appelle /api/bridge/health, /api/bridge/mission/status, /api/bridge/mission/start, /api/bridge/mission/reset via apiFetch.
+- Créé mobile-app/src/components/KirovLauncher.tsx : version mobile du ELITE FORGE Launcher — 4 boutons de phase P0/P1/P2/P3, sélecteur d'IA (DeepSeek/ChatGPT/Gemini), formulaire projet, bridge status, logs, instructions. Ouvre l'IA dans un nouvel onglet via window.open().
+- Réécrit mobile-app/src/components/Workspace.tsx : 10 onglets EXACTS du PC (mêmes labels, icônes, ordre). Badges dynamiques : Code source affiche le nombre de fichiers, Arsenal PRD affiche le nombre de documents. Panneaux enrichis : ArsenalPanel (liste + détail), Validation (stats), Perf IA (métriques GLM-4.6), Aperçu, Snapshots. Header avec MetaPills (Stack, Lang, Fichiers, Créé) comme le PC.
+- Corrigé les erreurs TypeScript : caractères "->" dans JSX remplacés par "puis" (les flèches sont interprétées comme tokens JS).
+- TypeScript check mobile-app : 0 erreur.
+- Build Vite réussi : 430KB JS + 22KB CSS → public/mobile/.
+- Installé Android SDK complet dans /tmp/android-sdk/ : cmdline-tools, platform-tools, build-tools 34.0.0 (aapt2, d8, apksigner, zipalign), platform android-34 (android.jar). Téléchargé OpenJDK 17 JDK (avec javac) depuis Adoptium → /tmp/jdk-17.0.13+11/.
+- Créé build-mobile-apk.sh : script complet de compilation APK (15 étapes). MainActivity.java avec ForgeFileSaver (saveFile, getForgePath, listForgeFiles, getBackendUrl) + StealthBridge (copyToClipboard, getClipboard) en JavascriptInterfaces. WebView robuste (allowFileAccess, DOM storage, hardwareAccelerated, configChanges). Manifest minSdk 21, targetSdk 34, permissions storage.
+- APK compilé avec succès : 148KB (466KB décompressé). Structure : AndroidManifest.xml, res/drawable/icon.xml, resources.arsc, assets/www/assets/index-B0cxozvC.js (430KB - le bundle mobile avec 10 onglets), assets/www/assets/index-CO0yg3r7.css (22KB), assets/www/index.html, classes.dex (MainActivity + ForgeFileSaver + StealthBridge), META-INF/ (signature debug).
+- Vérification Agent Browser (viewport 390x844) :
+  * /mobile/index.html charge — 10 projets synchronisés depuis Prisma
+  * Clic sur TestMobile → workspace avec les 10 onglets EXACTS du PC :
+    1. Code source (16 fichiers badge)
+    2. PRD
+    3. Arsenal PRD (10 documents badge)
+    4. Validation
+    5. Perf IA
+    6. Aperçu
+    7. Snapshots
+    8. KIROV Bridge (heading "KIROV Bridge — DeepSeek" + bouton "Lancer la mission")
+    9. Launcher (heading "ELITE FORGE — KIROV Launcher" + boutons P0/P1/P2/P3)
+    10. DeepSeek Auto (heading "DeepSeek Auto - GLM-4.6" + bouton "Regenerer le projet")
+  * APK téléchargeable : GET /react-forge-mobile.apk → 200, 148KB
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'APK mobile a maintenant EXACTEMENT la même interface que le PC — les 10 onglets dans le même ordre avec les mêmes labels et icônes.
+- APK recompilé : public/react-forge-mobile.apk (148KB, versionCode 2) avec le nouveau bundle mobile (430KB JS incluant les 10 onglets + KIROV Bridge + Launcher).
+- Le SDK Android est maintenant installé dans /tmp/android-sdk/ pour recompiler l'APK à l'avenir (script build-mobile-apk.sh).
+- L'app web mobile (/mobile/) et l'APK standalone ont tous deux les 10 onglets identiques au PC.
+- Fichiers créés : KirovPanel.tsx, KirovLauncher.tsx, build-mobile-apk.sh
+- Fichiers modifiés : Workspace.tsx (10 onglets + panneaux enrichis)
