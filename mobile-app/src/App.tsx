@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, KeyRound, Trash2 } from 'lucide-react'
+import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, KeyRound, Trash2, Eye, EyeOff } from 'lucide-react'
 import { Sidebar } from './components/Sidebar'
 import { WelcomeView } from './components/WelcomeView'
 import { BuilderForm } from './components/BuilderForm'
@@ -48,6 +48,7 @@ function LoginScreen({ initialScreen, resetToken, onSuccess }: { initialScreen: 
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -104,7 +105,12 @@ function LoginScreen({ initialScreen, resetToken, onSuccess }: { initialScreen: 
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ton@email.com" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 pl-10 pr-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" autoFocus={screen === 'register' || screen === 'forgot'} />
               </div>
             )}
-            {(screen === 'login' || screen === 'register') && <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mot de passe" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />}
+            {(screen === 'login' || screen === 'register') && (
+              <div className="relative">
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mot de passe" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 pr-10 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+              </div>
+            )}
             {screen === 'reset' && <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Nouveau mot de passe" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" autoFocus />}
             {error && <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" /><p className="text-xs text-rose-300">{error}</p></div>}
             {info && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5"><p className="text-xs text-emerald-300">{info}</p></div>}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, CheckCircle2, KeyRound } from "lucide-react";
+import { Hammer, Loader2, LogIn, UserPlus, AlertCircle, Lock, Mail, CheckCircle2, KeyRound, Eye, EyeOff } from "lucide-react";
 
 interface AuthUser {
   id: string;
@@ -46,6 +46,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -154,7 +155,23 @@ function LoginScreen({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
             {(screen === "login" || screen === "register") && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-400">Mot de passe</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="ex: 1234wqaQ!" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="ex: 1234wqaQ!"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 pr-10 text-sm text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400"
+                    title={showPassword ? "Masquer" : "Afficher"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             )}
 
