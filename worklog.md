@@ -1440,3 +1440,39 @@ Stage Summary:
 - L'utilisateur voit la progression en temps réel ("Génération en cours... (45s)").
 - Le projet apparaît dans la liste même si la connexion HTTP timeout.
 - Pour le Gold Grade : polling de 6 min max avec affichage des phases.
+
+---
+Task ID: 32
+Agent: main (Z.ai Code)
+Task: Ajouter PreviewPanel mobile — Installer, Builder, APK, logs, aperçu live
+
+Work Log:
+- Créé mobile-app/src/useProcessStatus.ts — hook mobile pour le statut install/build:
+  * Polling GET /api/projects/[id]/status toutes les 2s
+  * triggerInstall() — POST /api/projects/[id]/install + polling auto
+  * triggerBuild() — POST /api/projects/[id]/build + polling auto
+  * Optimistic updates (status passe immédiatement à installing/building)
+  * Auto-stop polling quand plus d'activité
+- Créé mobile-app/src/components/PreviewPanel.tsx — panneau d'aperçu mobile:
+  * Barre de statut : Dépendances + Build (badges avec icônes)
+  * Boutons : Installer (visible quand pending/failed), APK (gradient cyan), Builder
+  * Bouton "Réessayer" si install échoué
+  * Logs npm install + Logs build (toggle avec chevrons)
+  * Aperçu iframe quand build terminé (src=/api/preview/{id}/)
+  * États : loading (spinner), error (XCircle), pending (Package), ready (Hammer)
+  * APK : appelle /api/build-apk + saveFile (AndroidFileSaver ou download)
+  * Barre de statut APK ("APK sauvegardé: xxx.apk (234 Ko)")
+- Modifié mobile-app/src/components/Workspace.tsx:
+  * Onglet "Aperçu" utilise maintenant PreviewPanel pour les projets serveur
+  * Projets locaux (local_/gold_) affichent un message "Projet local — exporte en ZIP"
+  * Import PreviewPanel ajouté
+- TypeScript check: 0 erreur
+- Build mobile: 500KB JS (incluant PreviewPanel + useProcessStatus)
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'onglet Aperçu mobile a maintenant tous les boutons et fonctionnalités du PC.
+- Boutons : Installer, Builder, APK visibles et fonctionnels
+- Logs : npm install + build affichés en temps réel (polling 2s)
+- Aperçu : iframe live quand le build est terminé
+- Les projets créés via serveur (mode serveur) ont accès à toutes les fonctionnalités.
+- Les projets créés on-device (local_/gold_) affichent un message d'export ZIP.

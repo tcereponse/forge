@@ -5,6 +5,7 @@ import type { Project } from '../useProjects'
 import { FileExplorer } from './FileExplorer'
 import { DeepseekWebview } from './DeepseekWebview'
 import { DeepSeekBridge } from './DeepSeekBridge'
+import { PreviewPanel } from './PreviewPanel'
 import { KirovPanel } from './KirovPanel'
 import { KirovLauncher } from './KirovLauncher'
 import { saveFile } from '../fileSaver'
@@ -193,13 +194,16 @@ export function Workspace({ project: p, onBack, onUpdateProject, allProjects }: 
           </div>
         )}
 
-        {tab === 'preview' && (
+        {tab === 'preview' && p.id && !p.id.startsWith('local_') && !p.id.startsWith('gold_') && (
+          <PreviewPanel projectId={p.id} projectName={p.name} />
+        )}
+        {tab === 'preview' && (p.id.startsWith('local_') || p.id.startsWith('gold_')) && (
           <div className="flex h-full flex-col items-center justify-center">
             <div className="text-center">
               <Play className="mx-auto mb-3 h-12 w-12 text-slate-700" />
-              <p className="text-sm text-slate-500">Apercu de {p.name}</p>
-              <p className="mt-1 text-xs text-slate-600">{p.files.length} fichiers - {p.stack}</p>
-              <p className="mt-3 max-w-xs text-[11px] text-slate-600">L apercu web est disponible sur PC (npm run dev dans le workspace). Sur mobile, exporte le projet en ZIP et ouvre-le sur un ordinateur.</p>
+              <p className="text-sm text-slate-500">Projet local (on-device)</p>
+              <p className="mt-1 text-xs text-slate-600">Ce projet a été créé sans serveur.</p>
+              <p className="mt-2 text-[11px] text-slate-600">Pour l'aperçu et le build, exporte en ZIP et ouvre sur PC.</p>
             </div>
           </div>
         )}
