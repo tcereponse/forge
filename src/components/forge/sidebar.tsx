@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AuthButton } from "@/components/auth-button";
 import {
   Hammer,
   Plus,
@@ -204,6 +205,9 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-slate-800 px-4 py-3">
+        <div className="mb-3 flex items-center justify-between">
+          <AuthButton />
+        </div>
         <div className="mb-2">
           <GpuBadge />
         </div>

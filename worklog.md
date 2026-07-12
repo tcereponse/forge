@@ -1506,3 +1506,42 @@ Stage Summary:
 - 6 stubs créés pour les composants manquants (Layout, ShareButton, ThemeToggle, LeaderboardList, Timer, ScoreDisplay)
 - Imports corrigés (Select compound → native, RequestOptions, named exports)
 - L'aperçu live fonctionne sur mobile.
+
+---
+Task ID: 34
+Agent: main (Z.ai Code)
+Task: Authentification Google via NextAuth — isolation des projets par utilisateur
+
+Work Log:
+- Ajouté champ userEmail au modèle Project (Prisma schema) + index
+- db:push appliqué (base SQLite mise à jour)
+- Créé src/app/api/auth/[...nextauth]/route.ts — NextAuth avec GoogleProvider:
+  * JWT session (30 jours)
+  * Callbacks jwt + session (expose email)
+  * Pages: /auth/signin, /auth/error
+- Créé src/app/api/auth/session/route.ts — GET retourne {authenticated, user}
+- Créé src/components/auth-provider.tsx — SessionProvider wrapper
+- Créé src/components/auth-button.tsx — bouton Google:
+  * Si non connecté: bouton "Google" avec icône Google
+  * Si connecté: avatar + nom + bouton déconnexion
+  * signIn("google") / signOut()
+- Modifié src/app/layout.tsx — AuthProvider wrap toute l'app
+- Modifié src/components/forge/sidebar.tsx — AuthButton dans le footer
+- Modifié src/app/api/projects/route.ts:
+  * getUserEmail() — récupère l'email depuis la session
+  * GET: filtre par userEmail (connecté = ses projets + publics; non connecté = publics seulement)
+  * POST: associe userEmail au projet créé
+- Variables d'environnement ajoutées (.env):
+  * GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (placeholders)
+  * NEXTAUTH_URL, NEXTAUTH_SECRET
+- Vérification:
+  * Serveur compile (HTTP 200)
+  * GET /api/auth/session → {"authenticated":false,"user":null}
+  * Bouton "Google" visible dans le sidebar
+
+Stage Summary:
+- Authentification Google implémentée via NextAuth.js (sans Supabase).
+- Chaque utilisateur connecté ne voit que ses propres projets (+ projets publics).
+- Les projets créés sont associés à l'email Google de l'utilisateur.
+- Bouton Google dans le sidebar avec avatar + déconnexion.
+- POUR ACTIVER: l'utilisateur doit créer des identifiants OAuth Google (Google Cloud Console) et les ajouter au .env.

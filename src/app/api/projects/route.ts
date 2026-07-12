@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { db } from "@/lib/db";
 import {
   type ProjectConfig,
@@ -9,6 +11,16 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Gets the current user's email from the session. Empty string = anonymous/public mode. */
+async function getUserEmail(): Promise<string> {
+  try {
+    const session = await getServerSession(authOptions);
+    return session?.user?.email || "";
+  } catch {
+    return "";
+  }
+}
 
 interface RawFile {
   path: string;
@@ -30,7 +42,15 @@ function parseFiles(raw: unknown): GeneratedFile[] {
 
 export async function GET() {
   try {
+    const userEmail = await getUserEmail();
+    // If logged in, show only user's projects + public ones (empty userEmail)
+    // If not logged in, show only public ones (empty userEmail)
+    const where = userEmail
+      ? { OR: [{ userEmail }, { userEmail: "" }] }
+      : { userEmail: "" };
+
     const projects = await db.project.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -115,11 +135,14 @@ export async function POST(request: NextRequest) {
       uniqueSlug = `${slug}-${n++}`;
     }
 
+    const userEmail = await getUserEmail();
+
     const project = await db.project.create({
       data: {
         name: config.name,
         slug: uniqueSlug,
         description: config.description,
+        userEmail,
         stack: config.stack,
         typescript: config.typescript,
         styling: config.styling,

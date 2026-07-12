@@ -1,0 +1,20 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "../[...nextauth]/route";
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  return NextResponse.json({
+    authenticated: !!session,
+    user: session?.user
+      ? {
+          email: session.user.email,
+          name: session.user.name,
+          image: session.user.image,
+        }
+      : null,
+  });
+}
