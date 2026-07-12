@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { ArrowLeft, FileText, Code2, Layers, Calendar, Hash, Sparkles, CheckCircle2, History, ShieldCheck, Activity, Play, Download, Loader2, Rocket, Cpu, Zap, AlertCircle, Smartphone } from 'lucide-react'
+import { ArrowLeft, FileText, Code2, Layers, Calendar, Hash, Sparkles, CheckCircle2, History, ShieldCheck, Activity, Play, Download, Loader2, Rocket, Cpu, Zap, AlertCircle, Smartphone, Hammer } from 'lucide-react'
 import JSZip from 'jszip'
 import type { Project } from '../useProjects'
 import { FileExplorer } from './FileExplorer'
 import { DeepseekWebview } from './DeepseekWebview'
+import { DeepSeekBridge } from './DeepSeekBridge'
 import { KirovPanel } from './KirovPanel'
 import { KirovLauncher } from './KirovLauncher'
 import { saveFile } from '../fileSaver'
 import { buildProjectApk } from '../apk-builder'
 import { hasNativeHttp } from '../glm-native'
 
-type Tab = 'code' | 'prd' | 'arsenal' | 'validation' | 'perf' | 'preview' | 'snapshots' | 'kirov' | 'launcher' | 'deepseek'
+type Tab = 'code' | 'prd' | 'arsenal' | 'validation' | 'perf' | 'preview' | 'snapshots' | 'kirov' | 'launcher' | 'deepseek' | 'deepseek-gold'
 
-// Exact same 10 tabs as PC — order, labels, and icons match forge/workspace.tsx
+// 11 tabs — 10 matching PC + DeepSeek Gold bridge
 const TABS: { key: Tab; label: string; icon: typeof Code2 }[] = [
   { key: 'code', label: 'Code source', icon: Code2 },
   { key: 'prd', label: 'PRD', icon: FileText },
@@ -23,6 +24,7 @@ const TABS: { key: Tab; label: string; icon: typeof Code2 }[] = [
   { key: 'snapshots', label: 'Snapshots', icon: History },
   { key: 'kirov', label: 'KIROV Bridge', icon: Rocket },
   { key: 'launcher', label: 'Launcher', icon: Zap },
+  { key: 'deepseek-gold', label: 'DeepSeek Gold', icon: Hammer },
   { key: 'deepseek', label: 'DeepSeek Auto', icon: Cpu },
 ]
 
@@ -216,6 +218,7 @@ export function Workspace({ project: p, onBack, onUpdateProject, allProjects }: 
 
         {tab === 'launcher' && <KirovLauncher />}
 
+        {tab === 'deepseek-gold' && <DeepSeekBridge project={p} onFilesGenerated={(files, prd) => onUpdateProject?.(files, prd)} />}
         {tab === 'deepseek' && <DeepseekWebview project={p} onFilesGenerated={(files, prd) => onUpdateProject?.(files, prd)} />}
       </div>
     </div>

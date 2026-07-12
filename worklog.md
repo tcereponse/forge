@@ -1230,3 +1230,34 @@ Stage Summary:
 - 105 fichiers embarqués (dist minifié + source TypeScript + configs + PWA + ressources Android + interfaces natives).
 - Taille : 234KB (contre 165KB avant) — l'augmentation vient du code source + configs + ressources.
 - L'APK est 100% autonome : fonctionne hors-ligne, contient le code source, le build minifié, le service worker PWA, et les interfaces natives (NativeHttp, ForgeFileSaver, StealthBridge).
+
+---
+Task ID: 25
+Agent: main (Z.ai Code)
+Task: Ajouter DeepSeek Bridge au mobile — prompts injectés et capturés pour Gold Grade
+
+Work Log:
+- Clarification des 2 types d'APK :
+  1. **react-forge-mobile.apk** (168KB) = l'app React Forge mobile (le générateur). C'est un WebView wrapper + bundle JS. 168KB est NORMAL pour une app WebView. Ce n'est PAS l'APK d'un projet.
+  2. **projet.apk** (234KB+) = l'APK d'un projet spécifique, téléchargé via le bouton APK dans le workspace. Contient le dist/ + source + PWA + interfaces natives.
+- Créé mobile-app/src/components/DeepSeekBridge.tsx — bridge DeepSeek pour Gold Grade :
+  * Étape 1: Génère le prompt PRD, le copie dans le presse-papier, ouvre chat.deepseek.com
+  * L'utilisateur colle le prompt dans DeepSeek, envoie, copie la réponse
+  * Capture: l'utilisateur colle la réponse (ou bouton "Coller depuis presse-papier" via AndroidBridge.getClipboard())
+  * Étape 2: Génère le prompt code, le copie, ouvre DeepSeek
+  * Capture de la réponse code, parse les fichiers JSON
+  * Crée le projet Gold Grade avec les fichiers capturés
+  * Support native clipboard (AndroidBridge) + browser clipboard (navigator.clipboard)
+  * Manual capture textarea (fallback si clipboard indisponible)
+  * Logs en temps réel + instructions détaillées
+- Ajouté onglet "DeepSeek Gold" (11ème onglet) dans Workspace mobile
+- TypeScript check: 0 erreur
+- Build Vite: 495KB JS (incluant DeepSeekBridge)
+- APK recompilé: 168KB (react-forge-mobile.apk)
+- Vérification: l'onglet "DeepSeek Gold" apparaît dans le workspace mobile
+
+Stage Summary:
+- PROBLÈME RÉSOLU : le mobile a maintenant un onglet "DeepSeek Gold" qui permet de créer des projets Gold Grade via chat.deepseek.com.
+- Workflow: génère prompt → copie presse-papier → ouvre DeepSeek → utilisateur colle + envoie → capture réponse → parse fichiers → projet créé.
+- 100% gratuit, sans clé API, sans serveur PC.
+- Clarification: react-forge-mobile.apk (168KB) = l'app générateur. projet.apk (234KB+) = l'APK d'un projet spécifique.
