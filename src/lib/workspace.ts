@@ -90,7 +90,7 @@ export function runInstall(projectId: string): void {
   statusCache.delete(projectId);
 
   const dir = getProjectDir(projectId);
-  const child = spawn("npm", ["install", "--no-fund", "--no-audit"], {
+  const child = spawn("npm", ["install", "--no-fund", "--no-audit", "--legacy-peer-deps"], {
     cwd: dir,
     shell: false,
     env: { ...process.env, CI: "true" },

@@ -1023,3 +1023,40 @@ Stage Summary:
 - Le polling redémarre automatiquement après triggerInstall/triggerBuild.
 - Le cache serveur est invalidé immédiatement quand le statut change.
 - Versions ESLint corrigées pour compatibilité (v8 au lieu de v9).
+
+---
+Task ID: 19
+Agent: main (Z.ai Code)
+Task: Corriger échec install npm (ERESOLVE eslint v9) — --legacy-peer-deps + fix versions
+
+Work Log:
+- Ajouté --legacy-peer-deps au runInstall dans src/lib/workspace.ts :
+  * npm install --no-fund --no-audit --legacy-peer-deps
+  * Tolère les conflits de peer dependencies (eslint v9 vs plugin v4, etc.)
+  * Évite l'erreur ERESOLVE qui bloquait l'installation
+- Corrigé les versions ESLint dans forge-gold-templates.ts (déjà fait au task 18) :
+  * eslint: ^9.9.1 → ^8.57.0
+  * @typescript-eslint/eslint-plugin: ^8.3.0 → ^7.18.0
+  * @typescript-eslint/parser: ^8.3.0 → ^7.18.0
+- Réparé les projets existants sur disque :
+  * 6 projets Gold (GoldOverlayTest, GoldRecipeBox, GoldDesignSystem, GoldPwaApp, GoldTaskFlow, MarkdownNotes) avaient eslint v9 dans leur package.json sur disque
+  * Script Python : pour chaque workspace, remplace eslint v9 → v8.57.0 + @typescript-eslint v8 → v7.18.0
+- Réparé les projets existants en DB (filesJson) :
+  * 6 projets avaient eslint v9 dans leur filesJson (le package.json stocké en base)
+  * Script Python SQLite : UPDATE Project SET filesJson=... avec versions corrigées
+  * Assure que les futurs re-téléchargements ZIP utilisent les bonnes versions
+- Nettoyé node_modules partiel pour GoldOverlayTest (fresh install)
+- Redémarré le serveur pour recharger les modules
+- Vérification Agent Browser:
+  * GoldOverlayTest → onglet Aperçu → bouton Installer
+  * Clic sur Installer → statut "Installation…" → logs en temps réel
+  * Après 35s : "added 577 packages in 35s" + "✅ Installation terminée avec succès."
+  * Statut final : Dépendances: Installé ✅ | Build: En attente
+  * Le bouton Builder est maintenant utilisable
+
+Stage Summary:
+- PROBLÈME RÉSOLU : l'installation npm réussit maintenant.
+- --legacy-peer-deps ajouté pour tolérer les conflits de versions (défense en profondeur).
+- Versions ESLint corrigées (v8 stable au lieu de v9).
+- 6 projets existants réparés (disque + DB).
+- L'installation de GoldOverlayTest a réussi : 577 packages en 35s.
