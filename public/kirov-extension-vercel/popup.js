@@ -76,7 +76,7 @@ document.getElementById('save-gh-btn').addEventListener('click', () => {
     }
 
     if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-        if (!confirm('Le token ne commence pas par "ghp_" — es-tu sûr que c'est un PAT GitHub valide?')) {
+        if (!confirm("Le token ne commence pas par \"ghp_\" — es-tu sûr que c est un PAT GitHub valide?")) {
             return;
         }
     }
