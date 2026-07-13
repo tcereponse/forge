@@ -419,7 +419,7 @@ export function Workspace() {
             ) : tab === "snapshots" ? (
               <SnapshotsPanel projectId={p.id} />
             ) : tab === "kirov" ? (
-              <KirovPanel />
+              <KirovPanel projectId={p.id} />
             ) : tab === "launcher" ? (
               <KirovLauncher />
             ) : tab === "deepseek" ? (

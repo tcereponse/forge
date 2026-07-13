@@ -20,12 +20,13 @@ interface BridgeStatus {
   name?: string;
 }
 
-export function KirovPanel() {
+export function KirovPanel({ projectId }: { projectId?: string }) {
   const [projectName, setProjectName] = useState("");
   const [projectPrompt, setProjectPrompt] = useState("");
   const [status, setStatus] = useState<BridgeStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const checkBridge = useCallback(async () => {
     try {
@@ -73,7 +74,7 @@ export function KirovPanel() {
       const res = await fetch(`/api/bridge/mission/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: projectName, prompt: projectPrompt, stack: "react-vite" }),
+        body: JSON.stringify({ name: projectName, prompt: projectPrompt, stack: "react-vite", projectId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -86,6 +87,33 @@ export function KirovPanel() {
       toast.error("Erreur reseau");
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function handleApplyToProject() {
+    if (!projectId) {
+      toast.error("Aucun projet selectionne");
+      return;
+    }
+    setApplying(true);
+    try {
+      const res = await fetch(`/api/bridge/mission/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || "Capture appliquee au projet");
+        // Reload the page to refresh all project tabs (PRD, Code source, etc.)
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        toast.error(data.error || "Echec de l application");
+      }
+    } catch {
+      toast.error("Erreur reseau");
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -182,6 +210,31 @@ export function KirovPanel() {
             <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
             <p className="text-sm font-semibold text-emerald-300">Mission terminee !</p>
             <p className="mt-1 text-xs text-slate-400">{status?.files?.length ?? 0} fichiers generes via DeepSeek</p>
+            {status?.files && status.files.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {projectId && (
+                  <Button
+                    onClick={handleApplyToProject}
+                    disabled={applying}
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400"
+                  >
+                    {applying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                    Appliquer au projet (PRD + Code source)
+                  </Button>
+                )}
+                <a
+                  href="/api/bridge/download"
+                  className="block w-full rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2 text-center text-xs font-medium text-slate-300 hover:bg-slate-800/60"
+                >
+                  Telecharger le ZIP
+                </a>
+              </div>
+            )}
+            {status?.files && status.files.length === 0 && (
+              <p className="mt-2 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                0 fichiers parses — la capture n a pas pu extraire le JSON. Reessaie avec une description plus precise.
+              </p>
+            )}
           </motion.div>
         )}
 
