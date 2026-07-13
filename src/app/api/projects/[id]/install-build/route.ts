@@ -4,7 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import os from "os";
 import { spawn } from "child_process";
-import { writeProjectFiles, getDistDir } from "@/lib/workspace";
+import { getDistDir } from "@/lib/workspace";
 import { buildTemplateFiles } from "@/lib/forge-templates";
 import type { GeneratedFile, ProjectConfig } from "@/lib/forge-config";
 
@@ -154,21 +154,21 @@ export async function POST(
       ...files,
     ];
 
-    // 1. Write files to disk
-    console.log(`[install-build] Writing ${allFiles.length} files to disk...`);
-    await writeProjectFiles(id, allFiles);
-
     // Ensure /tmp/.npm exists (Vercel HOME redirect)
     await fs.mkdir("/tmp/.npm", { recursive: true }).catch(() => {});
 
     const WORKSPACES_DIR = path.join(os.tmpdir(), "react-forge-workspaces");
     const projectDir = path.join(WORKSPACES_DIR, id);
 
-    // 1b. Replace package.json with a SLIM version for reliable Vercel builds.
-    // The Gold template includes heavy devDeps (husky, commitlint, eslint, vitest,
-    // testing-library, coverage-v8) that cause peer dep conflicts and /tmp space
-    // issues on Vercel serverless. We keep only what's needed for `vite build`.
-    console.log("[install-build] Writing slim package.json for Vercel build...");
+    // 1. CLEAN the project directory completely.
+    // Vercel may reuse /tmp between requests, leaving stale node_modules that
+    // cause npm to think packages are "up to date" when they're not.
+    console.log("[install-build] Cleaning project directory...");
+    await fs.rm(projectDir, { recursive: true, force: true }).catch(() => {});
+    await fs.mkdir(projectDir, { recursive: true });
+
+    // 2. Write ONLY the slim package.json first (clean slate for npm install)
+    console.log("[install-build] Writing slim package.json...");
     const slimPkg = {
       name: (project.name || "app").toLowerCase().replace(/[^a-z0-9]/g, "-"),
       private: true,
@@ -199,8 +199,8 @@ export async function POST(
       "utf-8"
     );
 
-    // 2. npm install (max 180s)
-    console.log("[install-build] Running npm install (slim deps)...");
+    // 3. npm install in the clean directory (max 180s)
+    console.log("[install-build] Running npm install (clean dir)...");
     await db.project.update({
       where: { id },
       data: { installStatus: "installing" },
@@ -271,7 +271,17 @@ export async function POST(
       }, { status: 422 });
     }
 
-    // 3. Build — use node_modules/.bin/vite directly (most reliable on Vercel)
+    // 4. Write all source files (AFTER install — don't disturb node_modules)
+    console.log(`[install-build] Writing ${allFiles.length} source files...`);
+    for (const file of allFiles) {
+      if (file.path === "package.json") continue; // keep slim version
+      const filePath = path.join(projectDir, file.path);
+      const fileDir = path.dirname(filePath);
+      await fs.mkdir(fileDir, { recursive: true }).catch(() => {});
+      await fs.writeFile(filePath, file.content, "utf-8");
+    }
+
+    // 5. Build — use node_modules/.bin/vite directly (most reliable on Vercel)
     console.log("[install-build] Running vite build...");
     await db.project.update({
       where: { id },
