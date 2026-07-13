@@ -262,7 +262,7 @@ export function BuilderForm() {
     }
   }
 
-  // Gold Grade generation — multi-pass pipeline (Architecture → Types → Logic → UI → Tests)
+  // Gold Grade generation — ASYNC multi-pass pipeline (pass-by-pass for Vercel)
   async function handleGoldGenerate() {
     if (!name.trim()) {
       toast.error("Donne un nom à ton projet");
@@ -299,29 +299,46 @@ export function BuilderForm() {
       if (!createData.success) throw new Error(createData.error);
       const project: ProjectRecord = createData.project;
 
-      toast.success("Projet créé — lancement du pipeline Gold Grade (5 passes)…");
+      toast.success("Projet créé — lancement du pipeline Gold (passes individuelles)…");
 
-      // Enable the Gold overlay with real-time progress polling
+      // Enable the Gold overlay
       setGoldGeneratingProjectId(project.id);
-
       fetchProjects();
-
-      // 2. Generate via Gold pipeline (5 passes with validation gates)
       setPhase("code");
-      const genRes = await fetch(`/api/projects/${project.id}/generate-gold`, {
+
+      // 2. Start Gold pipeline (pass 1 = Architecture)
+      let passRes = await fetch(`/api/projects/${project.id}/gold/start`, {
         method: "POST",
       });
-      const genData = await genRes.json();
+      let passData = await passRes.json();
 
-      if (!genData.success) {
-        setPhase("error");
-        setGenerating(false);
-        toast.error(genData.error || "Échec du pipeline Gold");
-        await fetchProject(project.id);
-        fetchProjects();
-        return;
+      if (!passData.success) {
+        throw new Error(passData.error || `Échec passe 1 (${passData.passName})`);
+      }
+      toast.success(`✓ Passe 1/6: ${passData.passName} (${passData.filesGenerated} éléments)`);
+
+      // 3. Run passes 2-6 (one HTTP request per pass)
+      while (!passData.done) {
+        await new Promise((r) => setTimeout(r, 500)); // small delay between passes
+
+        passRes = await fetch(`/api/projects/${project.id}/gold/next`, {
+          method: "POST",
+        });
+        passData = await passRes.json();
+
+        if (!passData.success && !passData.done) {
+          throw new Error(passData.error || `Échec passe ${passData.pass}`);
+        }
+
+        const passNum = passData.pass > 6 ? 6 : passData.pass - 1;
+        if (passData.finalized) {
+          toast.success(`🎉 Pipeline Gold terminé ! ${passData.fileCount} fichiers générés`);
+        } else if (passData.passName && passData.passName !== "Done") {
+          toast.success(`✓ Passe ${passNum}/6: ${passData.passName} (${passData.filesGenerated} fichiers)`);
+        }
       }
 
+      // 4. Done — refresh project
       setPhase("saving");
       await new Promise((r) => setTimeout(r, 400));
       setPhase("done");
@@ -329,9 +346,8 @@ export function BuilderForm() {
 
       await fetchProject(project.id);
       fetchProjects();
-      toast.success(
-        `Projet « ${name} » généré Gold Grade ! ${genData.project.fileCount} fichiers, pipeline ${genData.pipeline?.ok ? "✓" : "⚠"}`
-      );
+      const totalFiles = passData.fileCount || passData.filesGenerated || 0;
+      toast.success(`Projet « ${name} » généré Gold Grade ! ${totalFiles} fichiers`);
     } catch (e) {
       setPhase("error");
       setGenerating(false);

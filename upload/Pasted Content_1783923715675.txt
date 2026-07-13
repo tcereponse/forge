@@ -1,0 +1,299 @@
+PomodoroProArchitecture
+Tu es un architecte logiciel senior React/TypeScript. Tu réponds UNIQUEMENT par du JSON valide.
+
+---
+
+Tu es un architecte logiciel senior. Génère un plan d'architecture pour l'application React suivante.
+
+Application: "PomodoroPro"
+Description: "Timer Pomodoro avec cycles travail/pause paramétrables, statistiques de productivité, sons de notification et historique des sessions."
+Features: animations, charts
+Stack: vite, TypeScript: true, Styling: tailwind
+
+Génère un plan d'architecture au format JSON avec:
+1. "folders": liste des dossiers à créer (ex: "src/features/auth", "src/shared/ui")
+2. "features": liste des features identifiées (ex: "auth", "tasks", "dashboard")
+3. "dependencies": liste des dépendances npm nécessaires ({name, version, dev?})
+4. "routes": liste des routes ({path, component})
+5. "components": liste des composants à générer (ex: "TaskList", "TaskForm", "Header")
+
+RÈGLES:
+- Architecture feature-based (dossiers par feature, pas flat)
+- Inclus react-router-dom si routing
+- Inclus zustand si state management
+- Inclus @tanstack/react-query pour la couche données
+- Inclus zod pour la validation
+- Inclus lucide-react pour les icônes
+- Maximum 8 composants (MVP)
+
+Format JSON: {"folders":[...],"features":[...],"dependencies":[...],"routes":[...],"components":[...]}
+Réponds UNIQUEMENT avec le JSON.
+
+{
+"folders": [
+"src/features/timer",
+"src/features/statistics",
+"src/features/settings",
+"src/features/history",
+"src/shared/ui",
+"src/shared/hooks",
+"src/shared/utils",
+"src/shared/types",
+"src/shared/store",
+"src/shared/api"
+],
+"features": [
+"timer",
+"statistics",
+"settings",
+"history"
+],
+"dependencies": [
+{ "name": "react-router-dom", "version": "^6.26.0" },
+{ "name": "zustand", "version": "^4.5.0" },
+{ "name": "@tanstack/react-query", "version": "^5.51.0" },
+{ "name": "zod", "version": "^3.23.0" },
+{ "name": "lucide-react", "version": "^0.428.0" },
+{ "name": "recharts", "version": "^2.12.0" },
+{ "name": "react-hook-form", "version": "^7.52.0" },
+{ "name": "@hookform/resolvers", "version": "^3.9.0" },
+{ "name": "clsx", "version": "^2.1.0" },
+{ "name": "tailwind-merge", "version": "^2.5.0" },
+{ "name": "date-fns", "version": "^3.6.0" },
+{ "name": "@types/node", "version": "^20.14.0", "dev": true }
+],
+"routes": [
+{ "path": "/", "component": "TimerPage" },
+{ "path": "/statistics", "component": "StatisticsPage" },
+{ "path": "/settings", "component": "SettingsPage" },
+{ "path": "/history", "component": "HistoryPage" }
+],
+"components": [
+"TimerDisplay",
+"TimerControls",
+"CycleIndicator",
+"StatisticsChart",
+"StatsSummary",
+"SessionHistoryList",
+"SettingsForm",
+"HeaderNav"
+]
+}
+
+Tu es un ingénieur React senior. Tu réponds UNIQUEMENT par du JSON valide.
+
+---
+
+Tu es un ingénieur React senior. Génère les composants et hooks pour l'application suivante.
+
+Application: "PomodoroPro"
+Description: "Timer Pomodoro avec cycles travail/pause paramétrables, statistiques de productivité, sons de notification et historique des sessions."
+Composants à générer:
+- TimerDisplay
+- TimerControls
+- SessionChart
+- ProductivityStats
+- SettingsForm
+- HistoryList
+- NotificationBell
+- Layout
+
+Types disponibles (réutilise-les):
+// src/shared/types/index.ts
+export interface User {
+ id: string;
+ email: string;
+ displayName?: string;
+ createdAt: Date;
+ updatedAt: Date;
+}
+
+export interface ApiError {
+ code: string;
+ message: string;
+ details?: Record<string...
+
+// src/features/timer/types.ts
+import { z } from 'zod';
+
+export interface TimerState {
+ mode: TimerMode;
+ status: TimerStatus;
+ timeRemaining: number; // in seconds
+ totalDuration: number; // in seconds
+ currentCycle: number;
+ comp...
+
+// src/features/statistics/types.ts
+import { z } from 'zod';
+
+export interface ProductivityStats {
+ totalSessions: number;
+ totalWorkTime: number; // in seconds
+ totalBreakTime: number; // in seconds
+ completedCycles: number;
+ averageSe...
+
+// src/features/settings/types.ts
+import { z } from 'zod';
+
+export interface AppSettings {
+ theme: Theme;
+ notificationSound: NotificationSound;
+ showNotifications: boolean;
+ soundVolume: number; // 0-1
+ vibrateOnComplete: boolean;
+ k...
+
+// src/features/history/types.ts
+import { z } from 'zod';
+
+export interface HistoryEntry {
+ id: string;
+ date: Date;
+ mode: 'work' | 'shortBreak' | 'longBreak';
+ duration: number; // seconds
+ completed: boolean;
+ interrupted?: boolea...
+
+DESIGN SYSTEM DISPONIBLE (importe depuis '@/shared/ui'):
+- Button (variants: primary, secondary, outline, ghost, destructive, link; sizes: sm, md, lg, icon)
+- Input, Textarea, Label, Select, Checkbox, Switch
+- Badge (variants: default, success, warning, destructive, outline)
+- Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter
+- Container, Stack, Grid, Skeleton, Separator
+- Spinner, Progress, Alert (variants: info, success, warning, destructive)
+- EmptyState, ErrorState, AsyncBoundary (isLoading, isError, isEmpty, onRetry)
+- Dialog, Sheet, Popover, Tooltip, DropdownMenu, CommandMenu
+- Tabs, Accordion, Avatar, DataTable, Pagination, Breadcrumb
+- ToastProvider + useToast (toast.success/error/info/warning)
+- ApiClient (apiClient singleton) + ApiError
+
+Génère les fichiers business logic au format JSON:
+1. "src/App.tsx" — composant racine avec HashRouter (si routing), QueryClientProvider, ToastProvider
+2. "src/features/{feature}/components/{Component}.tsx" — composants par feature (UTILISE le design system)
+3. "src/features/{feature}/hooks/use-{feature}.ts" — hooks avec TanStack Query (useQuery, useMutation)
+4. "src/features/{feature}/api/{feature}-repository.ts" — repository pattern (utilise apiClient)
+
+RÈGLES:
+- TypeScript strict, composants fonctionnels avec export default
+- UTILISE les composants du design system (Button, Card, Input, etc.) — ne recrée pas de composants UI
+- Hooks: utilise @tanstack/react-query (useQuery, useMutation)
+- Repository: pattern avec méthodes list/get/create/update/delete (utilise apiClient.get/post/put/delete)
+- États complets via AsyncBoundary: loading (Skeleton), error (ErrorState), empty (EmptyState)
+- Classes Tailwind pour le style
+- Imports: utilise les alias '@/shared/ui', '@/shared/lib', '@/features/...'
+- NE génère PAS package.json, index.html, vite.config — fournis automatiquement
+- NE génère PAS les composants du design system — ils existent déjà dans src/shared/ui/
+
+Format JSON: {"files":[{"path":"...","content":"...","language":"tsx"}]}
+Réponds UNIQUEMENT avec le JSON.
+{
+"files": [
+{
+"path": "src/App.tsx",
+"content": "import { HashRouter, Routes, Route } from 'react-router-dom';\nimport { QueryClient, QueryClientProvider } from '@tanstack/react-query';\nimport { ToastProvider } from '@/shared/ui';\nimport { Layout } from '@/shared/ui/Layout';\nimport { TimerPage } from '@/features/timer/components/TimerPage';\nimport { StatisticsPage } from '@/features/statistics/components/StatisticsPage';\nimport { SettingsPage } from '@/features/settings/components/SettingsPage';\nimport { HistoryPage } from '@/features/history/components/HistoryPage';\n\nconst queryClient = new QueryClient({\n defaultOptions: {\n queries: {\n staleTime: 1000 * 60 * 5,\n retry: 1,\n },\n },\n});\n\nexport default function App() {\n return (\n <QueryClientProvider client={queryClient}>\n <ToastProvider>\n <HashRouter>\n <Layout>\n <Routes>\n <Route path="/" element={<TimerPage />} />\n <Route path="/statistics" element={<StatisticsPage />} />\n <Route path="/settings" element={<SettingsPage />} />\n <Route path="/history" element={<HistoryPage />} />\n </Routes>\n </Layout>\n </HashRouter>\n </ToastProvider>\n </QueryClientProvider>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/timer/components/TimerDisplay.tsx",
+"content": "import { Card, CardContent } from '@/shared/ui/Card';\nimport { Progress } from '@/shared/ui/Progress';\nimport { Badge } from '@/shared/ui/Badge';\nimport { TimerState } from '../types';\nimport { formatTime } from '@/shared/utils/time';\n\ninterface TimerDisplayProps {\n state: TimerState;\n}\n\nexport default function TimerDisplay({ state }: TimerDisplayProps) {\n const { timeRemaining, totalDuration, mode, status, currentCycle } = state;\n const progress = totalDuration > 0 ? ((totalDuration - timeRemaining) / totalDuration) * 100 : 0;\n\n const modeLabel = {\n work: 'Travail',\n shortBreak: 'Pause courte',\n longBreak: 'Pause longue',\n }[mode];\n\n return (\n <Card className="w-full max-w-md mx-auto">\n <CardContent className="p-6 text-center">\n <div className="mb-2 flex justify-between items-center">\n <Badge variant={mode === 'work' ? 'destructive' : 'success'}>\n {modeLabel}\n </Badge>\n <span className="text-sm text-muted-foreground">\n Cycle {currentCycle}\n </span>\n </div>\n <div className="text-7xl font-mono font-bold tracking-tight my-6">\n {formatTime(timeRemaining)}\n </div>\n <Progress value={progress} className="h-2" />\n <div className="mt-2 text-xs text-muted-foreground">\n Statut: {status === 'running' ? 'En cours' : status === 'paused' ? 'Pause' : 'Arrêté'}\n </div>\n </CardContent>\n </Card>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/timer/components/TimerControls.tsx",
+"content": "import { Button } from '@/shared/ui/Button';\nimport { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';\n\ninterface TimerControlsProps {\n status: 'idle' | 'running' | 'paused';\n onStart: () => void;\n onPause: () => void;\n onResume: () => void;\n onReset: () => void;\n onSkip: () => void;\n}\n\nexport default function TimerControls({\n status,\n onStart,\n onPause,\n onResume,\n onReset,\n onSkip,\n}: TimerControlsProps) {\n return (\n <div className="flex items-center justify-center gap-3 mt-4">\n {status === 'idle' && (\n <Button onClick={onStart} size="lg" className="gap-2">\n <Play className="h-5 w-5" />\n Démarrer\n </Button>\n )}\n {status === 'running' && (\n <>\n <Button onClick={onPause} variant="outline" size="lg" className="gap-2">\n <Pause className="h-5 w-5" />\n Pause\n </Button>\n <Button onClick={onSkip} variant="secondary" size="lg" className="gap-2">\n <SkipForward className="h-5 w-5" />\n Passer\n </Button>\n </>\n )}\n {status === 'paused' && (\n <>\n <Button onClick={onResume} size="lg" className="gap-2">\n <Play className="h-5 w-5" />\n Reprendre\n </Button>\n <Button onClick={onReset} variant="outline" size="lg" className="gap-2">\n <RotateCcw className="h-5 w-5" />\n Réinitialiser\n </Button>\n </>\n )}\n {(status === 'idle' || status === 'running') && (\n <Button onClick={onReset} variant="ghost" size="icon">\n <RotateCcw className="h-4 w-4" />\n </Button>\n )}\n </div>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/timer/components/TimerPage.tsx",
+"content": "import { useTimer } from '../hooks/use-timer';\nimport TimerDisplay from './TimerDisplay';\nimport TimerControls from './TimerControls';\nimport { Container, Stack } from '@/shared/ui';\n\nexport default function TimerPage() {\n const { state, actions } = useTimer();\n\n return (\n <Container maxWidth="sm" className="py-8">\n <Stack spacing={6} align="center">\n <TimerDisplay state={state} />\n <TimerControls\n status={state.status}\n onStart={actions.start}\n onPause={actions.pause}\n onResume={actions.resume}\n onReset={actions.reset}\n onSkip={actions.skip}\n />\n </Stack>\n </Container>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/timer/hooks/use-timer.ts",
+"content": "import { useState, useEffect, useCallback, useRef } from 'react';\nimport { TimerState, TimerMode, TimerStatus } from '../types';\nimport { useToast } from '@/shared/ui';\nimport { useSettingsStore } from '@/features/settings/store/settings-store';\n\nexport function useTimer() {\n const [state, setState] = useState<TimerState>({\n mode: 'work',\n status: 'idle',\n timeRemaining: 25 * 60,\n totalDuration: 25 * 60,\n currentCycle: 1,\n completedCycles: 0,\n });\n const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);\n const toast = useToast();\n const settings = useSettingsStore((s) => s.settings);\n\n const getDurationForMode = useCallback(\n (mode: TimerMode): number => {\n if (mode === 'work') return settings.workDuration * 60;\n if (mode === 'shortBreak') return settings.shortBreakDuration * 60;\n return settings.longBreakDuration * 60;\n },\n [settings]\n );\n\n const playSound = useCallback(() => {\n if (!settings.notificationSound) return;\n const audio = new Audio(/sounds/${settings.notificationSound}.mp3);\n audio.volume = settings.soundVolume;\n audio.play().catch(() => {});\n }, [settings]);\n\n const switchMode = useCallback(\n (nextMode: TimerMode) => {\n const duration = getDurationForMode(nextMode);\n setState((prev) => ({\n ...prev,\n mode: nextMode,\n status: 'idle',\n timeRemaining: duration,\n totalDuration: duration,\n currentCycle:\n nextMode === 'work' ? prev.currentCycle + 1 : prev.currentCycle,\n completedCycles:\n nextMode === 'work' ? prev.completedCycles : prev.completedCycles + 1,\n }));\n },\n [getDurationForMode]\n );\n\n const complete = useCallback(() => {\n playSound();\n if (settings.showNotifications) {\n toast.success('Cycle terminé !', {\n description: ${state.mode === 'work' ? 'Travail' : 'Pause'} terminé.,\n });\n }\n if (state.mode === 'work') {\n const nextMode: TimerMode =\n state.currentCycle % settings.longBreakInterval === 0\n ? 'longBreak'\n : 'shortBreak';\n switchMode(nextMode);\n } else {\n switchMode('work');\n }\n }, [playSound, settings, state.mode, state.currentCycle, switchMode, toast]);\n\n const tick = useCallback(() => {\n setState((prev) => {\n if (prev.timeRemaining <= 1) {\n clearInterval(intervalRef.current!);\n intervalRef.current = null;\n complete();\n return prev;\n }\n return { ...prev, timeRemaining: prev.timeRemaining - 1 };\n });\n }, [complete]);\n\n const start = useCallback(() => {\n if (state.status === 'idle' || state.status === 'paused') {\n setState((prev) => ({ ...prev, status: 'running' }));\n if (intervalRef.current) clearInterval(intervalRef.current);\n intervalRef.current = setInterval(tick, 1000);\n }\n }, [state.status, tick]);\n\n const pause = useCallback(() => {\n if (state.status === 'running') {\n setState((prev) => ({ ...prev, status: 'paused' }));\n if (intervalRef.current) {\n clearInterval(intervalRef.current);\n intervalRef.current = null;\n }\n }\n }, [state.status]);\n\n const resume = useCallback(() => {\n if (state.status === 'paused') {\n setState((prev) => ({ ...prev, status: 'running' }));\n if (intervalRef.current) clearInterval(intervalRef.current);\n intervalRef.current = setInterval(tick, 1000);\n }\n }, [state.status, tick]);\n\n const reset = useCallback(() => {\n if (intervalRef.current) {\n clearInterval(intervalRef.current);\n intervalRef.current = null;\n }\n const duration = getDurationForMode(state.mode);\n setState((prev) => ({\n ...prev,\n status: 'idle',\n timeRemaining: duration,\n totalDuration: duration,\n }));\n }, [state.mode, getDurationForMode]);\n\n const skip = useCallback(() => {\n if (intervalRef.current) {\n clearInterval(intervalRef.current);\n intervalRef.current = null;\n }\n complete();\n }, [complete]);\n\n useEffect(() => {\n return () => {\n if (intervalRef.current) clearInterval(intervalRef.current);\n };\n }, []);\n\n return {\n state,\n actions: { start, pause, resume, reset, skip },\n };\n}\n",
+"language": "ts"
+},
+{
+"path": "src/features/timer/api/timer-repository.ts",
+"content": "import { apiClient } from '@/shared/api/api-client';\nimport { TimerState } from '../types';\n\nexport interface TimerSessionPayload {\n mode: 'work' | 'shortBreak' | 'longBreak';\n duration: number;\n completed: boolean;\n interrupted?: boolean;\n date: string;\n}\n\nexport const timerRepository = {\n saveSession: (session: TimerSessionPayload) =>\n apiClient.post('/sessions', session),\n getTodayStats: () => apiClient.get('/stats/today'),\n};\n",
+"language": "ts"
+},
+{
+"path": "src/features/statistics/components/StatisticsChart.tsx",
+"content": "import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';\nimport {\n AreaChart,\n Area,\n XAxis,\n YAxis,\n CartesianGrid,\n Tooltip,\n ResponsiveContainer,\n} from 'recharts';\n\ninterface StatisticsChartProps {\n data: Array<{ date: string; sessions: number; minutes: number }>;\n}\n\nexport default function StatisticsChart({ data }: StatisticsChartProps) {\n return (\n <Card>\n <CardHeader>\n <CardTitle>Activité hebdomadaire</CardTitle>\n </CardHeader>\n <CardContent>\n <div className="h-64">\n <ResponsiveContainer width="100%" height="100%">\n <AreaChart data={data}>\n <CartesianGrid strokeDasharray="3 3" />\n <XAxis dataKey="date" tick={{ fontSize: 12 }} />\n <YAxis tick={{ fontSize: 12 }} />\n <Tooltip />\n <Area\n type="monotone"\n dataKey="minutes"\n stroke="#2563eb"\n fill="#2563eb"\n fillOpacity={0.2}\n name="Minutes"\n />\n </AreaChart>\n </ResponsiveContainer>\n </div>\n </CardContent>\n </Card>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/statistics/components/ProductivityStats.tsx",
+"content": "import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';\nimport { Badge } from '@/shared/ui/Badge';\nimport { Clock, TrendingUp, Zap, Calendar } from 'lucide-react';\nimport { ProductivityStats as ProductivityStatsType } from '../types';\nimport { formatDuration } from '@/shared/utils/time';\n\ninterface ProductivityStatsProps {\n stats: ProductivityStatsType;\n}\n\nexport default function ProductivityStats({ stats }: ProductivityStatsProps) {\n const items = [\n {\n icon: Clock,\n label: 'Temps total travaillé',\n value: formatDuration(stats.totalWorkTime),\n },\n {\n icon: TrendingUp,\n label: 'Cycles complétés',\n value: stats.completedCycles,\n },\n {\n icon: Zap,\n label: 'Sessions',\n value: stats.totalSessions,\n },\n {\n icon: Calendar,\n label: 'Jours actifs',\n value: stats.activeDays,\n },\n ];\n\n return (\n <div className="grid grid-cols-2 gap-4">\n {items.map((item, index) => (\n <Card key={index}>\n <CardContent className="p-4 flex items-center gap-3">\n <div className="p-2 bg-primary/10 rounded-full">\n <item.icon className="h-5 w-5 text-primary" />\n </div>\n <div>\n <p className="text-sm text-muted-foreground">{item.label}</p>\n <p className="text-2xl font-bold">{item.value}</p>\n </div>\n </CardContent>\n </Card>\n ))}\n </div>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/statistics/components/StatisticsPage.tsx",
+"content": "import { useStatistics } from '../hooks/use-statistics';\nimport { AsyncBoundary } from '@/shared/ui/AsyncBoundary';\nimport { Container, Stack } from '@/shared/ui';\nimport ProductivityStats from './ProductivityStats';\nimport StatisticsChart from './StatisticsChart';\n\nexport default function StatisticsPage() {\n const { statsQuery, chartDataQuery } = useStatistics();\n\n return (\n <Container maxWidth="lg" className="py-8">\n <Stack spacing={6}>\n <AsyncBoundary\n isLoading={statsQuery.isLoading}\n isError={statsQuery.isError}\n isEmpty={!statsQuery.data}\n onRetry={statsQuery.refetch}\n >\n {statsQuery.data && (\n <ProductivityStats stats={statsQuery.data} />\n )}\n </AsyncBoundary>\n\n <AsyncBoundary\n isLoading={chartDataQuery.isLoading}\n isError={chartDataQuery.isError}\n isEmpty={chartDataQuery.data?.length === 0}\n onRetry={chartDataQuery.refetch}\n >\n {chartDataQuery.data && (\n <StatisticsChart data={chartDataQuery.data} />\n )}\n </AsyncBoundary>\n </Stack>\n </Container>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/statistics/hooks/use-statistics.ts",
+"content": "import { useQuery } from '@tanstack/react-query';\nimport { statisticsRepository } from '../api/statistics-repository';\n\nexport function useStatistics() {\n const statsQuery = useQuery({\n queryKey: ['statistics'],\n queryFn: () => statisticsRepository.getStats(),\n staleTime: 1000 * 60 * 5,\n });\n\n const chartDataQuery = useQuery({\n queryKey: ['statistics', 'chart'],\n queryFn: () => statisticsRepository.getChartData(),\n staleTime: 1000 * 60 * 5,\n });\n\n return { statsQuery, chartDataQuery };\n}\n",
+"language": "ts"
+},
+{
+"path": "src/features/statistics/api/statistics-repository.ts",
+"content": "import { apiClient } from '@/shared/api/api-client';\nimport { ProductivityStats } from '../types';\n\nexport const statisticsRepository = {\n getStats: (): Promise<ProductivityStats> =>\n apiClient.get('/stats/productivity'),\n getChartData: (): Promise<Array<{ date: string; sessions: number; minutes: number }>> =>\n apiClient.get('/stats/chart'),\n};\n",
+"language": "ts"
+},
+{
+"path": "src/features/settings/components/SettingsForm.tsx",
+"content": "import { useForm } from 'react-hook-form';\nimport { zodResolver } from '@hookform/resolvers/zod';\nimport { z } from 'zod';\nimport { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';\nimport { Input, Label, Switch, Select, Button } from '@/shared/ui';\nimport { useSettings } from '../hooks/use-settings';\nimport { AppSettings } from '../types';\n\nconst settingsSchema = z.object({\n workDuration: z.number().min(1).max(120),\n shortBreakDuration: z.number().min(1).max(30),\n longBreakDuration: z.number().min(5).max(60),\n longBreakInterval: z.number().min(1).max(10),\n notificationSound: z.enum(['none', 'bell', 'chime', 'alarm']),\n soundVolume: z.number().min(0).max(1),\n showNotifications: z.boolean(),\n vibrateOnComplete: z.boolean(),\n keepAwake: z.boolean(),\n theme: z.enum(['light', 'dark', 'system']),\n});\n\ntype FormValues = z.infer<typeof settingsSchema>;\n\nexport default function SettingsForm() {\n const { settings, updateSettings, isUpdating } = useSettings();\n const { register, handleSubmit, formState: { errors }, reset } = useForm<FormValues>({\n resolver: zodResolver(settingsSchema),\n defaultValues: settings,\n });\n\n const onSubmit = (data: FormValues) => {\n updateSettings(data);\n };\n\n return (\n <Card className="max-w-2xl mx-auto">\n <CardHeader>\n <CardTitle>Paramètres</CardTitle>\n </CardHeader>\n <CardContent>\n <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">\n <div className="grid grid-cols-1 md:grid-cols-2 gap-4">\n <div className="space-y-2">\n <Label htmlFor="workDuration">Durée travail (min)</Label>\n <Input\n id="workDuration"\n type="number"\n {...register('workDuration', { valueAsNumber: true })}\n />\n {errors.workDuration && (\n <p className="text-sm text-destructive">{errors.workDuration.message}</p>\n )}\n </div>\n <div className="space-y-2">\n <Label htmlFor="shortBreakDuration">Pause courte (min)</Label>\n <Input\n id="shortBreakDuration"\n type="number"\n {...register('shortBreakDuration', { valueAsNumber: true })}\n />\n </div>\n <div className="space-y-2">\n <Label htmlFor="longBreakDuration">Pause longue (min)</Label>\n <Input\n id="longBreakDuration"\n type="number"\n {...register('longBreakDuration', { valueAsNumber: true })}\n />\n </div>\n <div className="space-y-2">\n <Label htmlFor="longBreakInterval">Intervalle pause longue</Label>\n <Input\n id="longBreakInterval"\n type="number"\n {...register('longBreakInterval', { valueAsNumber: true })}\n />\n </div>\n </div>\n\n <div className="space-y-4">\n <div className="space-y-2">\n <Label htmlFor="notificationSound">Son de notification</Label>\n <Select {...register('notificationSound')}>\n <option value="none">Aucun</option>\n <option value="bell">Cloche</option>\n <option value="chime">Carillon</option>\n <option value="alarm">Alarme</option>\n </Select>\n </div>\n\n <div className="space-y-2">\n <Label htmlFor="soundVolume">Volume ({Math.round((settings?.soundVolume || 0.5) * 100)}%)</Label>\n <Input\n id="soundVolume"\n type="range"\n min="0"\n max="1"\n step="0.01"\n {...register('soundVolume', { valueAsNumber: true })}\n />\n </div>\n\n <div className="space-y-4">\n <div className="flex items-center justify-between">\n <Label htmlFor="showNotifications">Notifications</Label>\n <Switch id="showNotifications" {...register('showNotifications')} />\n </div>\n <div className="flex items-center justify-between">\n <Label htmlFor="vibrateOnComplete">Vibration</Label>\n <Switch id="vibrateOnComplete" {...register('vibrateOnComplete')} />\n </div>\n <div className="flex items-center justify-between">\n <Label htmlFor="keepAwake">Maintenir éveillé</Label>\n <Switch id="keepAwake" {...register('keepAwake')} />\n </div>\n </div>\n\n <div className="space-y-2">\n <Label htmlFor="theme">Thème</Label>\n <Select {...register('theme')}>\n <option value="light">Clair</option>\n <option value="dark">Sombre</option>\n <option value="system">Système</option>\n </Select>\n </div>\n </div>\n\n <Button type="submit" disabled={isUpdating} className="w-full">\n {isUpdating ? 'Enregistrement...' : 'Enregistrer les paramètres'}\n </Button>\n </form>\n </CardContent>\n </Card>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/settings/components/SettingsPage.tsx",
+"content": "import { Container } from '@/shared/ui/Container';\nimport SettingsForm from './SettingsForm';\n\nexport default function SettingsPage() {\n return (\n <Container maxWidth="lg" className="py-8">\n <SettingsForm />\n </Container>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/settings/hooks/use-settings.ts",
+"content": "import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';\nimport { settingsRepository } from '../api/settings-repository';\nimport { AppSettings } from '../types';\nimport { useToast } from '@/shared/ui';\n\nexport function useSettings() {\n const queryClient = useQueryClient();\n const toast = useToast();\n\n const settingsQuery = useQuery({\n queryKey: ['settings'],\n queryFn: () => settingsRepository.getSettings(),\n staleTime: Infinity,\n });\n\n const updateMutation = useMutation({\n mutationFn: (newSettings: AppSettings) =>\n settingsRepository.updateSettings(newSettings),\n onSuccess: () => {\n queryClient.invalidateQueries({ queryKey: ['settings'] });\n toast.success('Paramètres mis à jour');\n },\n onError: () => {\n toast.error('Erreur lors de la mise à jour');\n },\n });\n\n return {\n settings: settingsQuery.data,\n isLoading: settingsQuery.isLoading,\n isUpdating: updateMutation.isPending,\n updateSettings: updateMutation.mutate,\n };\n}\n",
+"language": "ts"
+},
+{
+"path": "src/features/settings/api/settings-repository.ts",
+"content": "import { apiClient } from '@/shared/api/api-client';\nimport { AppSettings } from '../types';\n\nexport const settingsRepository = {\n getSettings: (): Promise<AppSettings> =>\n apiClient.get('/settings'),\n updateSettings: (settings: AppSettings): Promise<AppSettings> =>\n apiClient.put('/settings', settings),\n};\n",
+"language": "ts"
+},
+{
+"path": "src/features/history/components/HistoryList.tsx",
+"content": "import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';\nimport { Badge } from '@/shared/ui/Badge';\nimport { Button } from '@/shared/ui/Button';\nimport { HistoryEntry } from '../types';\nimport { formatDate, formatDuration } from '@/shared/utils/time';\nimport { Trash2 } from 'lucide-react';\n\ninterface HistoryListProps {\n entries: HistoryEntry[];\n onDelete: (id: string) => void;\n}\n\nexport default function HistoryList({ entries, onDelete }: HistoryListProps) {\n if (entries.length === 0) {\n return (\n <Card>\n <CardContent className="p-8 text-center text-muted-foreground">\n Aucune session enregistrée\n </CardContent>\n </Card>\n );\n }\n\n return (\n <Card>\n <CardHeader>\n <CardTitle>Historique des sessions</CardTitle>\n </CardHeader>\n <CardContent>\n <div className="space-y-4">\n {entries.map((entry) => (\n <div\n key={entry.id}\n className="flex items-center justify-between p-3 border rounded-lg"\n >\n <div className="space-y-1">\n <div className="flex items-center gap-2">\n <Badge variant={entry.mode === 'work' ? 'destructive' : 'success'}>\n {entry.mode === 'work' ? 'Travail' : entry.mode === 'shortBreak' ? 'Pause courte' : 'Pause longue'}\n </Badge>\n <span className="text-sm text-muted-foreground">\n {formatDuration(entry.duration)}\n </span>\n </div>\n <p className="text-xs text-muted-foreground">\n {formatDate(entry.date)}\n {entry.interrupted && ' ⚠️ Interrompu'}\n </p>\n </div>\n <Button\n variant="ghost"\n size="icon"\n onClick={() => onDelete(entry.id)}\n >\n <Trash2 className="h-4 w-4" />\n </Button>\n </div>\n ))}\n </div>\n </CardContent>\n </Card>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/history/components/HistoryPage.tsx",
+"content": "import { useHistory } from '../hooks/use-history';\nimport { AsyncBoundary } from '@/shared/ui/AsyncBoundary';\nimport { Container, Stack } from '@/shared/ui';\nimport HistoryList from './HistoryList';\nimport { Button } from '@/shared/ui/Button';\n\nexport default function HistoryPage() {\n const { entriesQuery, deleteMutation } = useHistory();\n\n return (\n <Container maxWidth="lg" className="py-8">\n <Stack spacing={6}>\n <AsyncBoundary\n isLoading={entriesQuery.isLoading}\n isError={entriesQuery.isError}\n isEmpty={entriesQuery.data?.length === 0}\n onRetry={entriesQuery.refetch}\n >\n {entriesQuery.data && (\n <HistoryList\n entries={entriesQuery.data}\n onDelete={(id) => deleteMutation.mutate(id)}\n />\n )}\n </AsyncBoundary>\n </Stack>\n </Container>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/history/hooks/use-history.ts",
+"content": "import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';\nimport { historyRepository } from '../api/history-repository';\nimport { useToast } from '@/shared/ui';\n\nexport function useHistory() {\n const queryClient = useQueryClient();\n const toast = useToast();\n\n const entriesQuery = useQuery({\n queryKey: ['history'],\n queryFn: () => historyRepository.getHistory(),\n staleTime: 1000 * 60 * 2,\n });\n\n const deleteMutation = useMutation({\n mutationFn: (id: string) => historyRepository.deleteEntry(id),\n onSuccess: () => {\n queryClient.invalidateQueries({ queryKey: ['history'] });\n toast.success('Session supprimée');\n },\n onError: () => {\n toast.error('Erreur lors de la suppression');\n },\n });\n\n return { entriesQuery, deleteMutation };\n}\n",
+"language": "ts"
+},
+{
+"path": "src/features/history/api/history-repository.ts",
+"content": "import { apiClient } from '@/shared/api/api-client';\nimport { HistoryEntry } from '../types';\n\nexport const historyRepository = {\n getHistory: (): Promise<HistoryEntry[]> =>\n apiClient.get('/history'),\n deleteEntry: (id: string): Promise<void> =>\n apiClient.delete(/history/${id}),\n};\n",
+"language": "ts"
+},
+{
+"path": "src/shared/ui/Layout.tsx",
+"content": "import { ReactNode } from 'react';\nimport { HeaderNav } from '@/features/timer/components/HeaderNav';\nimport { Container } from './Container';\n\ninterface LayoutProps {\n children: ReactNode;\n}\n\nexport function Layout({ children }: LayoutProps) {\n return (\n <div className="min-h-screen bg-background text-foreground">\n <HeaderNav />\n <main className="pt-16">\n <Container>{children}</Container>\n </main>\n </div>\n );\n}\n",
+"language": "tsx"
+},
+{
+"path": "src/features/timer/components/HeaderNav.tsx",
+"content": "import { NavLink } from 'react-router-dom';\nimport { Button } from '@/shared/ui/Button';\nimport { Timer, BarChart3, Settings, History } from 'lucide-react';\nimport { cn } from '@/shared/utils/cn';\n\nexport function HeaderNav() {\n const navItems = [\n { to: '/', label: 'Timer', icon: Timer },\n { to: '/statistics', label: 'Statistiques', icon: BarChart3 },\n { to: '/history', label: 'Historique', icon: History },\n { to: '/settings', label: 'Paramètres', icon: Settings },\n ];\n\n return (\n <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">\n <div className="container flex h-16 items-center justify-between">\n <div className="flex items-center gap-6">\n <span className="font-bold text-lg">PomodoroPro</span>\n </div>\n <nav className="flex items-center gap-1">\n {navItems.map(({ to, label, icon: Icon }) => (\n <NavLink\n key={to}\n to={to}\n className={({ isActive }) =>\n cn(\n 'px-3 py-2 rounded-md text-sm font-medium transition-colors',\n 'hover:bg-accent hover:text-accent-foreground',\n isActive\n ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'\n : 'text-muted-foreground'\n )\n }\n >\n <span className="flex items-center gap-2">\n <Icon className="h-4 w-4" />\n {label}\n </span>\n </NavLink>\n ))}\n </nav>\n </div>\n </header>\n );\n}\n",
+"language": "tsx"
+}
+]
+}
