@@ -28,6 +28,24 @@ function parseFiles(s: string): GeneratedFile[] {
 }
 
 /**
+ * Builds a safe environment for npm on Vercel serverless.
+ * Vercel sets HOME=/home/sbx_user1051 (non-writable) which causes:
+ *   ENOENT: no such file or directory, mkdir '/home/sbx_user1051'
+ * We redirect HOME + npm cache to /tmp (always writable on Vercel).
+ */
+function buildSafeEnv(): NodeJS.ProcessEnv {
+  const tmpDir = "/tmp";
+  return {
+    ...process.env,
+    HOME: tmpDir,                          // npm writes ~/.npm, ~/.config here
+    NPM_CONFIG_CACHE: `${tmpDir}/.npm`,    // npm cache
+    NPM_CONFIG_PREFIX: `${tmpDir}/.npm-global`, // global prefix
+    NPM_CONFIG_LOGLEVEL: "error",          // less verbose
+    CI: "true",
+  };
+}
+
+/**
  * Runs a command synchronously and returns the combined output + exit code.
  * Used for npm install + npm run build on Vercel serverless (no background processes).
  */
@@ -41,7 +59,7 @@ function runCommandSync(
     const child = spawn(cmd, args, {
       cwd,
       shell: false,
-      env: { ...process.env, CI: "true" },
+      env: buildSafeEnv(),
     });
 
     let output = "";
@@ -132,6 +150,9 @@ export async function POST(
     // 1. Write files to disk
     console.log(`[install-build] Writing ${allFiles.length} files to disk...`);
     await writeProjectFiles(id, allFiles);
+
+    // Ensure /tmp/.npm exists (Vercel HOME redirect)
+    await fs.mkdir("/tmp/.npm", { recursive: true }).catch(() => {});
 
     const WORKSPACES_DIR = path.join(os.tmpdir(), "react-forge-workspaces");
     const projectDir = path.join(WORKSPACES_DIR, id);
