@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KIROV3 Extension — React Forge</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: #0f172a; color: #f1f5f9; padding: 40px 20px; }
+.container { max-width: 600px; margin: 0 auto; }
+h1 { color: #06b6d4; margin-bottom: 8px; }
+p { color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
+.file { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #1e293b; border-radius: 12px; margin-bottom: 8px; background: #1e293b; text-decoration: none; color: #f1f5f9; transition: border-color 0.2s; }
+.file:hover { border-color: #06b6d4; }
+.file-icon { font-size: 24px; }
+.file-name { font-weight: 600; font-size: 14px; }
+.file-desc { font-size: 11px; color: #64748b; }
+.instructions { margin-top: 32px; padding: 20px; border: 1px solid #1e293b; border-radius: 12px; background: #1e293b; }
+.instructions h2 { color: #06b6d4; font-size: 16px; margin-bottom: 12px; }
+.instructions ol { padding-left: 20px; }
+.instructions li { margin-bottom: 8px; font-size: 13px; color: #94a3b8; }
+.instructions code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #06b6d4; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>KIROV3 Vercel Edition</h1>
+<p>Télécharge les 5 fichiers ci-dessous, puis installe l'extension dans Chrome.</p>
+
+<a href="manifest.json" download class="file">
+<span class="file-icon">📋</span>
+<div><div class="file-name">manifest.json</div><div class="file-desc">Configuration de l'extension</div></div>
+</a>
+
+<a href="content.js" download class="file">
+<span class="file-icon">📜</span>
+<div><div class="file-name">content.js</div><div class="file-desc">Script injecté dans DeepSeek (poll + injection + capture)</div></div>
+</a>
+
+<a href="background.js" download class="file">
+<span class="file-icon">⚙️</span>
+<div><div class="file-name">background.js</div><div class="file-desc">Service worker (bypass CORS)</div></div>
+</a>
+
+<a href="popup.html" download class="file">
+<span class="file-icon">🪟</span>
+<div><div class="file-name">popup.html</div><div class="file-desc">Interface de l'extension</div></div>
+</a>
+
+<a href="popup.js" download class="file">
+<span class="file-icon">🔧</span>
+<div><div class="file-name">popup.js</div><div class="file-desc">Logique du popup (lancer mission, statut)</div></div>
+</a>
+
+<div class="instructions">
+<h2>Installation</h2>
+<ol>
+<li>Crée un dossier <code>kirov-extension-vercel</code> sur ton PC</li>
+<li>Télécharge les 5 fichiers ci-dessus dans ce dossier</li>
+<li>Ouvre Chrome → va sur <code>chrome://extensions/</code></li>
+<li>Active le <strong>Mode développeur</strong> (en haut à droite)</li>
+<li>Clique <strong>"Charger l'extension non empaquetée"</strong></li>
+<li>Sélectionne le dossier <code>kirov-extension-vercel</code></li>
+<li>L'extension est installée ! 🎉</li>
+</ol>
+</div>
+</div>
+</body>
+</html>
