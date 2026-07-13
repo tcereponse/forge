@@ -2449,3 +2449,34 @@ Stage Summary:
 - Token stocké dans chrome.storage.local (pas en clair)
 - Workflow Capacitor build APK automatique
 - L'utilisateur doit configurer son token via le popup
+
+---
+Task ID: WORKER-V3-QODMAX-AUTODETECT
+Agent: orchestrator (main)
+Task: Worker v3.0 — auto-détection QODMAX + APK automatique + .bat intelligent
+
+Work Log:
+- User a démarré START_WORKER.bat dans finalapk (sous-dossier de versel)
+- Le .bat original cherchait VERCEL_BUILD_WORKER.py dans le même dossier → introuvable
+- User a des versions locales personnalisées (ne pas écraser)
+- Mis à jour les versions de RÉFÉRENCE sur Vercel (upload/):
+  - VERCEL_BUILD_WORKER.py v3.0:
+    - find_qodmax_builder() cherche apk_builder.py automatiquement
+      (BASE_DIR, parents, bestmode, F:\save disk E\bestmode)
+    - Lance apk_builder.py avec --source dist --project dir --name
+    - Cherche APK généré (*.apk récursif)
+    - Log taille APK
+    - Timeout 5 min
+    - Skip gracieux si QODMAX absent
+  - START_WORKER.bat intelligent:
+    - Cherche VERCEL_BUILD_WORKER.py dans 3 niveaux (courant, parent, grand-parent)
+    - Affiche chemin trouvé
+    - Erreur claire si introuvable
+- Commit 3085b78 poussé sur GitHub
+- Note: les versions locales du user (finalapk/) sont personnalisées et prioritaires
+
+Stage Summary:
+- Worker v3.0 référence déployé sur Vercel (upload/)
+- Auto-détection QODMAX pour APK automatique
+- .bat intelligent cherche le script Python dans les parents
+- User peut utiliser ses versions locales OU télécharger les versions référence
