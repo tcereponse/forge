@@ -218,20 +218,22 @@ export async function POST(
 
     console.log(`[install-build] npm install exit code: ${installResult.code} (${Date.now() - startTime}ms)`);
 
-    // CRITICAL: verify vite was actually installed (npm can exit 0 but skip packages
-    // on Vercel due to /tmp space or peer dep issues)
-    const viteBinPath = path.join(projectDir, "node_modules", ".bin", "vite");
+    // CRITICAL: verify vite was actually installed.
+    // On Vercel, npm may install packages to node_modules/ but NOT create the
+    // .bin/ symlinks (broken symlink behavior in serverless /tmp).
+    // So we check node_modules/vite/package.json directly, not .bin/vite.
+    const vitePkgPath = path.join(projectDir, "node_modules", "vite", "package.json");
     let viteInstalled = false;
     try {
-      await fs.access(viteBinPath);
+      await fs.access(vitePkgPath);
       viteInstalled = true;
     } catch {
       viteInstalled = false;
     }
 
     if (!viteInstalled) {
-      console.log("[install-build] vite not in node_modules/.bin — retrying with explicit install...");
-      installLog += "\n⚠️ vite not found after npm install — retrying explicit...\n";
+      console.log("[install-build] vite not in node_modules — retrying with explicit install...");
+      installLog += "\n⚠️ vite not found in node_modules — retrying explicit...\n";
       const retryResult = await runCommandSync(
         "npm",
         ["install", "vite@^5.4.0", "@vitejs/plugin-react@^4.3.1", "typescript@^5.5.4", "--no-fund", "--no-audit", "--legacy-peer-deps", "--save-dev"],
@@ -239,9 +241,9 @@ export async function POST(
         120000
       );
       installLog += retryResult.output;
-      // Re-check
+      // Re-check node_modules/vite/package.json
       try {
-        await fs.access(viteBinPath);
+        await fs.access(vitePkgPath);
         viteInstalled = true;
         installOk = true;
       } catch {
@@ -281,17 +283,17 @@ export async function POST(
       await fs.writeFile(filePath, file.content, "utf-8");
     }
 
-    // 5. Build — use node_modules/.bin/vite directly (most reliable on Vercel)
-    console.log("[install-build] Running vite build...");
+    // 5. Build — call vite directly via node (bypasses broken .bin symlinks on Vercel)
+    console.log("[install-build] Running vite build via node...");
     await db.project.update({
       where: { id },
       data: { buildStatus: "building" },
     });
 
-    const viteBin = path.join(projectDir, "node_modules", ".bin", "vite");
+    const viteJsPath = path.join(projectDir, "node_modules", "vite", "bin", "vite.js");
     let buildResult = await runCommandSync(
-      viteBin,
-      ["build"],
+      "node",
+      [viteJsPath, "build"],
       projectDir,
       90000
     );
@@ -299,9 +301,9 @@ export async function POST(
     let buildLog = buildResult.output;
     let buildOk = buildResult.code === 0;
 
-    // Fallback 1: if direct vite bin failed, try npx vite build
+    // Fallback 1: if node vite.js failed, try npx vite build
     if (!buildOk) {
-      console.log("[install-build] Direct vite failed, trying npx vite build...");
+      console.log("[install-build] node vite.js failed, trying npx vite build...");
       buildLog += "\n--- Fallback: npx vite build ---\n";
       const fallbackResult = await runCommandSync(
         "npx",
