@@ -2051,3 +2051,36 @@ Stage Summary:
 - Si une passe timeout (45s), fallback sur templates Gold pour cette passe
 - Extension v3.1 déployée avec polling plus rapide
 - Mission resetée sur Vercel, prête pour nouveau test
+
+---
+Task ID: ASYNC-GOLD-PASS-BY-PASS
+Agent: orchestrator (main)
+Task: Découper le pipeline Gold en passes individuelles pour éviter le 504 Vercel
+
+Work Log:
+- Diagnostic: 6 passes LLM × temps variable = souvent >300s → 504 Gateway Timeout
+- L'extension capturait bien (1555 + 10406 + 26011 chars) mais le serveur timeout avant la fin
+- Créé src/lib/forge-gold-async.ts:
+  - Pass functions standalone (passArchitecture, passTypes, passLogic, passUi, passTests)
+  - GoldPassState: état intermédiaire (arch + fichiers accumulés par passe)
+  - initState/serializeState/deserializeState: sérialisation JSON pour DB
+  - runNextPass(config, state): exécute UNE passe, retourne état mis à jour
+  - finalizeFiles(state, config): merge LLM files + Gold templates + post-process
+- Nouveaux endpoints:
+  - POST /api/projects/[id]/gold/start → init + passe 1 (Architecture), maxDuration 120s
+  - POST /api/projects/[id]/gold/next → passe suivante, maxDuration 120s
+    - État stocké dans project.arsenalJson entre les passes
+    - Passe 6 done → finalize (merge + templates + write + install)
+- Frontend builder-form.tsx:
+  - handleGoldGenerate() appelle /gold/start puis boucle /gold/next
+  - Toast par passe: "✓ Passe N/6: Name (X fichiers)"
+  - Plus de 504: chaque requête < 120s
+- vercel.json: gold/start + gold/next avec maxDuration 120s
+- Commit 41da487 poussé, Vercel a déployé (endpoint testé HTTP 404 JSON = OK)
+
+Stage Summary:
+- Pipeline Gold maintenant pass-by-pass: 6 requêtes HTTP séparées
+- Chaque passe max 120s (sous la limite Vercel)
+- État persistant dans arsenalJson entre les passes
+- Frontend orchestre la séquence avec toasts de progression
+- Plus de 504 timeout possible
