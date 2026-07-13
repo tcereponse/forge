@@ -1,19 +1,24 @@
 /**
- * ELITE FORGE — KIROV3 Vercel Edition v14.1
+ * ELITE FORGE — KIROV3 Vercel Edition v14.2
  * Fonctionne avec https://forge-kohl-kappa.vercel.app
  *
- * v14.1 — Constitution Diamond G50+ côté extension (hybride):
+ * v14.2 — Constitution G50+ + GitHub Auto-Push (Cloud-to-GitHub):
  *   ✅ SILENCE_ABSOLU (injection prompt DeepSeek)
  *   ✅ applyKnownFixes (corrections sûres côté client)
  *   ✅ validateConstitution (détection + feedback immédiat)
  *   ❌ autoSuture locale DÉSACTIVÉE (MAX_HEALING_CYCLES=0)
  *      → le serveur fait le healing (source unique, contexte complet)
  *   ✅ Envoi rapport de validation au serveur (/api/bridge/constitution-report)
- *      → le serveur skip son healing si l'extension a déjà validé
+ *   ✅ NOUVEAU: pushToGitHub — pousse le code généré sur GitHub
+ *      → déclenche GitHub Actions pour build APK automatique
  *
- * Architecture hybride:
- *   Extension: prépare le code (silence + fix + validate + rapport)
- *   Serveur: guérit si besoin (avec contexte complet des 6 passes Gold)
+ * Architecture Cloud-to-GitHub:
+ *   DeepSeek → Extension (capture + validate + fix) → Vercel (dashboard)
+ *                                                    → GitHub (apk-builder repo)
+ *                                                       → GitHub Actions → APK
+ *
+ * SÉCURITÉ: Le token GitHub est stocké dans chrome.storage.local (PAS en clair).
+ *           Configure-le via le popup de l'extension (icône → Options).
  */
 
 const CONFIG = {
@@ -24,8 +29,13 @@ const CONFIG = {
     MIN_RESPONSE_LENGTH: 100,
     STABLE_CHECKS_REQUIRED: 2,
     // Constitution G50+ — auto-suture DÉSACTIVÉE côté extension
-    // Le serveur fait le healing (forge-constitution.ts autoHealingCycles)
     MAX_HEALING_CYCLES: 0,
+    // GitHub Auto-Push — pousse le code généré vers GitHub pour build APK
+    GITHUB_PUSH_ENABLED: true,       // activé par défaut
+    GITHUB_OWNER: "tcereponse",      // propriétaire du dépôt
+    GITHUB_REPO: "apk-builder",      // dépôt cible pour les projets générés
+    GITHUB_BRANCH: "main",           // branche cible
+    GITHUB_API: "https://api.github.com",
     DEBUG_MODE: true
 };
 
@@ -375,6 +385,199 @@ async function sendConstitutionReport(report) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  GITHUB AUTO-PUSH — Cloud-to-GitHub pour build APK automatique
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Récupère le token GitHub depuis chrome.storage.local.
+ * Le token est configuré via le popup de l'extension (icône → Options).
+ * Sécurité: le token n'est JAMAIS dans le code source public.
+ */
+async function getGitHubToken() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(["github_token"], (result) => {
+            resolve(result.github_token || "");
+        });
+    });
+}
+
+/**
+ * Contenu du workflow GitHub Actions qui build l'APK avec Capacitor.
+ * Ce fichier est poussé dans .github/workflows/build-apk.yml du dépôt.
+ */
+const GITHUB_ACTIONS_WORKFLOW = `name: Build APK Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Vite
+        run: npm run build
+
+      - name: Setup Capacitor
+        run: |
+          npx cap init forge-app com.forge.app --web-dir=dist || true
+          npx cap add android || true
+          npx cap copy android
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+          ls -la app/build/outputs/apk/debug/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+`;
+
+/**
+ * Pousse les fichiers du projet généré sur GitHub.
+ * Utilise l'API GitHub Contents pour créer/mettre à jour chaque fichier.
+ * Ajoute aussi le workflow .github/workflows/build-apk.yml.
+ *
+ * @param {Array} files - [{ path, content, language }]
+ * @param {string} projectName - nom du projet (pour le commit message)
+ * @returns {Promise<{ success: boolean, pushedCount: number, error?: string }>}
+ */
+async function pushToGitHub(files, projectName) {
+    if (!CONFIG.GITHUB_PUSH_ENABLED) {
+        KirovLogger.info("GitHub push désactivé (GITHUB_PUSH_ENABLED=false)");
+        return { success: false, pushedCount: 0, error: "disabled" };
+    }
+
+    const token = await getGitHubToken();
+    if (!token) {
+        KirovLogger.warn("Token GitHub manquant — configure-le dans le popup de l'extension");
+        return { success: false, pushedCount: 0, error: "no_token" };
+    }
+
+    const owner = CONFIG.GITHUB_OWNER;
+    const repo = CONFIG.GITHUB_REPO;
+    const branch = CONFIG.GITHUB_BRANCH;
+    const apiBase = `${CONFIG.GITHUB_API}/repos/${owner}/${repo}/contents`;
+
+    KirovLogger.info(`📡 Push GitHub: ${files.length} fichiers vers ${owner}/${repo}...`);
+
+    let pushedCount = 0;
+    let failedCount = 0;
+
+    // Ajouter le workflow GitHub Actions en premier
+    const allFilesToPush = [
+        { path: ".github/workflows/build-apk.yml", content: GITHUB_ACTIONS_WORKFLOW },
+        ...files,
+    ];
+
+    for (const file of allFilesToPush) {
+        try {
+            // Encoder le contenu en base64
+            const content64 = btoa(unescape(encodeURIComponent(file.content)));
+
+            // Vérifier si le fichier existe déjà (pour récupérer le SHA)
+            let sha = null;
+            try {
+                const checkRes = await fetch(`${apiBase}/${file.path}?ref=${branch}`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Accept": "application/vnd.github.v3+json",
+                    },
+                });
+                if (checkRes.ok) {
+                    const checkData = await checkRes.json();
+                    sha = checkData.sha;
+                }
+            } catch {
+                // Fichier n'existe pas — c'est OK, on le crée
+            }
+
+            // Créer ou mettre à jour le fichier
+            const pushRes = await fetch(`${apiBase}/${file.path}`, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: `feat: ${projectName} — ${file.path}${sha ? " (update)" : " (create)"}`,
+                    content: content64,
+                    branch: branch,
+                    ...(sha ? { sha } : {}),
+                }),
+            });
+
+            if (pushRes.ok || pushRes.status === 201) {
+                pushedCount++;
+                if (pushedCount % 10 === 0) {
+                    KirovLogger.info(`  → ${pushedCount}/${allFilesToPush.length} fichiers poussés...`);
+                }
+            } else {
+                const errData = await pushRes.json().catch(() => ({}));
+                // 422 = déjà à jour, c'est OK
+                if (pushRes.status === 422 && errData.message?.includes("nothing")) {
+                    pushedCount++; // fichier identique, compte comme OK
+                } else {
+                    failedCount++;
+                    if (failedCount <= 3) {
+                        KirovLogger.warn(`  ✗ ${file.path}: HTTP ${pushRes.status} ${errData.message || ""}`);
+                    }
+                }
+            }
+
+            // Petit délai pour éviter le rate limit GitHub (5000 req/h)
+            await new Promise(r => setTimeout(r, 100));
+
+        } catch (e) {
+            failedCount++;
+            if (failedCount <= 3) {
+                KirovLogger.warn(`  ✗ ${file.path}: ${e.message}`);
+            }
+        }
+    }
+
+    KirovLogger.info(`📡 Push GitHub terminé: ${pushedCount} OK, ${failedCount} échecs`);
+
+    if (pushedCount > 0) {
+        KirovLogger.success(`🎉 Code poussé sur GitHub: https://github.com/${owner}/${repo}`);
+        KirovLogger.success(`📦 GitHub Actions va build l'APK: https://github.com/${owner}/${repo}/actions`);
+    }
+
+    return { success: pushedCount > 0, pushedCount, failedCount };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Polling
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -465,6 +668,19 @@ async function pollForPrompt() {
                 KirovLogger.success("✅ PRD capturé — Phase 2 démarre");
             } else if (result && result.mode === "oneshot") {
                 KirovLogger.success("✅ Passe Gold capturée + validée");
+            }
+
+            // 7. NOUVEAU v14.2: Push GitHub pour build APK automatique
+            //    Seulement si c'est le code final (phase 5 = code generation done)
+            //    ou si on a capturé des fichiers JSON complets en one-shot
+            const isFinalCode = (result && (result.phase === 5 || (result.mode === "oneshot" && fixedFiles.length > 3)));
+            if (isFinalCode && fixedFiles.length > 0) {
+                KirovLogger.info(`🚀 Push GitHub de ${fixedFiles.length} fichiers pour build APK...`);
+                const ghResult = await pushToGitHub(fixedFiles, currentMissionId || "forge-project");
+                if (ghResult.success) {
+                    KirovLogger.success(`📱 APK en cours de build sur GitHub Actions...`);
+                    KirovLogger.success(`🔗 https://github.com/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/actions`);
+                }
             }
         } else {
             KirovLogger.error(`Capture échec (${captured ? captured.length : 0} chars)`);
