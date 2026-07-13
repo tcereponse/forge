@@ -1,11 +1,24 @@
 const SERVER_URL = "https://forge-kohl-kappa.vercel.app";
 
 async function updateStatus() {
+    const statusEl = document.getElementById('status');
+    const phaseEl = document.getElementById('phase-info');
+    
     try {
-        const res = await fetch(`${SERVER_URL}/api/bridge/health`);
+        // Timeout de 8s — si le serveur ne répond pas, on affiche offline
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const res = await fetch(`${SERVER_URL}/api/bridge/health`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        
         const data = await res.json();
-        const statusEl = document.getElementById('status');
-        const phaseEl = document.getElementById('phase-info');
 
         if (data.status === 'online') {
             statusEl.className = 'status online';
@@ -14,15 +27,18 @@ async function updateStatus() {
                 const phaseNames = ['', 'PRD Generation', 'Code Generation', '', '', 'Done', '', '', '', '', 'One-Shot (Gold)'];
                 phaseEl.textContent = `Phase ${data.mission.phase}: ${phaseNames[data.mission.phase] || 'Unknown'} — ${data.mission.status}`;
             } else {
-                phaseEl.textContent = 'Aucune mission active';
+                phaseEl.textContent = 'Aucune mission active — prêt à lancer';
             }
         } else {
             statusEl.className = 'status offline';
             statusEl.textContent = 'Bridge Hors-ligne ❌';
         }
     } catch (e) {
-        document.getElementById('status').className = 'status offline';
-        document.getElementById('status').textContent = 'Bridge Hors-ligne ❌';
+        const errMsg = e.name === 'AbortError' ? 'Timeout (8s)' : e.message;
+        statusEl.className = 'status offline';
+        statusEl.textContent = `Bridge injoignable ❌ (${errMsg})`;
+        phaseEl.textContent = 'Vérifie ta connexion ou que Vercel est online';
+        console.error('[popup] updateStatus error:', e);
     }
 }
 
