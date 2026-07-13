@@ -13,12 +13,12 @@ export const maxDuration = 300; // finalization pass needs time for install+buil
 
 /**
  * Builds a safe environment for npm on Vercel serverless.
- * Vercel sets HOME=/home/sbx_user1051 (non-writable) which causes:
- *   ENOENT: no such file or directory, mkdir '/home/sbx_user1051'
- * We redirect HOME + npm cache to /tmp (always writable on Vercel).
+ * Also prepends ./node_modules/.bin to PATH so "npm run build" finds tsc + vite.
  */
-function buildSafeEnv(): NodeJS.ProcessEnv {
+function buildSafeEnv(cwd?: string): NodeJS.ProcessEnv {
   const tmpDir = "/tmp";
+  const binPath = cwd ? `${cwd}/node_modules/.bin` : "";
+  const currentPath = process.env.PATH || "/usr/local/bin:/usr/bin:/bin";
   return {
     ...process.env,
     HOME: tmpDir,
@@ -26,6 +26,7 @@ function buildSafeEnv(): NodeJS.ProcessEnv {
     NPM_CONFIG_PREFIX: `${tmpDir}/.npm-global`,
     NPM_CONFIG_LOGLEVEL: "error",
     CI: "true",
+    PATH: binPath ? `${binPath}:${currentPath}` : currentPath,
   };
 }
 
@@ -42,7 +43,7 @@ function runCommandSync(
     const child = spawn(cmd, args, {
       cwd,
       shell: false,
-      env: buildSafeEnv(),
+      env: buildSafeEnv(cwd),
     });
     let output = "";
     const timer = setTimeout(() => {

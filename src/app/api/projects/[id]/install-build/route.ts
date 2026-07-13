@@ -32,9 +32,15 @@ function parseFiles(s: string): GeneratedFile[] {
  * Vercel sets HOME=/home/sbx_user1051 (non-writable) which causes:
  *   ENOENT: no such file or directory, mkdir '/home/sbx_user1051'
  * We redirect HOME + npm cache to /tmp (always writable on Vercel).
+ *
+ * IMPORTANT: we also prepend ./node_modules/.bin to PATH so that
+ * "npm run build" can find tsc and vite (npm scripts normally do this
+ * automatically, but our custom env may lose it on Vercel).
  */
-function buildSafeEnv(): NodeJS.ProcessEnv {
+function buildSafeEnv(cwd?: string): NodeJS.ProcessEnv {
   const tmpDir = "/tmp";
+  const binPath = cwd ? `${cwd}/node_modules/.bin` : "";
+  const currentPath = process.env.PATH || "/usr/local/bin:/usr/bin:/bin";
   return {
     ...process.env,
     HOME: tmpDir,                          // npm writes ~/.npm, ~/.config here
@@ -42,6 +48,7 @@ function buildSafeEnv(): NodeJS.ProcessEnv {
     NPM_CONFIG_PREFIX: `${tmpDir}/.npm-global`, // global prefix
     NPM_CONFIG_LOGLEVEL: "error",          // less verbose
     CI: "true",
+    PATH: binPath ? `${binPath}:${currentPath}` : currentPath,
   };
 }
 
@@ -59,7 +66,7 @@ function runCommandSync(
     const child = spawn(cmd, args, {
       cwd,
       shell: false,
-      env: buildSafeEnv(),
+      env: buildSafeEnv(cwd),
     });
 
     let output = "";
