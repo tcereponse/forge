@@ -2480,3 +2480,28 @@ Stage Summary:
 - Auto-détection QODMAX pour APK automatique
 - .bat intelligent cherche le script Python dans les parents
 - User peut utiliser ses versions locales OU télécharger les versions référence
+
+---
+Task ID: FIX-RUNONESHOT-MISSIONID-TIMEOUT
+Agent: orchestrator (main)
+Task: Pipeline Gold bloqué après passe 1 — timeout runOneShot 90s trop court
+
+Work Log:
+- Diagnostic: logs DeepSeek montrent capture réussie (1660 chars, phase 10)
+  mais pipeline n'a pas enchaïné vers passe 2
+- L'extension a vu "Phase 10: Prompt received" 14 fois avant capture
+  (No messages found retries) → capture a pris >90s
+- runOneShot timeout à 90s → pipeline a abandonné avant la capture
+- Fix 1: bridge-state.ts runOneShot vérifie missionId avant retour
+  - Évite faux positifs si ancienne capture restée en DB
+  - Compare row.missionId === missionId (pas n'importe quelle capture)
+- Fix 2: forge-gold-async.ts timeout 90s → 120s par passe
+  - DeepSeek peut mettre +90s (surtout avec retries sélecteurs)
+  - 6 passes × 120s = 720s max, chaque requête gold/next = 300s max
+- Commit 804211c poussé, Vercel a déployé
+- Mission resetée pour nouveau test
+
+Stage Summary:
+- Pipeline Gold devrait maintenant enchaïner les 6 passes correctement
+- Timeout 120s laisse le temps à DeepSeek de générer + extension de capturer
+- Vérification missionId évite les conflits entre passes
