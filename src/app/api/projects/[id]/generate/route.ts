@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { glmChat } from "@/lib/glm-direct";
+import { bridgeState } from "@/lib/bridge-state";
 import { db } from "@/lib/db";
 import {
   type GeneratedFile,
@@ -15,7 +16,7 @@ import { buildExtensionDirective } from "@/lib/extension-parser";
 import { generateArsenal } from "@/lib/forge-arsenal";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300; // 5 min — bridge fallback may take time
 
 interface RawFile {
   path: string;
@@ -263,7 +264,8 @@ Format JSON EXACT :
 
 Réponds MAINTENANT avec uniquement l'objet JSON.`;
 
-    const codeResult = await glmChat([
+    // Strategy 1: Try GLM directly (fastest, works on local/preview)
+    let codeResult = await glmChat([
       {
         role: "assistant",
         content:
@@ -272,15 +274,27 @@ Réponds MAINTENANT avec uniquement l'objet JSON.`;
       { role: "user", content: codePrompt },
     ]);
 
-    if (codeResult.error) {
-      await db.project.update({
-        where: { id },
-        data: { status: "failed", prd },
-      });
-      return NextResponse.json(
-        { success: false, error: `Erreur GLM: ${codeResult.error}`, prd },
-        { status: 422 }
-      );
+    // Strategy 2: If GLM failed, fallback to KIROV Bridge (DeepSeek via extension)
+    if (codeResult.error || !codeResult.content || codeResult.content.length < 20) {
+      console.log(`[generate] GLM failed (${codeResult.error || "empty"}), falling back to KIROV Bridge...`);
+      const systemPrompt = "Tu es un générateur de composants React expert. Tu réponds UNIQUEMENT par du JSON valide, jamais de texte autour, jamais de markdown.";
+      const fullPrompt = `${systemPrompt}\n\n---\n\n${codePrompt}`;
+      const bridgeResult = await bridgeState.runOneShot(fullPrompt, 180000); // 3 min timeout
+
+      if (bridgeResult.content && bridgeResult.content.length > 20) {
+        console.log(`[generate] Bridge OK (${bridgeResult.content.length} chars)`);
+        codeResult = { content: bridgeResult.content };
+      } else {
+        // Both strategies failed
+        await db.project.update({
+          where: { id },
+          data: { status: "failed", prd },
+        });
+        return NextResponse.json(
+          { success: false, error: `Erreur GLM: ${codeResult.error} | Bridge: ${bridgeResult.error || "timeout"}`, prd },
+          { status: 422 }
+        );
+      }
     }
 
     const rawResponse = codeResult.content;
