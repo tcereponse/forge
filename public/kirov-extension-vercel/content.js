@@ -426,7 +426,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -437,11 +436,186 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Ensure project files
+        run: |
+          # Create package.json if missing
+          if [ ! -f package.json ]; then
+            echo 'Creating package.json (missing from push)...'
+            cat > package.json << 'PKGJSON'
+          {
+            "name": "forge-app",
+            "private": true,
+            "version": "1.0.0",
+            "type": "module",
+            "scripts": {
+              "dev": "vite",
+              "build": "vite build",
+              "preview": "vite preview"
+            },
+            "dependencies": {
+              "react": "^18.3.1",
+              "react-dom": "^18.3.1",
+              "react-router-dom": "^6.26.0",
+              "lucide-react": "^0.427.0"
+            },
+            "devDependencies": {
+              "@vitejs/plugin-react": "^4.3.1",
+              "typescript": "^5.5.4",
+              "vite": "^5.4.0",
+              "tailwindcss": "^3.4.10",
+              "postcss": "^8.4.41",
+              "autoprefixer": "^10.4.20"
+            }
+          }
+          PKGJSON
+          fi
+
+          # Create index.html if missing
+          if [ ! -f index.html ]; then
+            echo 'Creating index.html...'
+            cat > index.html << 'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>Forge App</title>
+            </head>
+            <body>
+              <div id="root"></div>
+              <script type="module" src="/src/main.tsx"></script>
+            </body>
+          </html>
+          HTML
+          fi
+
+          # Create src/main.tsx if missing
+          if [ ! -f src/main.tsx ]; then
+            mkdir -p src
+            echo 'Creating src/main.tsx...'
+            cat > src/main.tsx << 'MAINTSX'
+          import React from 'react'
+          import ReactDOM from 'react-dom/client'
+          import App from './App'
+          import './index.css'
+
+          ReactDOM.createRoot(document.getElementById('root')!).render(
+            <React.StrictMode>
+              <App />
+            </React.StrictMode>
+          )
+          MAINTSX
+          fi
+
+          # Create src/index.css if missing
+          if [ ! -f src/index.css ]; then
+            mkdir -p src
+            echo 'Creating src/index.css...'
+            cat > src/index.css << 'CSS'
+          @tailwind base;
+          @tailwind components;
+          @tailwind utilities;
+          CSS
+          fi
+
+          # Create vite.config.ts if missing
+          if [ ! -f vite.config.ts ]; then
+            echo 'Creating vite.config.ts...'
+            cat > vite.config.ts << 'VITECONFIG'
+          import { defineConfig } from 'vite'
+          import react from '@vitejs/plugin-react'
+
+          export default defineConfig({
+            plugins: [react()],
+            build: {
+              outDir: 'dist',
+              target: 'es2015',
+              modulePreload: false,
+              rollupOptions: {
+                output: {
+                  format: 'iife',
+                  inlineDynamicImports: true,
+                  entryFileNames: 'assets/[name].js',
+                },
+              },
+            },
+          })
+          VITECONFIG
+          fi
+
+          # Create tsconfig.json if missing
+          if [ ! -f tsconfig.json ]; then
+            echo 'Creating tsconfig.json...'
+            cat > tsconfig.json << 'TSCONFIG'
+          {
+            "compilerOptions": {
+              "target": "ES2020",
+              "useDefineForClassFields": true,
+              "lib": ["ES2020", "DOM", "DOM.Iterable"],
+              "module": "ESNext",
+              "skipLibCheck": true,
+              "moduleResolution": "bundler",
+              "allowImportingTsExtensions": true,
+              "resolveJsonModule": true,
+              "isolatedModules": true,
+              "noEmit": true,
+              "jsx": "react-jsx",
+              "strict": false,
+              "noUnusedLocals": false,
+              "noUnusedParameters": false,
+              "noFallthroughCasesInSwitch": true
+            },
+            "include": ["src"]
+          }
+          TSCONFIG
+          fi
+
+          # Create tailwind.config.js if missing
+          if [ ! -f tailwind.config.js ] && [ ! -f tailwind.config.ts ]; then
+            echo 'Creating tailwind.config.js...'
+            cat > tailwind.config.js << 'TAILWIND'
+          /** @type {import('tailwindcss').Config} */
+          export default {
+            content: [
+              "./index.html",
+              "./src/**/*.{js,ts,jsx,tsx}",
+            ],
+            theme: {
+              extend: {},
+            },
+            plugins: [],
+          }
+          TAILWIND
+          fi
+
+          # Create postcss.config.js if missing
+          if [ ! -f postcss.config.js ]; then
+            echo 'Creating postcss.config.js...'
+            cat > postcss.config.js << 'POSTCSS'
+          export default {
+            plugins: {
+              tailwindcss: {},
+              autoprefixer: {},
+            },
+          }
+          POSTCSS
+          fi
+
+          echo "=== Project files ==="
+          ls -la
+          echo "=== src/ ==="
+          ls -la src/ 2>/dev/null || echo "No src/ directory"
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
       - name: Build Vite
         run: npm run build
+
+      - name: Verify dist
+        run: |
+          ls -la dist/
+          ls -la dist/assets/ 2>/dev/null || echo "No assets/"
 
       - name: Setup Capacitor
         run: |
@@ -671,15 +845,24 @@ async function pollForPrompt() {
                 KirovLogger.success("✅ Passe Gold capturée + validée");
             }
 
-            // 7. Push GitHub SEULEMENT à la fin de la mission (phase 5 = code generation done)
-            //    PAS en mode one-shot (phase 10) — c'est une passe intermédiaire du pipeline Gold
-            const isFinalCode = (result && result.phase === 5 && fixedFiles.length > 0);
-            if (isFinalCode) {
-                KirovLogger.info(`🚀 Push GitHub de ${fixedFiles.length} fichiers pour build APK...`);
+            // 7. Push GitHub SEULEMENT si DeepSeek a généré les fichiers core (App + MainComponent + CSS)
+            //    Les templates (package.json, vite.config, etc.) seront ajoutés par le serveur ou le workflow
+            const hasAppTsx = fixedFiles.some(f => f.path === "src/App.tsx" || f.path === "src/App.jsx" || f.path === "src/app/App.tsx");
+            const hasMainComponent = fixedFiles.some(f => f.path.includes("MainComponent"));
+            const hasIndexCss = fixedFiles.some(f => f.path === "src/index.css" || f.path === "src/index.css");
+            const isCompleteCode = hasAppTsx && (hasMainComponent || fixedFiles.length >= 3) && fixedFiles.length >= 2;
+
+            if (isCompleteCode) {
+                KirovLogger.info(`🚀 Push GitHub de ${fixedFiles.length} fichiers (code DeepSeek complet) pour build APK...`);
                 const ghResult = await pushToGitHub(fixedFiles, currentMissionId || "forge-project");
                 if (ghResult.success) {
                     KirovLogger.success(`📱 APK en cours de build sur GitHub Actions...`);
                     KirovLogger.success(`🔗 https://github.com/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/actions`);
+                }
+            } else {
+                // Log pourquoi on ne pousse pas
+                if (fixedFiles.length > 0) {
+                    KirovLogger.info(`⏸️ Push GitHub skip: code incomplet (${fixedFiles.length} fichiers, App=${hasAppTsx}, Main=${hasMainComponent})`);
                 }
             }
         } else {
