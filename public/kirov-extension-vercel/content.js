@@ -24,10 +24,11 @@
 const CONFIG = {
     SERVER_URL: "https://forge-kohl-kappa.vercel.app",
     POLLING_INTERVAL: 2000,
-    CAPTURE_CHECK_INTERVAL: 2000,
-    CAPTURE_TIMEOUT: 180000,
-    MIN_RESPONSE_LENGTH: 100,
-    STABLE_CHECKS_REQUIRED: 2,
+    CAPTURE_CHECK_INTERVAL: 3000,    // 3s entre checks (était 2s) — laisse + de temps à DeepSeek
+    CAPTURE_TIMEOUT: 300000,         // 5 min max (était 3 min) — réponses longues
+    MIN_RESPONSE_LENGTH: 500,        // 500 chars min (était 100) — évite captures partielles
+    STABLE_CHECKS_REQUIRED: 3,       // 3 checks stables = 9s (était 2 = 4s) — plus strict
+    POST_GENERATION_COOLDOWN: 5000,  // 5s d'attente après fin génération avant capture
     // Constitution G50+ — auto-suture DÉSACTIVÉE côté extension
     MAX_HEALING_CYCLES: 0,
     // GitHub Auto-Push — pousse le code généré vers GitHub pour build APK
@@ -730,43 +731,147 @@ async function injectPrompt(prompt) {
 //  Wait for full response (smart capture)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Vérifie si le contenu JSON est équilibré (accolades/parenthèses).
+ * Évite de capturer un JSON tronqué au milieu de la génération.
+ */
+function isJsonBalanced(content) {
+    if (!content || content.length === 0) return false;
+    // Trouver le bloc JSON (entre ```json ... ``` ou { ... })
+    let json = content.trim();
+    const fenceMatch = json.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch) json = fenceMatch[1].trim();
+    // Compter accolades
+    let braces = 0;
+    let brackets = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = 0; i < json.length; i++) {
+        const c = json[i];
+        if (escape) { escape = false; continue; }
+        if (c === "\\") { escape = true; continue; }
+        if (c === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (c === "{") braces++;
+        else if (c === "}") braces--;
+        else if (c === "[") brackets++;
+        else if (c === "]") brackets--;
+    }
+    return braces === 0 && brackets === 0;
+}
+
+/**
+ * Compte le nombre de fichiers dans le JSON capturé.
+ * Permet de vérifier que DeepSeek a généré assez de fichiers.
+ */
+function countFilesInJson(content) {
+    if (!content) return 0;
+    // Compter les occurrences de "path": — approximation du nombre de fichiers
+    const matches = content.match(/"path"\s*:/g);
+    return matches ? matches.length : 0;
+}
+
 async function waitForFullResponse() {
     KirovLogger.info("Attente démarrage génération...");
+
+    // ── Phase 1: Attendre que la génération DÉMARRE ──
+    // (bouton Stop visible = DeepSeek génère activement)
     let started = false;
     for (let i = 0; i < 30; i++) {
         await sleep(500);
         if (isGenerating()) { started = true; break; }
     }
-    if (started) KirovLogger.info("Génération démarrée (bouton Stop détecté)");
-    else KirovLogger.warn("Génération non démarrée — capture quand même");
+    if (started) {
+        KirovLogger.info("Génération démarrée (bouton Stop détecté)");
+    } else {
+        KirovLogger.warn("Génération non démarrée — capture quand même");
+    }
 
+    // ── Phase 2: Surveiller la génération jusqu'à fin + stabilité ──
     const startTime = Date.now();
     let previousContent = "";
+    let previousLen = 0;
     let stableCount = 0;
     let checkNum = 0;
+    let generationEndedAt = null;
 
     while (Date.now() - startTime < CONFIG.CAPTURE_TIMEOUT) {
         await sleep(CONFIG.CAPTURE_CHECK_INTERVAL);
         checkNum++;
+
         const generating = isGenerating();
         const lastEl = getLastAssistantElement();
         const currentContent = lastEl ? extractContent(lastEl) : "";
+        const currentLen = currentContent.length;
+
+        // Tracker la stabilité du contenu
         const contentChanged = currentContent !== previousContent;
-        if (!contentChanged && currentContent.length > 0) stableCount++;
-        else stableCount = 0;
-        previousContent = currentContent;
-
-        KirovLogger.info(`Check #${checkNum}: generating=${generating} len=${currentContent.length} stable=${stableCount}/${CONFIG.STABLE_CHECKS_REQUIRED}`);
-
-        if (!generating && stableCount >= CONFIG.STABLE_CHECKS_REQUIRED && currentContent.length >= CONFIG.MIN_RESPONSE_LENGTH) {
-            KirovLogger.success(`Génération complète — stable ${stableCount} checks, ${currentContent.length} chars`);
-            return currentContent;
+        if (!contentChanged && currentLen > 0) {
+            stableCount++;
+        } else {
+            stableCount = 0;
         }
+
+        // Détecter la fin de génération (bouton Stop disparaît)
+        if (generating) {
+            generationEndedAt = null; // encore en cours
+        } else if (generationEndedAt === null && currentLen > 0) {
+            generationEndedAt = Date.now();
+        }
+
+        previousContent = currentContent;
+        previousLen = currentLen;
+
+        // Log détaillé
+        const fileCount = countFilesInJson(currentContent);
+        const jsonOk = isJsonBalanced(currentContent);
+        KirovLogger.info(
+            `Check #${checkNum}: gen=${generating} len=${currentLen} stable=${stableCount}/${CONFIG.STABLE_CHECKS_REQUIRED} ` +
+            `files=${fileCount} jsonBalanced=${jsonOk}`
+        );
+
+        // ── Garde-fou 1: Pas de capture si encore en génération ──
+        if (generating) continue;
+
+        // ── Garde-fou 2: Cooldown post-génération ──
+        // Attendre au moins 5s après la fin de génération (DeepSeek peut finir d'écrire)
+        if (generationEndedAt && (Date.now() - generationEndedAt) < CONFIG.POST_GENERATION_COOLDOWN) {
+            KirovLogger.info(`Cooldown post-génération (${Math.floor((Date.now() - generationEndedAt) / 1000)}s/${CONFIG.POST_GENERATION_COOLDOWN / 1000}s)`);
+            continue;
+        }
+
+        // ── Garde-fou 3: Longueur minimale ──
+        if (currentLen < CONFIG.MIN_RESPONSE_LENGTH) {
+            KirovLogger.warn(`Réponse trop courte (${currentLen} < ${CONFIG.MIN_RESPONSE_LENGTH}) — attente...`);
+            continue;
+        }
+
+        // ── Garde-fou 4: Stabilité (3 checks identiques = 9s) ──
+        if (stableCount < CONFIG.STABLE_CHECKS_REQUIRED) {
+            continue;
+        }
+
+        // ── Garde-fou 5: JSON équilibré (si la réponse contient du JSON) ──
+        if (currentContent.includes("{") && !jsonOk) {
+            KirovLogger.warn("JSON non équilibré — DeepSeek n'a pas fini d'écrire le JSON");
+            continue;
+        }
+
+        // ── TOUS LES GARDE-FOUS PASSÉS → Capture ! ──
+        KirovLogger.success(
+            `Génération complète — stable ${stableCount} checks, ${currentLen} chars, ${fileCount} fichiers, JSON ${jsonOk ? "équilibré" : "N/A"}`
+        );
+        return currentContent;
     }
-    if (previousContent.length >= CONFIG.MIN_RESPONSE_LENGTH) {
-        KirovLogger.warn(`Timeout — capture partielle (${previousContent.length} chars)`);
+
+    // ── Timeout ──
+    if (previousLen >= CONFIG.MIN_RESPONSE_LENGTH) {
+        const fileCount = countFilesInJson(previousContent);
+        KirovLogger.warn(`Timeout — capture partielle (${previousLen} chars, ${fileCount} fichiers)`);
         return previousContent;
     }
+
+    KirovLogger.error("Timeout — aucune réponse capturée");
     return null;
 }
 
@@ -833,7 +938,7 @@ window.addEventListener("beforeunload", (e) => {
 //  Start
 // ═══════════════════════════════════════════════════════════════════════════
 
-KirovLogger.info("KIROV3 Vercel Edition v14.3 loaded — Constitution G50+ + GitHub + Refresh Protection");
+KirovLogger.info("KIROV3 Vercel Edition v14.4 loaded — Smart Capture Strict (5 garde-fous)");
 KirovLogger.info(`Serveur: ${CONFIG.SERVER_URL}`);
 KirovLogger.info(`Config: poll=${CONFIG.POLLING_INTERVAL}ms, MAX_HEALING_CYCLES=${CONFIG.MAX_HEALING_CYCLES} (serveur fait le healing)`);
 console.log("%c🏛️ Constitution Diamond G50+ côté extension:", "color: #f59e0b; font-weight: bold");
