@@ -41,42 +41,28 @@
             margin-bottom: 20px;
         }
 
-        .phase-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
-            margin-bottom: 25px;
-        }
-
-        .phase-led {
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 2px;
-            position: relative;
-        }
-
-        .phase-led.active {
-            background: #00f2ff;
-            box-shadow: 0 0 10px #00f2ff;
-        }
-
-        .phase-label {
-            font-size: 8px;
-            margin-top: 4px;
-            color: rgba(255,255,255,0.3);
-        }
-
-        .status-box {
+        .status {
             background: rgba(0,0,0,0.3);
             border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            font-size: 12px;
-            min-height: 40px;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
             border: 1px dashed rgba(0,242,255,0.1);
+            transition: all 0.3s;
+        }
+
+        .status.online { color: #4ade80; border-color: rgba(74, 222, 128, 0.3); }
+        .status.offline { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
+
+        #phase-info {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+            min-height: 15px;
         }
 
         button {
@@ -92,11 +78,23 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             font-family: 'Outfit', sans-serif;
+            margin-bottom: 8px;
         }
 
         button:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(0,242,255,0.4);
+        }
+
+        #check-btn {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #reset-btn {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+        }
+        #reset-btn:hover {
+            box-shadow: 0 5px 20px rgba(239, 68, 68, 0.4);
         }
 
         .footer {
@@ -106,60 +104,26 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-
-        .pulse {
-            animation: pulse-animation 2s infinite;
-        }
-
-        @keyframes pulse-animation {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
     </style>
 </head>
 <body>
     <div class="cockpit">
-        <h1>Global KIROV3</h1>
-        <div class="version">Elite Forge Industrial v13.0</div>
+        <h1>ELITE FORGE — KIROV3</h1>
+        <div class="version">Serveur: forge-kohl-kappa.vercel.app</div>
         
-        <div class="phase-grid">
-            <div class="phase-container">
-                <div id="led-1" class="phase-led"></div>
-                <div class="phase-label">P1</div>
-            </div>
-            <div class="phase-container">
-                <div id="led-2" class="phase-led"></div>
-                <div class="phase-label">P2</div>
-            </div>
-            <div class="phase-container">
-                <div id="led-3" class="phase-led"></div>
-                <div class="phase-label">P3</div>
-            </div>
-            <div class="phase-container">
-                <div id="led-4" class="phase-led"></div>
-                <div class="phase-label">P4</div>
-            </div>
-            <div class="phase-container">
-                <div id="led-5" class="phase-led"></div>
-                <div class="phase-label">P5</div>
-            </div>
-            <div class="phase-container">
-                <div id="led-6" class="phase-led"></div>
-                <div class="phase-label">P6</div>
-            </div>
+        <div id="status" class="status offline">
+            Vérification...
         </div>
 
-        <div class="status-box" id="status-text">
-            Initialisation du Bridge...
+        <div id="phase-info">
+            Chargement de la mission...
         </div>
 
-        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-            <button id="oneshot-btn" style="flex: 1; font-size: 10px; padding: 10px 5px;">One-Shot</button>
-            <button id="p6-btn" style="flex: 1; font-size: 10px; padding: 10px 5px; background: linear-gradient(135deg, #ff00ff, #8a2be2);">P6 (Flat Arch)</button>
-        </div>
+        <button id="start-btn">🚀 Lancer Mission</button>
+        <button id="check-btn">🔄 Actualiser Statut</button>
+        <button id="reset-btn">🗑️ Réinitialiser</button>
 
-        <div class="footer pulse">Grade Diamond Active</div>
+        <div class="footer">Vercel Edition V14.1 Auto-Healing</div>
     </div>
 
     <script src="popup.js"></script>

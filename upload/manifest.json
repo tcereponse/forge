@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "KIROV3 Vercel Edition",
-  "version": "13.0",
-  "description": "Extension Maîtresse : Cycle complet P1-P5 One-Shot — Grade Diamond",
+  "name": "ELITE FORGE — KIROV3 Vercel",
+  "version": "14.1",
+  "description": "Extension avec Auto-Suture et Validation Constitution",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
     "*://*.deepseek.com/*",
+    "*://chat.deepseek.com/*",
     "*://chatgpt.com/*",
     "*://gemini.google.com/*",
     "https://forge-kohl-kappa.vercel.app/*"
@@ -19,7 +20,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.deepseek.com/*", 
+        "*://*.deepseek.com/*",
         "*://chat.deepseek.com/*",
         "*://chatgpt.com/*",
         "*://gemini.google.com/*"
