@@ -219,10 +219,47 @@ export async function POST(
       180000
     );
 
-    const installLog = installResult.output;
-    const installOk = installResult.code === 0;
+    let installLog = installResult.output;
+    let installOk = installResult.code === 0;
 
     console.log(`[install-build] npm install exit code: ${installResult.code} (${Date.now() - startTime}ms)`);
+
+    // CRITICAL: verify vite was actually installed (npm can exit 0 but skip packages
+    // on Vercel due to /tmp space or peer dep issues)
+    const viteBinPath = path.join(projectDir, "node_modules", ".bin", "vite");
+    let viteInstalled = false;
+    try {
+      await fs.access(viteBinPath);
+      viteInstalled = true;
+    } catch {
+      viteInstalled = false;
+    }
+
+    if (!viteInstalled) {
+      console.log("[install-build] vite not in node_modules/.bin — retrying with explicit install...");
+      installLog += "\n⚠️ vite not found after npm install — retrying explicit...\n";
+      const retryResult = await runCommandSync(
+        "npm",
+        ["install", "vite@^5.4.0", "@vitejs/plugin-react@^4.3.1", "typescript@^5.5.4", "--no-fund", "--no-audit", "--legacy-peer-deps", "--save-dev"],
+        projectDir,
+        120000
+      );
+      installLog += retryResult.output;
+      // Re-check
+      try {
+        await fs.access(viteBinPath);
+        viteInstalled = true;
+        installOk = true;
+      } catch {
+        viteInstalled = false;
+        installOk = false;
+      }
+    }
+
+    if (!viteInstalled) {
+      installOk = false;
+      installLog += "\n❌ vite still not installed after retry\n";
+    }
 
     await db.project.update({
       where: { id },
@@ -234,7 +271,7 @@ export async function POST(
     if (!installOk) {
       return NextResponse.json({
         success: false,
-        error: "npm install a échoué",
+        error: "npm install a échoué (vite non installé)",
         installLog,
         installStatus: "failed",
       }, { status: 422 });
