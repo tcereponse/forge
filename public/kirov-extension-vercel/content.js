@@ -11,11 +11,11 @@
 
 const CONFIG = {
     SERVER_URL: "https://forge-kohl-kappa.vercel.app",
-    POLLING_INTERVAL: 3000,        // poll server every 3s
-    CAPTURE_CHECK_INTERVAL: 3000,  // check generation status every 3s
+    POLLING_INTERVAL: 2000,        // poll server every 2s (faster for Gold pipeline)
+    CAPTURE_CHECK_INTERVAL: 2000,  // check generation status every 2s
     CAPTURE_TIMEOUT: 180000,       // 3 min max to wait for response
-    MIN_RESPONSE_LENGTH: 200,      // min chars to accept a PRD/code response
-    STABLE_CHECKS_REQUIRED: 2,     // need 2 consecutive stable checks (6s) = done
+    MIN_RESPONSE_LENGTH: 100,      // min chars to accept a response (lowered for short JSON like architecture plan)
+    STABLE_CHECKS_REQUIRED: 2,     // need 2 consecutive stable checks (4s) = done
     DEBUG_MODE: true
 };
 

@@ -282,7 +282,7 @@ export const bridgeState = {
 
       // Poll until capturedContent is non-empty
       const start = Date.now();
-      const pollInterval = 3000;
+      const pollInterval = 2000;
 
       while (Date.now() - start < timeoutMs) {
         await new Promise((r) => setTimeout(r, pollInterval));

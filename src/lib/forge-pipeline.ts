@@ -152,7 +152,7 @@ async function callLLM(
   console.log(`[pipeline] ⚠️  Ouvre chat.deepseek.com dans Chrome avec l'extension KIROV3 active !`);
 
   const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 120000); // 120s timeout per pass
+  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 45000); // 45s timeout per pass (6 passes × 45s = 270s < 300s Vercel limit)
 
   if (bridgeResult.content && bridgeResult.content.length > 20) {
     console.log(`[pipeline] Bridge capture OK (${bridgeResult.content.length} chars)`);
