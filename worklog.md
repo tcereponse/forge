@@ -2006,3 +2006,26 @@ Stage Summary:
 - Flux: bouton Gold → GLM fail → bridge one-shot → extension injecte dans DeepSeek → capture → pipeline continue
 - 5 passes × 90s = ~7.5 min total
 - L'utilisateur doit avoir DeepSeek + extension KIROV3 ouverts en parallèle
+
+---
+Task ID: DIAGNOSE-WRONG-EXTENSION
+Agent: orchestrator (main)
+Task: Diagnostic — Gold Grade lancé mais rien capturé dans onglet code source
+
+Work Log:
+- Analysé les logs utilisateur: tous les messages viennent de content.js:32 avec format [KIROV3] [INFO]
+- C'est l'ANCIENNE extension GLOBAL_KIROV3, PAS la v3 (qui utilise content.js:17 sans [INFO])
+- L'ancienne extension: détecte prompts + injecte dans DeepSeek ✓, mais ne capture PAS correctement
+- DeepSeek a bien généré le code (JSON avec 14 fichiers visible dans le paste utilisateur)
+- Mais l'ancienne extension a capturé 7147 chars = probablement le prompt lui-même (pas la réponse)
+- parseFiles() testé avec le format DeepSeek réel: 2 fichiers extraits ✓ (le parsing fonctionne)
+- Augmenté timeout one-shot: 90s → 120s pour les longues générations Gold
+- Ajouté capturedContent à /api/bridge/mission/status pour debug
+- Reset mission sur Vercel
+
+Stage Summary:
+- PROBLÈME ROOT CAUSE: utilisateur a l'ANCIENNE extension GLOBAL_KIROV3 chargée, pas la v3
+- L'ancienne ne capture pas correctement (sélecteurs obsolètes, pas de stabilité)
+- SOLUTION: utilisateur doit désinstaller l'ancienne + installer ONLY kirov-extension-vercel v3
+- v3 déployée sur Vercel, ZIP à jour disponible
+- Indicateur clé: [KIROV3] [INFO] = ancienne (MAUVAISE) | [KIROV3] sans [INFO] = v3 (BONNE)
