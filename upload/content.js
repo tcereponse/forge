@@ -8,11 +8,11 @@
 // 1. CONFIGURATION & CONSTANTES
 // ==========================================
 const CONFIG = {
-    SERVER_URL: "http://127.0.0.1:5005",
+    SERVER_URL: "https://forge-kohl-kappa.vercel.app",
     MAX_PAYLOAD_SIZE: 500 * 1024, // 500KB limite pour éviter les crash réseau
     POLLING_BASE_INTERVAL: 2500,
     MAX_RETRIES: 5,
-    VERSION: "G50-Senior",
+    VERSION: "Vercel-Edition",
     DEBUG_MODE: true
 };
 
@@ -148,7 +148,7 @@ class BridgeClient {
 
         try {
             const platformName = platform.config.host || 'fallback';
-            const res = await fetch(`${CONFIG.SERVER_URL}/v1/bridge/poll?platform=${platformName}`, {
+            const res = await fetch(`${CONFIG.SERVER_URL}/api/bridge/prompt?platform=${platformName}`, {
                 signal: this.currentAbortController.signal
             });
             
@@ -183,7 +183,7 @@ class BridgeClient {
         }
 
         try {
-            const res = await fetch(`${CONFIG.SERVER_URL}/v1/bridge/callback`, {
+            const res = await fetch(`${CONFIG.SERVER_URL}/api/bridge/code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: strPayload
@@ -213,7 +213,7 @@ class BridgeClient {
 
     async pollLogs() {
         try {
-            const res = await fetch(`${CONFIG.SERVER_URL}/v1/logs`);
+            const res = await fetch(`${CONFIG.SERVER_URL}/api/bridge/logs`);
             if (!res.ok) return;
             const data = await res.json();
             bus.emit('LOGS_SYNC', data.logs || []);

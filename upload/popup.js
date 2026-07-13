@@ -1,8 +1,8 @@
-const SERVER_URL = "http://127.0.0.1:5005";
+const SERVER_URL = "https://forge-kohl-kappa.vercel.app";
 
 async function updateUI() {
     try {
-        const res = await fetch(`${SERVER_URL}/v1/bridge/poll`);
+        const res = await fetch(`${SERVER_URL}/api/bridge/prompt`);
         const data = await res.json();
         const phase = data.phase_num || 1;
         
@@ -25,7 +25,7 @@ document.getElementById('oneshot-btn').addEventListener('click', async () => {
     if (!name) return;
 
     try {
-        await fetch(`${SERVER_URL}/v1/mission/start`, {
+        await fetch(`${SERVER_URL}/api/bridge/mission/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
