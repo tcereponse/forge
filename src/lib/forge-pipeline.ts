@@ -1,5 +1,5 @@
 // forge-pipeline.ts — Multi-pass generation pipeline with validation gates.
-import { ensureZaiConfig } from "@/lib/zai-config";
+import { glmChat } from "@/lib/glm-direct";
 //
 // Pipeline Gold Grade Industrial:
 //   Pass 1: Architecture  → folder structure + dependency map + routing map
@@ -15,7 +15,6 @@ import { ensureZaiConfig } from "@/lib/zai-config";
 //
 // If a gate fails, retry the pass with a corrective prompt (max 2 retries).
 
-import ZAI from "z-ai-web-dev-sdk";
 import type {
   ProjectConfig,
   GeneratedFile,
@@ -136,16 +135,11 @@ async function callLLM(
   userPrompt: string,
   signal?: AbortSignal
 ): Promise<string> {
-  await ensureZaiConfig();
-    const zai = await ZAI.create();
-  const completion = await zai.chat.completions.create({
-    messages: [
-      { role: "assistant", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    thinking: { type: "disabled" },
-  });
-  return completion.choices[0]?.message?.content ?? "";
+  const result = await glmChat([
+    { role: "assistant", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ]);
+  return result.content || "";
 }
 
 // ── Pass 1: Architecture ───────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureZaiConfig } from "@/lib/zai-config";
-import ZAI from "z-ai-web-dev-sdk";
+import { glmChat } from "@/lib/glm-direct";
 import { db } from "@/lib/db";
 import {
   type GeneratedFile,
@@ -264,21 +263,27 @@ Format JSON EXACT :
 
 Réponds MAINTENANT avec uniquement l'objet JSON.`;
 
-    await ensureZaiConfig();
-    const zai = await ZAI.create();
-    const codeCompletion = await zai.chat.completions.create({
-      messages: [
-        {
-          role: "assistant",
-          content:
-            "Tu es un générateur de composants React expert. Tu réponds UNIQUEMENT par du JSON valide, jamais de texte autour, jamais de markdown. Tu ne génères que du code de composants, jamais de fichiers de configuration.",
-        },
-        { role: "user", content: codePrompt },
-      ],
-      thinking: { type: "disabled" },
-    });
+    const codeResult = await glmChat([
+      {
+        role: "assistant",
+        content:
+          "Tu es un générateur de composants React expert. Tu réponds UNIQUEMENT par du JSON valide, jamais de texte autour, jamais de markdown. Tu ne génères que du code de composants, jamais de fichiers de configuration.",
+      },
+      { role: "user", content: codePrompt },
+    ]);
 
-    const rawResponse = codeCompletion.choices[0]?.message?.content ?? "";
+    if (codeResult.error) {
+      await db.project.update({
+        where: { id },
+        data: { status: "failed", prd },
+      });
+      return NextResponse.json(
+        { success: false, error: `Erreur GLM: ${codeResult.error}`, prd },
+        { status: 422 }
+      );
+    }
+
+    const rawResponse = codeResult.content;
     const parsed = extractJson(rawResponse) as GeneratedPayload | null;
 
     if (!parsed || !Array.isArray(parsed.files) || parsed.files.length === 0) {

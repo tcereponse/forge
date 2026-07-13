@@ -1,9 +1,8 @@
 // Arsenal PRD Grade Diamond
-import { ensureZaiConfig } from "@/lib/zai-config";
 // Generates 10 structured PRD documents that guide code generation
 // with surgical precision, separating concerns (Design, API, Security, etc.)
 
-import ZAI from "z-ai-web-dev-sdk";
+import { glmChat } from "@/lib/glm-direct";
 import type { ProjectConfig } from "./forge-config";
 
 export interface ArsenalDocument {
@@ -98,9 +97,6 @@ export async function generateArsenal(
   config: ProjectConfig,
   extensionDirective: string
 ): Promise<Arsenal> {
-  await ensureZaiConfig();
-    const zai = await ZAI.create();
-
   const docsList = ARSENAL_DOCS.map(
     (d, i) => `${i + 1}. ${d.filename}: ${d.prompt}`
   ).join("\n");
@@ -116,15 +112,16 @@ ${docsList}
 Réponds en JSON: {"documents":[{"id":"vision","name":"Vision Stratégique","filename":"Vision_Strategique.md","role":"...","content":"..."},...]}
 Génère les 10 documents. JSON uniquement.`;
 
-  const completion = await zai.chat.completions.create({
-    messages: [
-      { role: "assistant", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    thinking: { type: "disabled" },
-  });
+  const completion = await glmChat([
+    { role: "assistant", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ]);
 
-  const raw = completion.choices[0]?.message?.content ?? "";
+  if (completion.error) {
+    return { documents: [] };
+  }
+
+  const raw = completion.content;
 
   // Parse JSON (with fallback)
   let parsed: { documents?: ArsenalDocument[] } | null = null;
