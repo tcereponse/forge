@@ -2210,3 +2210,25 @@ Stage Summary:
 - Build devrait maintenant réussir: vite + typescript toujours installés
 - install plus rapide (~30s au lieu de 90s avec heavy devDeps)
 - Moins de risque de timeout/OOM sur Vercel
+
+---
+Task ID: FIX-VITE-BIN-DIRECT-CALL
+Agent: orchestrator (main)
+Task: Fix build — vite command not found malgré npm install exit 0
+
+Work Log:
+- Problème persistant: npm install exit 0 mais vite pas dans node_modules/.bin
+- Causes possibles: /tmp space limit (512MB), peer dep conflicts, npm silent failures
+- Fix 1: Vérification fs.access(node_modules/.bin/vite) après install
+- Fix 2: Retry explicit npm install vite @vitejs/plugin-react typescript --save-dev si manquant
+- Fix 3: Build utilise node_modules/.bin/vite directement (pas via npm run)
+- Fix 4: 3 fallback strategies: direct vite bin → npx vite → npm run build
+- Fix 5: Package.json encore plus slim (6 deps au lieu de 15)
+  - Retiré: @types/react, @types/react-dom, autoprefixer, postcss, clsx, tailwind-merge
+  - Gardé: react, react-dom, react-router-dom, zod, lucide-react, @vitejs/plugin-react, tailwindcss, typescript, vite
+- Commit b9c059a poussé, Vercel a déployé
+
+Stage Summary:
+- Build devrait maintenant réussir avec vite bin direct
+- Moins de risque d'échec install (package.json minimal)
+- 3 fallbacks si vite bin échoue encore
