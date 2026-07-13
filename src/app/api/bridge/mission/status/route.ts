@@ -11,8 +11,9 @@ export async function GET() {
   if (!m) return withCORS(NextResponse.json({ status: "idle", phase: 0 }));
   return withCORS(NextResponse.json({
     status: m.status, phase: m.phase,
-    phaseName: m.phase === 1 ? "PRD Generation" : m.phase === 2 ? "Code Generation" : m.phase === 5 ? "Done" : "Unknown",
+    phaseName: m.phase === 1 ? "PRD Generation" : m.phase === 2 ? "Code Generation" : m.phase === 5 ? "Done" : m.phase === 10 ? "One-Shot (Gold)" : "Unknown",
     prd: m.prd, files: m.files, fileCount: m.files.length,
+    capturedContent: m.capturedContent,
     capturedLength: m.capturedContent.length, missionId: m.id, name: m.name, projectId: m.projectId,
   }));
 }
