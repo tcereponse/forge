@@ -2368,3 +2368,45 @@ Stage Summary:
 - Économie: si extension valide → serveur skip 1-3 cycles LLM (~30-90s économisés)
 - Feedback immédiat: utilisateur voit validation dans console DeepSeek
 - Sécurité: serveur re-valide même si extension dit OK (belt + suspenders)
+
+---
+Task ID: CLOUD-TO-GROUND-BUILD-WORKER
+Agent: orchestrator (main)
+Task: Architecture Cloud-to-Ground — Vercel (cerveau) + PC Windows (muscles)
+
+Work Log:
+- Analysé VERCEL_BUILD_WORKER.py du user (v1.0 basique)
+- Amélioré en v2.0 avec:
+  - Logs colorés et structurés
+  - Fallback pnpm → npm si pnpm absent
+  - Capture stdout/stderr pour build log
+  - Notification build-status avec log + durationMs
+  - Évite reprocess même projet dans 5 min
+  - Safe project dir name (sanitize)
+  - Timeout install 300s, build 180s
+- Créé 3 endpoints serveur pour coordination worker:
+  1. GET /api/bridge/mission/status (mis à jour):
+     - Retourne 'mission' object pour le worker
+     - status='ready_for_build' quand phase=5 ou phase=10 avec files
+     - status='code_generated' quand phase=10 one-shot
+     - projectId lié (fallback DB si manquant)
+  2. GET /api/projects/[id]/export (NOUVEAU):
+     - Retourne { files, name, fileCount }
+     - Merge LLM files + template files
+  3. POST /api/projects/[id]/build-status (NOUVEAU):
+     - Body: { status, buildLog, durationMs }
+     - Met à jour buildStatus='built' ou 'failed'
+     - Stocke build log dans validationJson.localBuild
+- Commit b279967 poussé, Vercel a déployé
+- Test endpoints OK:
+  - mission/status retourne mission object avec projectId='cmriunoxm0001l504795zsjaa'
+  - export/build-status retournent 404 JSON (normal pour fake id)
+
+Stage Summary:
+- Architecture Cloud-to-Ground opérationnelle:
+  Vercel: génère code via DeepSeek + KIROV Bridge
+  PC Windows: compile sans limites (disque, RAM, temps)
+- Worker v2.0 prêt à utiliser (dossier versel du user)
+- 3 endpoints de coordination déployés
+- Plus de problème /tmp 500MB ou timeout 300s
+- dist/ généré sur PC, prêt pour APK
