@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureZaiConfig } from "@/lib/zai-config";
 import ZAI from "z-ai-web-dev-sdk";
 
 export const runtime = "nodejs";
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await ensureZaiConfig();
     const zai = await ZAI.create();
     const raw = (await zai.functions.invoke("page_reader", {
       url,

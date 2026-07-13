@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureZaiConfig } from "@/lib/zai-config";
 import ZAI from "z-ai-web-dev-sdk";
 
 export const runtime = "nodejs";
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     const num = Math.min(Math.max(body.num ?? 6, 1), 10);
 
+    await ensureZaiConfig();
     const zai = await ZAI.create();
     const results = (await zai.functions.invoke("web_search", {
       query,

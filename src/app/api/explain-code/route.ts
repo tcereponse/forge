@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureZaiConfig } from "@/lib/zai-config";
 import ZAI from "z-ai-web-dev-sdk";
 import { getKirovFiles } from "@/lib/kirov-data";
 
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
         ? `${file.content.slice(0, 16000)}\n\n// ... [tronqué, ${file.content.length} caractères au total]`
         : file.content;
 
+    await ensureZaiConfig();
     const zai = await ZAI.create();
     const completion = await zai.chat.completions.create({
       messages: [

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureZaiConfig } from "@/lib/zai-config";
 import ZAI from "z-ai-web-dev-sdk";
 
 export const runtime = "nodejs";
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
     // Keep conversation manageable: system + last 10 messages
     const recentMessages = messages.slice(-10);
 
+    await ensureZaiConfig();
     const zai = await ZAI.create();
     const completion = await zai.chat.completions.create({
       messages: [

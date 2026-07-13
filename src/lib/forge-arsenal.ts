@@ -1,4 +1,5 @@
 // Arsenal PRD Grade Diamond
+import { ensureZaiConfig } from "@/lib/zai-config";
 // Generates 10 structured PRD documents that guide code generation
 // with surgical precision, separating concerns (Design, API, Security, etc.)
 
@@ -97,7 +98,8 @@ export async function generateArsenal(
   config: ProjectConfig,
   extensionDirective: string
 ): Promise<Arsenal> {
-  const zai = await ZAI.create();
+  await ensureZaiConfig();
+    const zai = await ZAI.create();
 
   const docsList = ARSENAL_DOCS.map(
     (d, i) => `${i + 1}. ${d.filename}: ${d.prompt}`

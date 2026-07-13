@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureZaiConfig } from "@/lib/zai-config";
 import ZAI from "z-ai-web-dev-sdk";
 import { db } from "@/lib/db";
 import { type GeneratedFile, type ProjectConfig, buildStackDirective, inferLanguage } from "@/lib/forge-config";
@@ -111,6 +112,7 @@ Génère les fichiers MIS À JOUR qui préservent le code existant et ajoutent l
 Si tu importes un composant, tu DOIS le créer.
 Format JSON: {"files":[{"path":"...","content":"...","language":"..."}]}`;
 
+    await ensureZaiConfig();
     const zai = await ZAI.create();
     const completion = await zai.chat.completions.create({
       messages: [

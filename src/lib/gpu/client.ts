@@ -1,4 +1,5 @@
 // GPU Service Client
+import { ensureZaiConfig } from "@/lib/zai-config";
 // Communicates with the local Python TensorRT-LLM service (Phase 3)
 // Falls back to z-ai-web-dev-sdk if the GPU service is unavailable.
 
@@ -197,6 +198,7 @@ export class GpuServiceClient implements IPrdGenerator, ICodeGenerator, IRepairE
     fallbackReason: string
   ): Promise<PrdGenerateResponse> {
     const start = Date.now();
+    await ensureZaiConfig();
     const zai = await ZAI.create();
 
     // Use the existing arsenal generation logic

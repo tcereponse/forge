@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureZaiConfig } from "@/lib/zai-config";
 import ZAI from "z-ai-web-dev-sdk";
 import { db } from "@/lib/db";
 import {
@@ -263,6 +264,7 @@ Format JSON EXACT :
 
 Réponds MAINTENANT avec uniquement l'objet JSON.`;
 
+    await ensureZaiConfig();
     const zai = await ZAI.create();
     const codeCompletion = await zai.chat.completions.create({
       messages: [
