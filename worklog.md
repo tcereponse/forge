@@ -2114,3 +2114,33 @@ Stage Summary:
 - Extension v3 capture correctement (stabilité + bouton Stop)
 - parseFiles() gère les markdown fences de DeepSeek
 - Flux complet: Forge → /gold/start → 5× /gold/next → 109 fichiers dans Code source
+
+---
+Task ID: FIX-SYNC-INSTALL-BUILD-VERCEL
+Agent: orchestrator (main)
+Task: L'installation npm ne se lance pas — "Logs npm install" reste à "En attente…"
+
+Work Log:
+- Diagnostic: sur Vercel serverless, runInstall() fire-and-forget est tué quand la requête HTTP se termine
+- Le statut en mémoire (getReconciledStatus) est perdu entre instances Vercel
+- Logs npm install/build永远 "En attente…" car le process n'a jamais tourné
+- Solution: install+build SYNCHRONE dans une seule requête HTTP
+- Nouvel endpoint POST /api/projects/[id]/install-build (maxDuration 300s):
+  1. writeProjectFiles → /tmp/react-forge-workspaces/{id}/
+  2. npm install --legacy-peer-deps (max 180s, spawn synchrone)
+  3. npm run build (max 90s, spawn synchrone)
+  4. Retourne { installLog, buildLog, installStatus, buildStatus }
+- gold/next finalisation: runInstall() → install+build synchrone inline
+  maxDuration 120s → 300s pour la passe de finalisation
+- use-process-status hook: triggerInstall() appelle /install-build
+  Affiche les logs retournés directement (pas de polling nécessaire)
+  Sur timeout: "Erreur réseau ou timeout (300s max sur Vercel)"
+- preview-panel: toast "Installation + Build synchrones (2-4 min)"
+- vercel.json: install-build route maxDuration 300s
+- Commit d969ac2 poussé, Vercel a déployé (endpoint testé HTTP 404 JSON = OK)
+
+Stage Summary:
+- Install+build maintenant synchrone sur Vercel (plus de fire-and-forget)
+- Logs visibles directement depuis la réponse HTTP
+- Le bouton "Installer" dans PreviewPanel déclenche install+build en une fois
+- Timeout max: 300s (npm install 180s + npm build 90s + overhead)
