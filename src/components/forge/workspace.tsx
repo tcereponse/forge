@@ -171,6 +171,12 @@ export function Workspace() {
               <MetaPill icon={Code2} label="Lang" value={p.typescript ? "TS" : "JS"} />
               <MetaPill icon={Hash} label="Style" value={p.styling} />
               <MetaPill icon={Hash} label="Fichiers" value={String(p.fileCount)} />
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 text-[10px] text-cyan-300/80"
+                title={p.id}
+              >
+                ID: {p.id.slice(0, 12)}...
+              </span>
               <MetaPill
                 icon={Calendar}
                 label="Créé"

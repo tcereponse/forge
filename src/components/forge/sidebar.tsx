@@ -184,6 +184,9 @@ export function Sidebar() {
                         <p className="truncate text-[11px] text-slate-500">
                           {p.stack} · {p.fileCount} fichiers
                         </p>
+                        <p className="truncate font-mono text-[10px] text-cyan-600/70" title={p.id}>
+                          ID: {p.id.slice(0, 12)}...
+                        </p>
                         <p className="text-[10px] text-slate-600">
                           {timeAgo(p.createdAt)}
                         </p>
