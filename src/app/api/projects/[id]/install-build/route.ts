@@ -164,8 +164,49 @@ export async function POST(
     const WORKSPACES_DIR = path.join(os.tmpdir(), "react-forge-workspaces");
     const projectDir = path.join(WORKSPACES_DIR, id);
 
+    // 1b. Replace package.json with a SLIM version for reliable Vercel builds.
+    // The Gold template includes heavy devDeps (husky, commitlint, eslint, vitest,
+    // testing-library, coverage-v8) that cause peer dep conflicts and /tmp space
+    // issues on Vercel serverless. We keep only what's needed for `vite build`.
+    console.log("[install-build] Writing slim package.json for Vercel build...");
+    const slimPkg = {
+      name: (project.name || "app").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+      private: true,
+      version: "0.1.0",
+      type: "module",
+      scripts: {
+        dev: "vite",
+        build: "vite build",
+        preview: "vite preview",
+      },
+      dependencies: {
+        react: "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-router-dom": "^6.26.0",
+        zod: "^3.23.8",
+        "lucide-react": "^0.439.0",
+        clsx: "^2.1.1",
+        "tailwind-merge": "^2.5.2",
+      },
+      devDependencies: {
+        "@types/react": "^18.3.5",
+        "@types/react-dom": "^18.3.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        autoprefixer: "^10.4.20",
+        postcss: "^8.4.41",
+        tailwindcss: "^3.4.10",
+        typescript: "^5.5.4",
+        vite: "^5.4.0",
+      },
+    };
+    await fs.writeFile(
+      path.join(projectDir, "package.json"),
+      JSON.stringify(slimPkg, null, 2),
+      "utf-8"
+    );
+
     // 2. npm install (max 180s)
-    console.log("[install-build] Running npm install...");
+    console.log("[install-build] Running npm install (slim deps)...");
     await db.project.update({
       where: { id },
       data: { installStatus: "installing" },
