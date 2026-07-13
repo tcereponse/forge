@@ -243,6 +243,88 @@ export const bridgeState = {
     };
   },
 
+  /**
+   * Synchronous one-shot generation via DeepSeek (KIROV Bridge).
+   *
+   * This is used by the Gold pipeline as a fallback when GLM fails.
+   * It works like glmChat() but routes the prompt through the KIROV3 extension
+   * (which injects it into DeepSeek chat and captures the response).
+   *
+   * Flow:
+   *   1. Reset any existing mission
+   *   2. Create a "oneshot" mission with the given prompt as currentPrompt
+   *   3. Poll the mission until capturedContent is non-empty (timeout 4min)
+   *   4. Return the captured content
+   *
+   * IMPORTANT: This requires the KIROV3 extension to be active in Chrome
+   * with DeepSeek tab open. If no extension polls within 4min, returns error.
+   */
+  runOneShot: async (prompt: string, timeoutMs = 240000): Promise<{ content: string; error?: string }> => {
+    try {
+      // Reset + create a one-shot mission (phase 10 = oneshot, no phase transition)
+      await db.bridgeState.deleteMany({});
+      const missionId = `oneshot_${Date.now()}`;
+      await db.bridgeState.create({
+        data: {
+          missionId,
+          name: "oneshot",
+          prompt: "",
+          stack: "react-vite",
+          phase: 10, // special phase: one-shot mode
+          status: "prompt",
+          currentPrompt: prompt,
+          capturedContent: "",
+          prd: "",
+          filesJson: "[]",
+          projectId: null,
+        },
+      });
+
+      // Poll until capturedContent is non-empty
+      const start = Date.now();
+      const pollInterval = 3000;
+
+      while (Date.now() - start < timeoutMs) {
+        await new Promise((r) => setTimeout(r, pollInterval));
+
+        const row = await db.bridgeState.findFirst({ orderBy: { updatedAt: "desc" } });
+        if (!row) break;
+
+        if (row.capturedContent && row.capturedContent.length > 50) {
+          // Got a response — clear the prompt and return content
+          await db.bridgeState.update({
+            where: { id: row.id },
+            data: { currentPrompt: null, status: "done" },
+          });
+          return { content: row.capturedContent };
+        }
+      }
+
+      return { content: "", error: "Bridge one-shot timeout — extension KIROV3 inactive ou DeepSeek fermé" };
+    } catch (e) {
+      return { content: "", error: e instanceof Error ? e.message : "Erreur bridge one-shot" };
+    }
+  },
+
+  /**
+   * Submit a one-shot capture (called by /api/bridge/code when phase=10).
+   * Unlike normal missions, one-shot mode just stores the content and clears the prompt.
+   */
+  submitOneShotCapture: async (content: string): Promise<{ success: boolean }> => {
+    const row = await db.bridgeState.findFirst({ orderBy: { updatedAt: "desc" } });
+    if (!row || row.phase !== 10) return { success: false };
+
+    await db.bridgeState.update({
+      where: { id: row.id },
+      data: {
+        capturedContent: content,
+        currentPrompt: null,
+        status: "done",
+      },
+    });
+    return { success: true };
+  },
+
   reset: async (): Promise<void> => {
     await db.bridgeState.deleteMany({});
   },

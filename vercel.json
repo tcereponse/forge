@@ -6,10 +6,10 @@
   "installCommand": "bun install",
   "functions": {
     "src/app/api/projects/[id]/generate/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/projects/[id]/generate-gold/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/build-apk/route.ts": {
       "maxDuration": 60

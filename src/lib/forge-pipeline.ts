@@ -1,5 +1,6 @@
 // forge-pipeline.ts — Multi-pass generation pipeline with validation gates.
 import { glmChat } from "@/lib/glm-direct";
+import { bridgeState } from "@/lib/bridge-state";
 //
 // Pipeline Gold Grade Industrial:
 //   Pass 1: Architecture  → folder structure + dependency map + routing map
@@ -135,11 +136,31 @@ async function callLLM(
   userPrompt: string,
   signal?: AbortSignal
 ): Promise<string> {
+  // Strategy 1: Try GLM directly (fastest, no extension needed)
   const result = await glmChat([
     { role: "assistant", content: systemPrompt },
     { role: "user", content: userPrompt },
   ]);
-  return result.content || "";
+
+  if (result.content && result.content.length > 20) {
+    return result.content;
+  }
+
+  // Strategy 2: Fallback to KIROV Bridge (DeepSeek via extension)
+  // This is used when GLM fails (e.g. on Vercel serverless where internal API is blocked)
+  console.log(`[pipeline] GLM failed (${result.error || "empty"}), falling back to KIROV Bridge (DeepSeek)...`);
+  console.log(`[pipeline] ⚠️  Ouvre chat.deepseek.com dans Chrome avec l'extension KIROV3 active !`);
+
+  const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
+  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 90000); // 90s timeout per pass
+
+  if (bridgeResult.content && bridgeResult.content.length > 20) {
+    console.log(`[pipeline] Bridge capture OK (${bridgeResult.content.length} chars)`);
+    return bridgeResult.content;
+  }
+
+  console.error(`[pipeline] Bridge also failed: ${bridgeResult.error}`);
+  return "";
 }
 
 // ── Pass 1: Architecture ───────────────────────────────────────────────────
