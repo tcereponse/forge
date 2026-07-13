@@ -267,8 +267,8 @@ export function Workspace() {
         </div>
       )}
 
-      {/* Ready state — tabs + content */}
-      {isReady && (
+      {/* Ready or Failed state — show tabs (including KIROV Bridge) */}
+      {(isReady || isFailed) && (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Tabs */}
           <div className="flex items-center gap-1 border-b border-slate-800 px-4 sm:px-6">
