@@ -290,7 +290,8 @@ export const bridgeState = {
         const row = await db.bridgeState.findFirst({ orderBy: { updatedAt: "desc" } });
         if (!row) break;
 
-        if (row.capturedContent && row.capturedContent.length > 50) {
+        // Check if THIS mission got a capture (compare missionId)
+        if (row.missionId === missionId && row.capturedContent && row.capturedContent.length > 50) {
           // Got a response — clear the prompt and return content
           await db.bridgeState.update({
             where: { id: row.id },
