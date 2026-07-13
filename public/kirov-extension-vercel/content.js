@@ -670,11 +670,10 @@ async function pollForPrompt() {
                 KirovLogger.success("✅ Passe Gold capturée + validée");
             }
 
-            // 7. NOUVEAU v14.2: Push GitHub pour build APK automatique
-            //    Seulement si c'est le code final (phase 5 = code generation done)
-            //    ou si on a capturé des fichiers JSON complets en one-shot
-            const isFinalCode = (result && (result.phase === 5 || (result.mode === "oneshot" && fixedFiles.length > 3)));
-            if (isFinalCode && fixedFiles.length > 0) {
+            // 7. Push GitHub SEULEMENT à la fin de la mission (phase 5 = code generation done)
+            //    PAS en mode one-shot (phase 10) — c'est une passe intermédiaire du pipeline Gold
+            const isFinalCode = (result && result.phase === 5 && fixedFiles.length > 0);
+            if (isFinalCode) {
                 KirovLogger.info(`🚀 Push GitHub de ${fixedFiles.length} fichiers pour build APK...`);
                 const ghResult = await pushToGitHub(fixedFiles, currentMissionId || "forge-project");
                 if (ghResult.success) {

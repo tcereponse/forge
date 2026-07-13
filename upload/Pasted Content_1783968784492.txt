@@ -1,0 +1,854 @@
+content.js:72 [KIROV3] KIROV3 Vercel Edition v14.3 loaded — Constitution G50+ + GitHub + Refresh Protection
+content.js:72 [KIROV3] Serveur: https://forge-kohl-kappa.vercel.app
+content.js:72 [KIROV3] Config: poll=2000ms, MAX_HEALING_CYCLES=0 (serveur fait le healing)
+content.js:840 🏛️ Constitution Diamond G50+ côté extension:
+content.js:841   ✅ SILENCE_ABSOLU (injection prompt)
+content.js:842   ✅ applyKnownFixes (corrections sûres)
+content.js:843   ✅ validateConstitution (détection + rapport)
+content.js:844   ❌ autoSuture locale DÉSACTIVÉE (le serveur le fait)
+content.js:845   🔒 Protection refresh activée (préserve le contexte DeepSeek)
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/d6e06862-4986-49fc-b8e6-22f1f1625438:1
+(anonymous) @ blob:https://chat.deepseek.com/d6e06862-4986-49fc-b8e6-22f1f1625438:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+oz @ default-vendors.ac254d44f5.js:1
+uU @ default-vendors.ac254d44f5.js:1
+uC @ default-vendors.ac254d44f5.js:1
+r6 @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uz @ default-vendors.ac254d44f5.js:1
+uA @ default-vendors.ac254d44f5.js:1
+A @ default-vendors.ac254d44f5.js:1
+M @ default-vendors.ac254d44f5.js:1
+T.<computed> @ default-vendors.ac254d44f5.js:1
+R @ default-vendors.ac254d44f5.js:1
+M @ default-vendors.ac254d44f5.js:1
+postMessage
+setImmediate @ default-vendors.ac254d44f5.js:1
+u @ default-vendors.ac254d44f5.js:1
+L @ default-vendors.ac254d44f5.js:1
+t.unstable_scheduleCallback @ default-vendors.ac254d44f5.js:1
+uk @ default-vendors.ac254d44f5.js:1
+uE @ default-vendors.ac254d44f5.js:1
+u9 @ default-vendors.ac254d44f5.js:1
+sr.render.sn.render @ default-vendors.ac254d44f5.js:1
+ez @ main.9245f67c01.js:1
+await in ez
+93247 @ main.9245f67c01.js:1
+h @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+h.O @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/ae3dcce3-3df5-436e-aa49-4fb30f8ca5ef:1
+(anonymous) @ blob:https://chat.deepseek.com/ae3dcce3-3df5-436e-aa49-4fb30f8ca5ef:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+oz @ default-vendors.ac254d44f5.js:1
+uU @ default-vendors.ac254d44f5.js:1
+uC @ default-vendors.ac254d44f5.js:1
+r6 @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uz @ default-vendors.ac254d44f5.js:1
+uA @ default-vendors.ac254d44f5.js:1
+A @ default-vendors.ac254d44f5.js:1
+M @ default-vendors.ac254d44f5.js:1
+T.<computed> @ default-vendors.ac254d44f5.js:1
+R @ default-vendors.ac254d44f5.js:1
+M @ default-vendors.ac254d44f5.js:1
+postMessage
+setImmediate @ default-vendors.ac254d44f5.js:1
+u @ default-vendors.ac254d44f5.js:1
+L @ default-vendors.ac254d44f5.js:1
+t.unstable_scheduleCallback @ default-vendors.ac254d44f5.js:1
+uk @ default-vendors.ac254d44f5.js:1
+uE @ default-vendors.ac254d44f5.js:1
+u9 @ default-vendors.ac254d44f5.js:1
+sr.render.sn.render @ default-vendors.ac254d44f5.js:1
+ez @ main.9245f67c01.js:1
+await in ez
+93247 @ main.9245f67c01.js:1
+h @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+h.O @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+content.js:72 [KIROV3] Phase 10: Nouveau prompt (1828 chars) — injection
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+content.js:72 [KIROV3] Bouton Send cliqué
+content.js:72 [KIROV3] Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...
+content.js:72 [KIROV3] Attente démarrage génération...
+content.js:74 [KIROV3] Génération non démarrée — capture quand même
+warn @ content.js:74
+waitForFullResponse @ content.js:742
+await in waitForFullResponse
+pollForPrompt @ content.js:615
+setInterval
+(anonymous) @ content.js:847
+content.js:72 [KIROV3] Check #1: generating=false len=1671 stable=0/2
+content.js:72 [KIROV3] Check #2: generating=false len=1671 stable=1/2
+content.js:72 [KIROV3] Check #3: generating=false len=1671 stable=2/2
+content.js:75 [KIROV3] Génération complète — stable 2 checks, 1671 chars
+content.js:72 [KIROV3] Réponse capturée (1671 chars) — validation Constitution G50+
+content.js:74 [KIROV3] Aucun fichier parsé — envoi brut au serveur
+warn @ content.js:74
+pollForPrompt @ content.js:624
+setInterval
+(anonymous) @ content.js:847
+content.js:72 [KIROV3] Serveur: {"success":true,"mode":"oneshot","phase":10}
+content.js:72 [KIROV3] Phase 10: Nouveau prompt (2537 chars) — injection
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+content.js:72 [KIROV3] Bouton Send cliqué
+content.js:72 [KIROV3] Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...
+content.js:72 [KIROV3] Attente démarrage génération...
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/79785181-16ea-46b1-bfee-9e4bef6be32e:1
+(anonymous) @ blob:https://chat.deepseek.com/79785181-16ea-46b1-bfee-9e4bef6be32e:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ 37627.ebf6d8f55d.js:1
+await in p
+v @ 37627.ebf6d8f55d.js:1
+await in v
+74038 @ 37627.ebf6d8f55d.js:1
+a @ 37627.ebf6d8f55d.js:1
+(anonymous) @ 37627.ebf6d8f55d.js:1
+a.O @ 37627.ebf6d8f55d.js:1
+a.x @ 37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ 37627.ebf6d8f55d.js:1
+(anonymous) @ 37627.ebf6d8f55d.js:1
+(anonymous) @ 37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/f41828fb-5d23-43f8-88d7-abe68698b6cc:1
+(anonymous) @ blob:https://chat.deepseek.com/f41828fb-5d23-43f8-88d7-abe68698b6cc:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+uZ @ main.9245f67c01.js:1
+getPowRes @ main.9245f67c01.js:1
+execute @ main.9245f67c01.js:1
+execute @ main.9245f67c01.js:1
+startCompletion @ main.9245f67c01.js:1
+onSubmit @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onClick @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+content.js:74 [KIROV3] Génération non démarrée — capture quand même
+warn @ content.js:74
+waitForFullResponse @ content.js:742
+await in waitForFullResponse
+pollForPrompt @ content.js:615
+setInterval
+(anonymous) @ content.js:847
+content.js:72 [KIROV3] Check #1: generating=false len=4090 stable=0/2
+content.js:72 [KIROV3] Check #2: generating=false len=4805 stable=0/2
+content.js:72 [KIROV3] Check #3: generating=false len=6102 stable=0/2
+content.js:72 [KIROV3] Check #4: generating=false len=6817 stable=0/2
+content.js:72 [KIROV3] Check #5: generating=false len=7480 stable=0/2
+content.js:72 [KIROV3] Check #6: generating=false len=8296 stable=0/2
+content.js:72 [KIROV3] Check #7: generating=false len=9066 stable=0/2
+content.js:72 [KIROV3] Check #8: generating=false len=9920 stable=0/2
+content.js:72 [KIROV3] Check #9: generating=false len=10705 stable=0/2
+content.js:72 [KIROV3] Check #10: generating=false len=11526 stable=0/2
+content.js:72 [KIROV3] Check #11: generating=false len=12019 stable=0/2
+content.js:72 [KIROV3] Check #12: generating=false len=13472 stable=0/2
+content.js:72 [KIROV3] Check #13: generating=false len=15161 stable=0/2
+content.js:72 [KIROV3] Check #14: generating=false len=15161 stable=1/2
+content.js:72 [KIROV3] Check #15: generating=false len=15161 stable=2/2
+content.js:75 [KIROV3] Génération complète — stable 2 checks, 15161 chars
+content.js:72 [KIROV3] Réponse capturée (15161 chars) — validation Constitution G50+
+content.js:639 [KIROV3-G50+] Validation: ❌ 3 critical, 0 errors
+content.js:641   [R1] index.html: index.html manquant
+content.js:641   [R2] vite.config.ts: vite.config.ts manquant
+content.js:641   [R3] package.json: package.json manquant
+content.js:72 [KIROV3] Rapport Constitution envoyé au serveur: ok=false, fixes=0
+content.js:72 [KIROV3] MAX_HEALING_CYCLES=0 — le serveur fera le healing
+content.js:72 [KIROV3] Serveur: {"success":true,"mode":"oneshot","phase":10}
+content.js:75 [KIROV3] ✅ Passe Gold capturée + validée
+content.js:72 [KIROV3] 🚀 Push GitHub de 11 fichiers pour build APK...
+content.js:72 [KIROV3] 📡 Push GitHub: 11 fichiers vers tcereponse/apk-builder...
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/.github/workflows/build-apk.yml?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:526  PUT https://api.github.com/repos/tcereponse/apk-builder/contents/.github/workflows/build-apk.yml 404 (Not Found)
+pushToGitHub @ content.js:526
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:74 [KIROV3]   ✗ .github/workflows/build-apk.yml: HTTP 404 Not Found
+warn @ content.js:74
+pushToGitHub @ content.js:554
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/types/index.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/types/api.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/types/quiz.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/types/user.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/types/common.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/features/editor/types.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/features/quiz/types.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/features/leaderboard/types.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/features/sharing/types.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/features/analytics/types.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:72 [KIROV3]   → 10/12 fichiers poussés...
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/features/timer/types.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+setInterval
+(anonymous) @ content.js:847
+content.js:72 [KIROV3] 📡 Push GitHub terminé: 11 OK, 1 échecs
+content.js:75 [KIROV3] 🎉 Code poussé sur GitHub: https://github.com/tcereponse/apk-builder
+content.js:75 [KIROV3] 📦 GitHub Actions va build l'APK: https://github.com/tcereponse/apk-builder/actions
+content.js:75 [KIROV3] 📱 APK en cours de build sur GitHub Actions...
+content.js:75 [KIROV3] 🔗 https://github.com/tcereponse/apk-builder/actions
+content.js:72 [KIROV3] Phase 10: Nouveau prompt (2152 chars) — injection
+content.js:72 [KIROV3] Bouton Send cliqué
+content.js:72 [KIROV3] Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...
+content.js:72 [KIROV3] Attente démarrage génération...
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+content.js:74 [KIROV3] Génération non démarrée — capture quand même
+warn @ content.js:74
+waitForFullResponse @ content.js:742
+await in waitForFullResponse
+pollForPrompt @ content.js:615
+setInterval
+(anonymous) @ content.js:847
+content.js:72 [KIROV3] Check #1: generating=false len=2113 stable=0/2
+content.js:72 [KIROV3] Check #2: generating=false len=2113 stable=1/2
+content.js:72 [KIROV3] Check #3: generating=false len=2113 stable=2/2
+content.js:75 [KIROV3] Génération complète — stable 2 checks, 2113 chars
+content.js:72 [KIROV3] Réponse capturée (2113 chars) — validation Constitution G50+
+content.js:74 [KIROV3] Aucun fichier parsé — envoi brut au serveur
+warn @ content.js:74
+pollForPrompt @ content.js:624
+setInterval
+(anonymous) @ content.js:847
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/16e78f9a-56d4-4c18-b06d-3b0f67810b01:1
+(anonymous) @ blob:https://chat.deepseek.com/16e78f9a-56d4-4c18-b06d-3b0f67810b01:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+content.js:72 [KIROV3] Serveur: {"success":true,"mode":"oneshot","phase":10}
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/7600be01-0421-4dc9-b67a-d3ab1ba69aa8:1
+(anonymous) @ blob:https://chat.deepseek.com/7600be01-0421-4dc9-b67a-d3ab1ba69aa8:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+content.js:72 [KIROV3] Phase 10: Nouveau prompt (2103 chars) — injection
+content.js:72 [KIROV3] Bouton Send cliqué
+content.js:72 [KIROV3] Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...
+content.js:72 [KIROV3] Attente démarrage génération...
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/d503f246-8d11-40f8-8980-504882feeda0:1
+(anonymous) @ blob:https://chat.deepseek.com/d503f246-8d11-40f8-8980-504882feeda0:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+focus @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+oz @ default-vendors.ac254d44f5.js:1
+uU @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uz @ default-vendors.ac254d44f5.js:1
+uC @ default-vendors.ac254d44f5.js:1
+r6 @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+setTimeout
+(anonymous) @ content.js:798
+sleep @ content.js:798
+injectPrompt @ content.js:717
+await in injectPrompt
+pollForPrompt @ content.js:606
+content.js:74 [KIROV3] Génération non démarrée — capture quand même
+warn @ content.js:74
+waitForFullResponse @ content.js:742
+await in waitForFullResponse
+pollForPrompt @ content.js:615
+content.js:72 [KIROV3] Check #1: generating=false len=24936 stable=0/2
+content.js:72 [KIROV3] Check #2: generating=false len=24936 stable=1/2
+content.js:72 [KIROV3] Check #3: generating=false len=24936 stable=2/2
+content.js:75 [KIROV3] Génération complète — stable 2 checks, 24936 chars
+content.js:72 [KIROV3] Réponse capturée (24936 chars) — validation Constitution G50+
+content.js:639 [KIROV3-G50+] Validation: ❌ 3 critical, 0 errors
+content.js:641   [R1] index.html: index.html manquant
+content.js:641   [R2] vite.config.ts: vite.config.ts manquant
+content.js:641   [R3] package.json: package.json manquant
+content.js:72 [KIROV3] Rapport Constitution envoyé au serveur: ok=false, fixes=0
+content.js:72 [KIROV3] MAX_HEALING_CYCLES=0 — le serveur fera le healing
+content.js:72 [KIROV3] Serveur: {"success":true,"mode":"oneshot","phase":10}
+content.js:75 [KIROV3] ✅ Passe Gold capturée + validée
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+content.js:72 [KIROV3] Phase 10: Nouveau prompt (1866 chars) — injection
+content.js:72 [KIROV3] Bouton Send cliqué
+content.js:72 [KIROV3] Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...
+content.js:72 [KIROV3] Attente démarrage génération...
+content.js:74 [KIROV3] Génération non démarrée — capture quand même
+warn @ content.js:74
+waitForFullResponse @ content.js:742
+await in waitForFullResponse
+pollForPrompt @ content.js:615
+content.js:72 [KIROV3] Check #1: generating=false len=1650 stable=0/2
+content.js:72 [KIROV3] Check #2: generating=false len=1650 stable=1/2
+content.js:72 [KIROV3] Check #3: generating=false len=1650 stable=2/2
+content.js:75 [KIROV3] Génération complète — stable 2 checks, 1650 chars
+content.js:72 [KIROV3] Réponse capturée (1650 chars) — validation Constitution G50+
+content.js:74 [KIROV3] Aucun fichier parsé — envoi brut au serveur
+warn @ content.js:74
+pollForPrompt @ content.js:624
+content.js:72 [KIROV3] Serveur: {"success":true,"mode":"oneshot","phase":10}
+content.js:72 [KIROV3] Phase 10: Nouveau prompt (14822 chars) — injection
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+content.js:72 [KIROV3] Bouton Send cliqué
+content.js:72 [KIROV3] Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...
+content.js:72 [KIROV3] Attente démarrage génération...
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/9bcf1718-9f32-44f5-93a7-df92a246c890:1
+(anonymous) @ blob:https://chat.deepseek.com/9bcf1718-9f32-44f5-93a7-df92a246c890:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+uZ @ main.9245f67c01.js:1
+getPowRes @ main.9245f67c01.js:1
+execute @ main.9245f67c01.js:1
+execute @ main.9245f67c01.js:1
+regenerateMessage @ main.9245f67c01.js:1
+w @ main.9245f67c01.js:1
+onClick @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+injectPrompt @ content.js:721
+await in injectPrompt
+pollForPrompt @ content.js:606
+content.js:74 [KIROV3] Génération non démarrée — capture quand même
+warn @ content.js:74
+waitForFullResponse @ content.js:742
+await in waitForFullResponse
+pollForPrompt @ content.js:615
+content.js:72 [KIROV3] Check #1: generating=false len=5918 stable=0/2
+content.js:72 [KIROV3] Check #2: generating=false len=6721 stable=0/2
+content.js:72 [KIROV3] Check #3: generating=false len=7543 stable=0/2
+content.js:72 [KIROV3] Check #4: generating=false len=8401 stable=0/2
+content.js:72 [KIROV3] Check #5: generating=false len=9225 stable=0/2
+content.js:72 [KIROV3] Check #6: generating=false len=10048 stable=0/2
+content.js:72 [KIROV3] Check #7: generating=false len=10990 stable=0/2
+content.js:72 [KIROV3] Check #8: generating=false len=11683 stable=0/2
+content.js:72 [KIROV3] Check #9: generating=false len=12588 stable=0/2
+content.js:72 [KIROV3] Check #10: generating=false len=13427 stable=0/2
+content.js:72 [KIROV3] Check #11: generating=false len=14246 stable=0/2
+content.js:72 [KIROV3] Check #12: generating=false len=15209 stable=0/2
+content.js:72 [KIROV3] Check #13: generating=false len=16186 stable=0/2
+content.js:72 [KIROV3] Check #14: generating=false len=17004 stable=0/2
+content.js:72 [KIROV3] Check #15: generating=false len=17699 stable=0/2
+content.js:72 [KIROV3] Check #16: generating=false len=18628 stable=0/2
+content.js:72 [KIROV3] Check #17: generating=false len=19628 stable=0/2
+content.js:72 [KIROV3] Check #18: generating=false len=20288 stable=0/2
+content.js:72 [KIROV3] Check #19: generating=false len=21244 stable=0/2
+content.js:72 [KIROV3] Check #20: generating=false len=21880 stable=0/2
+content.js:72 [KIROV3] Check #21: generating=false len=22577 stable=0/2
+content.js:72 [KIROV3] Check #22: generating=false len=23421 stable=0/2
+content.js:72 [KIROV3] Check #23: generating=false len=24134 stable=0/2
+content.js:72 [KIROV3] Check #24: generating=false len=24134 stable=1/2
+content.js:72 [KIROV3] Check #25: generating=false len=24134 stable=2/2
+content.js:75 [KIROV3] Génération complète — stable 2 checks, 24134 chars
+content.js:72 [KIROV3] Réponse capturée (24134 chars) — validation Constitution G50+
+content.js:639 [KIROV3-G50+] Validation: ❌ 2 critical, 0 errors
+content.js:641   [R1] index.html: index.html manquant
+content.js:641   [R3] package.json: package.json manquant
+content.js:72 [KIROV3] Rapport Constitution envoyé au serveur: ok=false, fixes=0
+content.js:72 [KIROV3] MAX_HEALING_CYCLES=0 — le serveur fera le healing
+content.js:72 [KIROV3] Serveur: {"success":true,"mode":"oneshot","phase":10}
+content.js:75 [KIROV3] ✅ Passe Gold capturée + validée
+content.js:72 [KIROV3] 🚀 Push GitHub de 10 fichiers pour build APK...
+content.js:72 [KIROV3] 📡 Push GitHub: 10 fichiers vers tcereponse/apk-builder...
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/.github/workflows/build-apk.yml?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:526  PUT https://api.github.com/repos/tcereponse/apk-builder/contents/.github/workflows/build-apk.yml 404 (Not Found)
+pushToGitHub @ content.js:526
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:74 [KIROV3]   ✗ .github/workflows/build-apk.yml: HTTP 404 Not Found
+warn @ content.js:74
+pushToGitHub @ content.js:554
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/vite.config.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/tailwind.config.js?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/postcss.config.js?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/app/main.tsx?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/styles/globals.css?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/ui/Button.tsx?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/ui/Card.tsx?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/hooks/useTimer.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:511  GET https://api.github.com/repos/tcereponse/apk-builder/contents/src/shared/hooks/useLocalStorage.ts?ref=main 404 (Not Found)
+pushToGitHub @ content.js:511
+await in pushToGitHub
+pollForPrompt @ content.js:679
+content.js:72 [KIROV3]   → 10/11 fichiers poussés...
+content.js:72 [KIROV3] 📡 Push GitHub terminé: 10 OK, 1 échecs
+content.js:75 [KIROV3] 🎉 Code poussé sur GitHub: https://github.com/tcereponse/apk-builder
+content.js:75 [KIROV3] 📦 GitHub Actions va build l'APK: https://github.com/tcereponse/apk-builder/actions
+content.js:75 [KIROV3] 📱 APK en cours de build sur GitHub Actions...
+content.js:75 [KIROV3] 🔗 https://github.com/tcereponse/apk-builder/actions
+content.js:72 [KIROV3] 🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/e74ce4de-7618-40e7-9d84-c1e1f4c00771:1
+(anonymous) @ blob:https://chat.deepseek.com/e74ce4de-7618-40e7-9d84-c1e1f4c00771:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+uZ @ main.9245f67c01.js:1
+getPowRes @ main.9245f67c01.js:1
+execute @ main.9245f67c01.js:1
+execute @ main.9245f67c01.js:1
+startCompletion @ main.9245f67c01.js:1
+onSubmit @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onClick @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/a4e5b44c-98db-4f4f-9640-2991d46d72c6:1
+(anonymous) @ blob:https://chat.deepseek.com/a4e5b44c-98db-4f4f-9640-2991d46d72c6:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
+37627.ebf6d8f55d.js:1 `WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:
+ TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'.
+p @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in p
+v @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+await in v
+74038 @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.O @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+Promise.then
+a.x @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ fe-static.deepseek.com/chat/static/37627.ebf6d8f55d.js:1
+(anonymous) @ blob:https://chat.deepseek.com/a1e73fa3-1cbd-4698-8a8b-20f6925e3c29:1
+(anonymous) @ blob:https://chat.deepseek.com/a1e73fa3-1cbd-4698-8a8b-20f6925e3c29:1
+Worker Created
+Worker @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+a @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+(anonymous) @ main.9245f67c01.js:1
+await in (anonymous)
+onFocus @ main.9245f67c01.js:1
+eB @ default-vendors.ac254d44f5.js:1
+e$ @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+rt @ default-vendors.ac254d44f5.js:1
+rn @ default-vendors.ac254d44f5.js:1
+(anonymous) @ default-vendors.ac254d44f5.js:1
+uR @ default-vendors.ac254d44f5.js:1
+eL @ default-vendors.ac254d44f5.js:1
+rs @ default-vendors.ac254d44f5.js:1
+tB @ default-vendors.ac254d44f5.js:1
+tI @ default-vendors.ac254d44f5.js:1
