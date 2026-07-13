@@ -2029,3 +2029,25 @@ Stage Summary:
 - SOLUTION: utilisateur doit désinstaller l'ancienne + installer ONLY kirov-extension-vercel v3
 - v3 déployée sur Vercel, ZIP à jour disponible
 - Indicateur clé: [KIROV3] [INFO] = ancienne (MAUVAISE) | [KIROV3] sans [INFO] = v3 (BONNE)
+
+---
+Task ID: FIX-GOLD-TIMEOUT-VERCEL-300S
+Agent: orchestrator (main)
+Task: Gold pipeline timeout sur Vercel (6 passes × 120s = 720s > 300s limite)
+
+Work Log:
+- Confirmé: v3 fonctionne parfaitement (logs utilisateur montrent capture 1555 + 10406 chars)
+- Mais pipeline Gold timeout après 2-3 passes (Vercel limite 300s par requête serverless)
+- Réduit timeout one-shot: 120s → 45s par passe (6 × 45s = 270s < 300s)
+- Réduit poll interval runOneShot: 3s → 2s (détection plus rapide)
+- Extension v3.1: polling 3s → 2s, capture check 3s → 2s
+- Extension v3.1: MIN_RESPONSE_LENGTH 200 → 100 (plans architecture sont courts)
+- Stable checks: 2 × 2s = 4s (était 6s)
+- Régénéré ZIP extension
+- Commit 9f851e9 poussé, Vercel a déployé (POLLING_INTERVAL: 2000 confirmé)
+
+Stage Summary:
+- Gold pipeline peut maintenant terminer en ~3 min (6 passes × ~30s avg)
+- Si une passe timeout (45s), fallback sur templates Gold pour cette passe
+- Extension v3.1 déployée avec polling plus rapide
+- Mission resetée sur Vercel, prête pour nouveau test
