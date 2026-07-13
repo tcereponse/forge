@@ -2584,3 +2584,45 @@ Stage Summary:
 - Le mode normal "Générer" fonctionne maintenant sur Vercel via DeepSeek
 - L'utilisateur verra le prompt injecté dans DeepSeek
 - Code capturé et sauvegardé comme le mode Gold
+
+---
+Task ID: EXTENSION-V14.4-SMART-CAPTURE-STRICT
+Agent: orchestrator (main)
+Task: Capture prématurée (387 chars au lieu de 3 fichiers) — 5 garde-fous dev senior
+
+Work Log:
+- Problème: mode normal capturait 387 chars (1 fichier index.css)
+  au lieu des 3 fichiers attendus (App.tsx, MainComponent.tsx, index.css)
+- Cause: détection de stabilité trop permissive (2 checks × 2s = 4s)
+  DeepSeek n'avait pas fini d'écrire le JSON complet
+- Solution: 5 garde-fous dev senior engineering grade gold:
+
+  1. MIN_RESPONSE_LENGTH: 100 → 500 chars
+     Ignore les réponses trop courtes
+
+  2. STABLE_CHECKS_REQUIRED: 2 → 3 checks
+     3 checks identiques × 3s = 9s de stabilité (était 4s)
+
+  3. POST_GENERATION_COOLDOWN: 5s après fin génération
+     Attend 5s après que le bouton Stop disparaisse
+     DeepSeek peut finir d'écrire le dernier morceau
+
+  4. isJsonBalanced() — vérifie équilibre accolades/parenthèses
+     Compte { } et [ ] en respectant les strings
+     Si JSON non équilibré → DeepSeek n'a pas fini → attendre
+
+  5. countFilesInJson() — log le nombre de fichiers détectés
+     Log détaillé: gen=X len=X stable=X files=X jsonBalanced=X
+
+- Autres améliorations:
+  - CAPTURE_CHECK_INTERVAL: 2s → 3s (plus de temps entre checks)
+  - CAPTURE_TIMEOUT: 3min → 5min (réponses longues)
+  - Log détaillé à chaque check avec tous les indicateurs
+- Version v14.3 → v14.4
+- Commit adda8d5 poussé, Vercel a déployé (10 marqueurs confirmés)
+
+Stage Summary:
+- Capture stricte avec 5 garde-fous anti-capture prématurée
+- DeepSeek doit avoir fini d'écrire (JSON équilibré + 9s stabilité)
+- Log détaillé pour debug: files count + JSON balance à chaque check
+- Plus de captures partielles de 387 chars
