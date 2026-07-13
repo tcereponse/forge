@@ -2562,3 +2562,25 @@ Stage Summary:
 - popup.js ne crash plus au chargement
 - Le popup devrait maintenant afficher le statut Bridge correctement
 - L'extension v14.3 est fonctionnelle
+
+---
+Task ID: FIX-STANDARD-GENERATE-BRIDGE-FALLBACK
+Agent: orchestrator (main)
+Task: Mode normal "Générer" ne basculait pas vers KIROV Bridge quand GLM échouait
+
+Work Log:
+- Erreur user: "Erreur GLM: All GLM endpoints failed" en mode normal (pas Gold)
+- Diagnostic: /api/projects/[id]/generate utilisait glmChat() directement
+  sans fallback vers bridgeState.runOneShot() (contrairement au mode Gold)
+- Fix: ajouté Strategy 2 (KIROV Bridge fallback) dans /generate:
+  1. Strategy 1: glmChat() direct (rapide, marche en local)
+  2. Strategy 2: bridgeState.runOneShot() (DeepSeek via extension, 180s timeout)
+  3. Si les deux échouent: message d'erreur clair avec les deux raisons
+- maxDuration 120s → 300s (bridge a besoin de temps)
+- Même pattern que forge-gold-async.ts callLLM()
+- Commit 18db81c poussé, Vercel a déployé
+
+Stage Summary:
+- Le mode normal "Générer" fonctionne maintenant sur Vercel via DeepSeek
+- L'utilisateur verra le prompt injecté dans DeepSeek
+- Code capturé et sauvegardé comme le mode Gold
