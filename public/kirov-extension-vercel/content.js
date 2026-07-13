@@ -24,18 +24,20 @@
 const CONFIG = {
     SERVER_URL: "https://forge-kohl-kappa.vercel.app",
     POLLING_INTERVAL: 2000,
-    CAPTURE_CHECK_INTERVAL: 3000,    // 3s entre checks (était 2s) — laisse + de temps à DeepSeek
-    CAPTURE_TIMEOUT: 300000,         // 5 min max (était 3 min) — réponses longues
-    MIN_RESPONSE_LENGTH: 500,        // 500 chars min (était 100) — évite captures partielles
-    STABLE_CHECKS_REQUIRED: 3,       // 3 checks stables = 9s (était 2 = 4s) — plus strict
-    POST_GENERATION_COOLDOWN: 5000,  // 5s d'attente après fin génération avant capture
+    CAPTURE_CHECK_INTERVAL: 3000,    // 3s entre checks
+    CAPTURE_TIMEOUT: 300000,         // 5 min max
+    MIN_RESPONSE_LENGTH: 500,        // 500 chars min
+    STABLE_CHECKS_REQUIRED: 3,       // 3 checks stables = 9s
+    POST_GENERATION_COOLDOWN: 10000, // 10s d'attente après fin génération (était 5s)
+    MIN_FILES_REQUIRED: 2,           // Au moins 2 fichiers avant de capturer
+    CONTENT_DROP_THRESHOLD: 0.5,     // Si contenu chute de >50% → reset (regénération)
     // Constitution G50+ — auto-suture DÉSACTIVÉE côté extension
     MAX_HEALING_CYCLES: 0,
-    // GitHub Auto-Push — pousse le code généré vers GitHub pour build APK
-    GITHUB_PUSH_ENABLED: true,       // activé par défaut
-    GITHUB_OWNER: "tcereponse",      // propriétaire du dépôt
-    GITHUB_REPO: "apk-builder",      // dépôt cible pour les projets générés
-    GITHUB_BRANCH: "main",           // branche cible
+    // GitHub Auto-Push
+    GITHUB_PUSH_ENABLED: true,
+    GITHUB_OWNER: "tcereponse",
+    GITHUB_REPO: "apk-builder",
+    GITHUB_BRANCH: "main",
     GITHUB_API: "https://api.github.com",
     DEBUG_MODE: true
 };
@@ -276,36 +278,26 @@ function validateConstitution(files) {
     const issues = [];
     const fileMap = new Map(files.map(f => [f.path, f]));
 
-    // R1: index.html
+    // NOTE: Les fichiers templates (index.html, vite.config.ts, package.json) sont
+    // gérés par le SERVEUR (forge-templates.ts). DeepSeek génère seulement:
+    // src/App.tsx, src/components/MainComponent.tsx, src/index.css
+    // On ne marque PAS comme critique l'absence de templates côté extension.
+    // Le serveur fera le merge + validation complète.
+
+    // R1: index.html — WARNING seulement (template géré par serveur)
     const indexHtml = fileMap.get("index.html");
-    if (!indexHtml) {
-        if (fileMap.get("Index.html")) {
-            issues.push({ severity: "critical", path: "Index.html", issue: "Index.html (majuscule) — devrait être index.html", rule: "R1" });
-        } else {
-            issues.push({ severity: "critical", path: "index.html", issue: "index.html manquant", rule: "R1" });
-        }
-    } else {
+    if (indexHtml) {
         if (!indexHtml.content.includes('id="root"') && !indexHtml.content.includes("id='root'")) {
-            issues.push({ severity: "critical", path: "index.html", issue: 'id="root" manquant', rule: "R1" });
+            issues.push({ severity: "warning", path: "index.html", issue: 'id="root" manquant', rule: "R1" });
         }
     }
 
-    // R2: vite.config.ts
-    if (!fileMap.get("vite.config.ts") && !fileMap.get("vite.config.js")) {
-        issues.push({ severity: "critical", path: "vite.config.ts", issue: "vite.config.ts manquant", rule: "R2" });
-    }
-
-    // R3: package.json
+    // R3: package.json — WARNING seulement si présent mais invalide
     const pkg = fileMap.get("package.json");
-    if (!pkg) {
-        issues.push({ severity: "critical", path: "package.json", issue: "package.json manquant", rule: "R3" });
-    } else {
+    if (pkg) {
         try {
             const p = JSON.parse(pkg.content);
-            if (p.type !== "module") issues.push({ severity: "error", path: "package.json", issue: 'type:module manquant', rule: "R3" });
-            if (p.scripts?.build && !p.scripts.build.includes("vite build")) {
-                issues.push({ severity: "warning", path: "package.json", issue: 'build devrait être "vite build"', rule: "R3" });
-            }
+            if (p.type !== "module") issues.push({ severity: "warning", path: "package.json", issue: 'type:module manquant', rule: "R3" });
             // Forbidden deps
             const allDeps = { ...(p.dependencies || {}), ...(p.devDependencies || {}) };
             for (const dep of FORBIDDEN_DEPS) {
@@ -316,11 +308,11 @@ function validateConstitution(files) {
                 }
             }
         } catch {
-            issues.push({ severity: "critical", path: "package.json", issue: "JSON invalide", rule: "R3" });
+            issues.push({ severity: "error", path: "package.json", issue: "JSON invalide", rule: "R3" });
         }
     }
 
-    // R4: HashRouter
+    // R4: HashRouter — CRITICAL (DeepSeek génère App.tsx)
     const appFiles = files.filter(f => f.path.endsWith("App.tsx") || f.path.endsWith("App.jsx"));
     for (const app of appFiles) {
         if (app.content.includes("BrowserRouter")) {
@@ -958,7 +950,6 @@ async function waitForFullResponse() {
     KirovLogger.info("Attente démarrage génération...");
 
     // ── Phase 1: Attendre que la génération DÉMARRE ──
-    // (bouton Stop visible = DeepSeek génère activement)
     let started = false;
     for (let i = 0; i < 30; i++) {
         await sleep(500);
@@ -974,9 +965,11 @@ async function waitForFullResponse() {
     const startTime = Date.now();
     let previousContent = "";
     let previousLen = 0;
+    let maxLenSeen = 0;              // ← NOUVEAU: track la longueur max vue
     let stableCount = 0;
     let checkNum = 0;
     let generationEndedAt = null;
+    let dropDetected = false;         // ← NOUVEAU: flag chute de contenu
 
     while (Date.now() - startTime < CONFIG.CAPTURE_TIMEOUT) {
         await sleep(CONFIG.CAPTURE_CHECK_INTERVAL);
@@ -986,6 +979,24 @@ async function waitForFullResponse() {
         const lastEl = getLastAssistantElement();
         const currentContent = lastEl ? extractContent(lastEl) : "";
         const currentLen = currentContent.length;
+
+        // ── GARDE-FOU 0: Détection de chute de contenu (regénération) ──
+        // Si le contenu chute de >50% par rapport au max vu → DeepSeek a démarré une nouvelle réponse
+        if (maxLenSeen > 1000 && currentLen < maxLenSeen * CONFIG.CONTENT_DROP_THRESHOLD) {
+            KirovLogger.warn(
+                `📉 Chute de contenu détectée: ${currentLen} < ${maxLenSeen} (max) — ` +
+                `DeepSeek a probablement démarré une nouvelle réponse. Reset stabilité.`
+            );
+            stableCount = 0;
+            generationEndedAt = null;
+            dropDetected = true;
+            maxLenSeen = currentLen; // Nouveau baseline
+        }
+
+        // Tracker le max de longueur vue
+        if (currentLen > maxLenSeen) {
+            maxLenSeen = currentLen;
+        }
 
         // Tracker la stabilité du contenu
         const contentChanged = currentContent !== previousContent;
@@ -997,7 +1008,7 @@ async function waitForFullResponse() {
 
         // Détecter la fin de génération (bouton Stop disparaît)
         if (generating) {
-            generationEndedAt = null; // encore en cours
+            generationEndedAt = null;
         } else if (generationEndedAt === null && currentLen > 0) {
             generationEndedAt = Date.now();
         }
@@ -1010,14 +1021,13 @@ async function waitForFullResponse() {
         const jsonOk = isJsonBalanced(currentContent);
         KirovLogger.info(
             `Check #${checkNum}: gen=${generating} len=${currentLen} stable=${stableCount}/${CONFIG.STABLE_CHECKS_REQUIRED} ` +
-            `files=${fileCount} jsonBalanced=${jsonOk}`
+            `files=${fileCount} jsonOk=${jsonOk} maxLen=${maxLenSeen}${dropDetected ? " [DROP]" : ""}`
         );
 
         // ── Garde-fou 1: Pas de capture si encore en génération ──
         if (generating) continue;
 
-        // ── Garde-fou 2: Cooldown post-génération ──
-        // Attendre au moins 5s après la fin de génération (DeepSeek peut finir d'écrire)
+        // ── Garde-fou 2: Cooldown post-génération (10s) ──
         if (generationEndedAt && (Date.now() - generationEndedAt) < CONFIG.POST_GENERATION_COOLDOWN) {
             KirovLogger.info(`Cooldown post-génération (${Math.floor((Date.now() - generationEndedAt) / 1000)}s/${CONFIG.POST_GENERATION_COOLDOWN / 1000}s)`);
             continue;
@@ -1029,12 +1039,18 @@ async function waitForFullResponse() {
             continue;
         }
 
-        // ── Garde-fou 4: Stabilité (3 checks identiques = 9s) ──
+        // ── Garde-fou 4: Nombre minimum de fichiers ──
+        if (fileCount < CONFIG.MIN_FILES_REQUIRED) {
+            KirovLogger.warn(`Pas assez de fichiers (${fileCount} < ${CONFIG.MIN_FILES_REQUIRED}) — DeepSeek n'a pas fini`);
+            continue;
+        }
+
+        // ── Garde-fou 5: Stabilité (3 checks identiques = 9s) ──
         if (stableCount < CONFIG.STABLE_CHECKS_REQUIRED) {
             continue;
         }
 
-        // ── Garde-fou 5: JSON équilibré (si la réponse contient du JSON) ──
+        // ── Garde-fou 6: JSON équilibré ──
         if (currentContent.includes("{") && !jsonOk) {
             KirovLogger.warn("JSON non équilibré — DeepSeek n'a pas fini d'écrire le JSON");
             continue;
@@ -1121,7 +1137,7 @@ window.addEventListener("beforeunload", (e) => {
 //  Start
 // ═══════════════════════════════════════════════════════════════════════════
 
-KirovLogger.info("KIROV3 Vercel Edition v14.4 loaded — Smart Capture Strict (5 garde-fous)");
+KirovLogger.info("KIROV3 Vercel Edition v14.5 loaded — Smart Capture v2 (6 garde-fous + drop detection)");
 KirovLogger.info(`Serveur: ${CONFIG.SERVER_URL}`);
 KirovLogger.info(`Config: poll=${CONFIG.POLLING_INTERVAL}ms, MAX_HEALING_CYCLES=${CONFIG.MAX_HEALING_CYCLES} (serveur fait le healing)`);
 console.log("%c🏛️ Constitution Diamond G50+ côté extension:", "color: #f59e0b; font-weight: bold");
