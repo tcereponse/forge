@@ -142,7 +142,7 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
   // Strategy 2: KIROV Bridge (DeepSeek via extension)
   console.log(`[gold-async] GLM failed, falling back to bridge...`);
   const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 120000); // 120s per pass (DeepSeek peut être lent)
+  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 240000); // 240s per pass (DeepSeek peut générer 20k+ chars)
   if (bridgeResult.content && bridgeResult.content.length > 20) {
     console.log(`[gold-async] Bridge OK (${bridgeResult.content.length} chars)`);
     return bridgeResult.content;
