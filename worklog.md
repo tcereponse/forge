@@ -1834,3 +1834,24 @@ Stage Summary:
 - Guide de déploiement complet (DEPLOY-VERCEL.md).
 - Variables d'environnement documentées (.env.vercel).
 - Tout fonctionne : auth, génération GLM-4.6, emails, isolation, mobile.
+
+---
+Task ID: CAPTURE-TASKFLAW-VERCEL
+Agent: orchestrator (main)
+Task: Capturer le code source TaskFlaw Versel généré par DeepSeek et l'enregistrer sur Vercel (https://forge-kohl-kappa.vercel.app/)
+
+Work Log:
+- Vérifié que les routes bridge /api/bridge/prompt et /api/bridge/health sont déployées sur Vercel (HTTP 200 JSON)
+- Vérifié le CORS sur Vercel: access-control-allow-origin: *, methods GET/POST/OPTIONS — OK
+- Construit le payload JSON des 11 fichiers source (index.html, vite.config.ts, package.json, tsconfig.json, tsconfig.node.json, tailwind.config.ts, postcss.config.js, src/main.tsx, src/App.tsx, src/index.css, src/components/MainComponent.tsx) via Python pour un échappement JSON fiable (13.4 KB)
+- Enchaîné en succession rapide sur Vercel: /mission/reset → /mission/start (phase 1) → /api/bridge/code avec PRD (phase 1→2) → /api/bridge/code avec JSON code (phase 2→5 done, 11 files)
+- Vérifié l'état final: phase 5, status done, fileCount 11, tous les fichiers stockés avec contenu correct
+- Ajouté endpoint /api/bridge/download qui retourne les fichiers capturés en ZIP (JSZip)
+- Poussé sur GitHub, Vercel a déployé, testé: HTTP 200, ZIP 5568 bytes, 11 fichiers + dossiers
+
+Stage Summary:
+- Code source TaskFlaw Versel capturé et enregistré sur Vercel (mission_1783916765940, phase 5 done)
+- 11 fichiers stockés dans la base PostgreSQL Vercel, accessibles via /api/bridge/mission/status
+- Endpoint de téléchargement ZIP: https://forge-kohl-kappa.vercel.app/api/bridge/download
+- L'extension KIROV3 peut maintenant télécharger le code source directement depuis Vercel
+- Le prompt endpoint est idle (plus de prompt à injecter), l'extension s'arrête proprement
