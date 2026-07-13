@@ -165,9 +165,18 @@ Features: ${featuresList}
 Composants: ${componentsList}
 
 Génère les fichiers de types TypeScript suivants au format JSON:
-- src/shared/types/index.ts (types globaux)
+- src/shared/types/index.ts (types globaux + réexports)
 - src/shared/types/api.ts (types API)
 - Un fichier de types par feature (src/features/[feature]/types.ts)
+
+RÈGLES CRITIQUES:
+1. TOUS les types référencés dans le code DOIVENT être définis — JAMAIS de type non défini
+2. Définis les types d'enum/union explicitement, ex:
+   export type TimerPhase = 'work' | 'shortBreak' | 'longBreak';
+3. Chaque feature doit avoir ses propres types dans src/features/[feature]/types.ts
+4. src/shared/types/index.ts doit réexporter tous les types partagés
+5. Utilise Zod pour la validation quand pertinent
+6. PAS de 'any' — utilise 'unknown' ou des types spécifiques
 
 Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
 Réponds UNIQUEMENT avec le JSON.`;
@@ -207,8 +216,20 @@ Composants existants: ${componentPaths}
 Styling: ${config.styling}
 
 Génère les composants UI (layouts, pages, design system) au format JSON.
-Utilise ${config.styling === "tailwind" ? "des classes Tailwind" : "du CSS"} pour le style.
-Palette: slate/gray/zinc/neutral uniquement (JAMAIS purple/indigo/violet).
+
+RÈGLES CRITIQUES DE COHÉRENCE:
+1. Chaque composant DOIT accepter des props TypeScript typées (interface XProps {...})
+2. Les composants UI (Button, Card, Skeleton, EmptyState, ErrorState, etc.) DOIVENT accepter:
+   - className?: string
+   - children?: React.ReactNode
+   - Et toutes les props métier pertinentes (title, description, action, onRetry, etc.)
+3. TOUS les composants DOIVENT avoir un export default ET un export nommé:
+   export function Button({...}: ButtonProps) { ... }
+   export default Button;
+4. Exporte aussi les types: export type ButtonProps = {...}
+5. NE génère PAS de composants qui n'acceptent que children — ils doivent être riches en props
+6. Utilise ${config.styling === "tailwind" ? "des classes Tailwind" : "du CSS"} pour le style
+7. Palette: slate/gray/zinc/neutral uniquement (JAMAIS purple/indigo/violet)
 
 Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
 Réponds UNIQUEMENT avec le JSON.`;
