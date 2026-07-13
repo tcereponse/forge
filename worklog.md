@@ -2505,3 +2505,38 @@ Stage Summary:
 - Pipeline Gold devrait maintenant enchaïner les 6 passes correctement
 - Timeout 120s laisse le temps à DeepSeek de générer + extension de capturer
 - Vérification missionId évite les conflits entre passes
+
+---
+Task ID: FIX-DEEPSEEK-CONTEXT-PRESERVATION
+Agent: orchestrator (main)
+Task: Préserver le contexte DeepSeek entre les passes Gold (même conversation)
+
+Work Log:
+- Problème user: chaque prompt ouvrait une nouvelle page DeepSeek → perte contexte
+- Pipeline Gold = 6 passes, DeepSeek doit se souvenir de l'architecture entre passes
+- Diagnostic:
+  1. popup.js disait "Ouvre chat.deepseek.com dans un nouvel onglet"
+     → user ouvre nouveau tab = nouvelle conversation
+  2. Pas de protection contre refresh accidentel pendant mission
+- Fix v14.3:
+  1. popup.js — smart tab management:
+     - chrome.tabs.query({ url: '*://chat.deepseek.com/*' })
+     - Si onglet DeepSeek existe → focus (PAS de nouveau tab, contexte conservé!)
+     - Si aucun → ouvre + warn "NE LE FERME PAS pendant la mission"
+  2. content.js — refresh protection:
+     - missionInProgress flag (mis à jour toutes les 5s via /api/bridge/prompt)
+     - window.beforeunload listener: si mission en cours → dialogue confirm
+     - "Une mission KIROV3 est en cours. Fermer perdra le contexte DeepSeek."
+  3. manifest.json:
+     - Ajouté permission 'tabs' (pour chrome.tabs.query)
+     - version 14.2 → 14.3
+- Commit 5b6bbaf poussé, Vercel a déployé:
+  - version: 14.3 ✅
+  - tabs perm: True ✅
+  - 7 marqueurs protection refresh ✅
+
+Stage Summary:
+- Les 6 passes Gold se font maintenant sur la MÊME conversation DeepSeek
+- DeepSeek se souvient: architecture (passe 1) → types (passe 3) → logic (passe 4)
+- Contexte préservé = meilleure cohérence du code
+- Protection refresh: empêche de perdre le contexte accidentellement
