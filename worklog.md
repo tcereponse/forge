@@ -2084,3 +2084,33 @@ Stage Summary:
 - État persistant dans arsenalJson entre les passes
 - Frontend orchestre la séquence avec toasts de progression
 - Plus de 504 timeout possible
+
+---
+Task ID: SUCCESS-GOLD-PIPELINE-109-FILES
+Agent: orchestrator (main)
+Task: Validation finale — PomodoroPro généré avec 109 fichiers via le pipeline Gold async
+
+Work Log:
+- Surveillance en temps réel du bridge pendant l'exécution:
+  - Passe 1 (Architecture): 10709 chars capturés ✓
+  - Passe 2 (Scaffold): templates déterministes ✓
+  - Passe 3 (Types): 7655 chars capturés ✓
+  - Passe 4 (Logic): 24764 chars capturés ✓
+  - Passe 5 (UI): 24104 chars capturés ✓
+  - Passe 6 (Tests): finalisation ✓
+- User confirme: "OUI TOUT LES FICHIER SONT DANS LE CODE SOURCE"
+  - PomodoroPro: vite · 109 fichiers
+  - Pipeline terminé en ~8 min (sous les limites Vercel)
+
+Stage Summary:
+- 🎉 SUCCÈS COMPLET: Pipeline Gold async pass-by-pass fonctionne sur Vercel
+- 109 fichiers générés pour PomodoroPro (80-100 attendus, 109 obtenus)
+- Architecture finale:
+  - 6 passes LLM séparées (chacune <120s, requête HTTP dédiée)
+  - État persistant dans arsenalJson entre les passes
+  - KIROV Bridge one-shot pour chaque passe (DeepSeek via extension v3)
+  - Finalisation: merge LLM + templates Gold + post-process + write disk + npm install
+- Plus de 504 timeout possible (chaque requête est isolée)
+- Extension v3 capture correctement (stabilité + bouton Stop)
+- parseFiles() gère les markdown fences de DeepSeek
+- Flux complet: Forge → /gold/start → 5× /gold/next → 109 fichiers dans Code source
