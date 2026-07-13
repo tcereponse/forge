@@ -1,57 +1,95 @@
 /**
- * ELITE FORGE — KIROV3 Vercel Edition v3
+ * ELITE FORGE — KIROV3 Vercel Edition v14.1
  * Fonctionne avec https://forge-kohl-kappa.vercel.app
  *
- * v3 fix: capture intelligente qui attend que DeepSeek ait TOTALEMENT fini
- * de générer avant de capturer. Détecte:
- *   - Le bouton "Stop generating" (signature de génération en cours)
- *   - La stabilisation du texte (même contenu 2 checks de suite = fini)
- *   - Empêche l'injection Phase 2 pendant que Phase 1 est encore en cours
+ * v14.1 — Constitution Diamond G50+ côté extension (hybride):
+ *   ✅ SILENCE_ABSOLU (injection prompt DeepSeek)
+ *   ✅ applyKnownFixes (corrections sûres côté client)
+ *   ✅ validateConstitution (détection + feedback immédiat)
+ *   ❌ autoSuture locale DÉSACTIVÉE (MAX_HEALING_CYCLES=0)
+ *      → le serveur fait le healing (source unique, contexte complet)
+ *   ✅ Envoi rapport de validation au serveur (/api/bridge/constitution-report)
+ *      → le serveur skip son healing si l'extension a déjà validé
+ *
+ * Architecture hybride:
+ *   Extension: prépare le code (silence + fix + validate + rapport)
+ *   Serveur: guérit si besoin (avec contexte complet des 6 passes Gold)
  */
 
 const CONFIG = {
     SERVER_URL: "https://forge-kohl-kappa.vercel.app",
-    POLLING_INTERVAL: 2000,        // poll server every 2s (faster for Gold pipeline)
-    CAPTURE_CHECK_INTERVAL: 2000,  // check generation status every 2s
-    CAPTURE_TIMEOUT: 180000,       // 3 min max to wait for response
-    MIN_RESPONSE_LENGTH: 100,      // min chars to accept a response (lowered for short JSON like architecture plan)
-    STABLE_CHECKS_REQUIRED: 2,     // need 2 consecutive stable checks (4s) = done
+    POLLING_INTERVAL: 2000,
+    CAPTURE_CHECK_INTERVAL: 2000,
+    CAPTURE_TIMEOUT: 180000,
+    MIN_RESPONSE_LENGTH: 100,
+    STABLE_CHECKS_REQUIRED: 2,
+    // Constitution G50+ — auto-suture DÉSACTIVÉE côté extension
+    // Le serveur fait le healing (forge-constitution.ts autoHealingCycles)
+    MAX_HEALING_CYCLES: 0,
     DEBUG_MODE: true
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SILENCE ABSOLU (Constitution G50+ — Règle S1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SILENCE_ABSOLU = `
+SILENCE ABSOLU — RÈGLE S1 DE LA CONSTITUTION DIAMOND G50+:
+- Ne génère AUCUN texte conversationnel (pas de "Voici", "Le projet", etc.)
+- AUCUNE explication, AUCUNE introduction, AUCUNE conclusion
+- UNIQUEMENT du JSON valide avec les fichiers
+- Toute violation corrompt le projet et déclenche un cycle de correction
+- Format strict: {"files":[{"path":"...","content":"...","language":"..."}]}
+
+RÈGLES DE STRUCTURE (R1-R5):
+- index.html en MINUSCULES avec id="root" et <script src="./src/app/main.tsx">
+- vite.config.ts présent avec plugins:[react()]
+- package.json: type:"module", build:"vite build" (JAMAIS tsc)
+- HashRouter OBLIGATOIRE (JAMAIS BrowserRouter)
+
+INTERDICTIONS (X1-X12):
+- JAMAIS package.js, tsconfig.js, App.ts, main.js, *.vue
+- Toutes balises JSX DOIVENT être fermées
+- Template strings AVEC backticks
+- Pas de préfixe de langage (html, javascript, etc.) dans les fichiers
+`;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Logger
+// ═══════════════════════════════════════════════════════════════════════════
 
 class KirovLogger {
     static info(...args) { console.log('[KIROV3]', ...args); }
     static error(...args) { console.error('[KIROV3]', ...args); }
     static warn(...args) { console.warn('[KIROV3]', ...args); }
+    static success(...args) { console.log('%c[KIROV3]', 'color: #10b981', ...args); }
+    constit(...args) { console.log('%c[KIROV3-G50+]', 'color: #f59e0b', ...args); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  STATE — prevents concurrent prompt injection / capture
+//  STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-let isProcessing = false;  // true while injecting + capturing (blocks polling)
+let isProcessing = false;
+let currentMissionId = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  DeepSeek DOM helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Find the chat textarea (DeepSeek uses #chat-input)
 function findTextarea() {
     return document.querySelector('textarea#chat-input')
         || document.querySelector('textarea[placeholder*="Message" i]')
-        || document.querySelector('textarea[placeholder*="message" i]')
         || document.querySelector('div[contenteditable="true"]')
         || document.querySelector('textarea');
 }
 
-// Find the send button — DeepSeek uses a div with role="button"
 function findSendButton() {
     const candidates = [
         'div[role="button"][aria-disabled="false"]',
         'div[role="button"]:not([aria-disabled="true"])',
         'button[data-testid="send-button"]',
         'button[aria-label*="Send" i]',
-        'div[role="button"][class*="send"]',
     ];
     for (const sel of candidates) {
         const el = document.querySelector(sel);
@@ -60,93 +98,287 @@ function findSendButton() {
     return null;
 }
 
-/**
- * Detect if DeepSeek is currently generating a response.
- * Signs of generation:
- *   - "Stop generating" button visible (aria-label contains "Stop")
- *   - .ds-spinner or .generating indicators
- *   - Loading/cursor elements in the last message
- */
 function isGenerating() {
-    // Strategy 1: Stop button (most reliable — DeepSeek shows it during generation)
     const stopBtn = document.querySelector(
-        'button[aria-label*="Stop" i], ' +
-        'div[role="button"][aria-label*="Stop" i], ' +
-        'div[aria-label*="Stop" i], ' +
-        'button[aria-label*="stop" i], ' +
-        '.ds-stop-button, ' +
-        'div[class*="stop-generating"], ' +
-        'div[class*="stop"]'
+        'button[aria-label*="Stop" i], div[role="button"][aria-label*="Stop" i], ' +
+        'div[aria-label*="Stop" i], .ds-stop-button, div[class*="stop-generating"]'
     );
     if (stopBtn) return true;
-
-    // Strategy 2: spinner / loading indicators
     const spinner = document.querySelector('.ds-spinner, .generating, [class*="loading-dots"]');
     if (spinner) return true;
-
-    // Strategy 3: cursor/typing indicator in the last assistant message
-    const lastMsg = getLastAssistantElement();
-    if (lastMsg) {
-        const typing = lastMsg.querySelector(
-            '[class*="cursor"], [class*="typing"], [class*="blink"], ' +
-            '.loading-dots, [class*="loading"]'
-        );
-        if (typing) return true;
-    }
-
     return false;
 }
 
-/**
- * Find the LAST assistant message element using multiple DeepSeek strategies.
- * Returns the element containing the AI's markdown response.
- */
 function getLastAssistantElement() {
-    // Strategy 1: DeepSeek renders markdown in .ds-markdown inside assistant messages
     let els = document.querySelectorAll('div.ds-markdown');
     if (els.length > 0) return els[els.length - 1];
-
-    // Strategy 2: markdown-related classes (exclude user input area)
-    els = document.querySelectorAll(
-        '[class*="ds-markdown"], ' +
-        'div[class*="markdown-body"], ' +
-        'div[class*="message-content"]:not([class*="user"]):not([class*="input"])'
-    );
+    els = document.querySelectorAll('[class*="ds-markdown"], div[class*="markdown-body"]');
     if (els.length > 0) return els[els.length - 1];
-
-    // Strategy 3: assistant role containers
-    const assistants = document.querySelectorAll(
-        '[data-role="assistant"], ' +
-        'div[class*="assistant-message"], ' +
-        'div[class*="bot-message"], ' +
-        'div[class*="ai-message"], ' +
-        'div[class*="ds-message--assistant"]'
-    );
-    if (assistants.length > 0) {
-        const last = assistants[assistants.length - 1];
-        const inner = last.querySelector('.ds-markdown, [class*="markdown"], [class*="content"]');
-        return inner || last;
-    }
-
     return null;
 }
 
-// Extract text content from an element
 function extractContent(el) {
     if (!el) return '';
+    try { return (el.innerText || el.textContent || '').trim(); }
+    catch { return (el.textContent || '').trim(); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONSTITUTION G50+ — Parsing + applyKnownFixes + validateConstitution
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Parse files from DeepSeek's JSON response.
+ * Handles markdown fences, text around JSON, truncated JSON.
+ */
+function parseFiles(content) {
+    if (!content || content.length === 0) return [];
+    let cleaned = content.trim();
+    const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch) cleaned = fenceMatch[1].trim();
     try {
-        return (el.innerText || el.textContent || '').trim();
-    } catch {
-        return (el.textContent || '').trim();
+        const p = JSON.parse(cleaned);
+        if (p.files && Array.isArray(p.files)) return p.files;
+    } catch {}
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (first !== -1 && last !== -1 && last > first) {
+        try {
+            const p = JSON.parse(cleaned.slice(first, last + 1));
+            if (p.files && Array.isArray(p.files)) return p.files;
+        } catch {}
+    }
+    // Regex repair
+    const files = [];
+    const re = /\{\s*"path"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*)"(?:\s*,\s*"language"\s*:\s*"((?:[^"\\]|\\.)*)")?\s*\}/g;
+    let m;
+    while ((m = re.exec(cleaned)) !== null) {
+        try {
+            files.push({
+                path: JSON.parse(`"${m[1]}"`),
+                content: JSON.parse(`"${m[2]}"`),
+                language: m[3] ? JSON.parse(`"${m[3]}"`) : undefined,
+            });
+        } catch {
+            files.push({ path: m[1], content: m[2], language: m[3] || undefined });
+        }
+    }
+    return files;
+}
+
+const FORBIDDEN_FILES = new Set(["package.js", "tsconfig.js", "tsconfig.node.js", "App.ts", "main.js"]);
+const FORBIDDEN_DEPS = ["expo-router", "react-native", "@expo", "@vitejs/plugin-vue", "vue"];
+
+/**
+ * applyKnownFixes — corrections sûres côté extension (avant envoi serveur).
+ * Évite que le serveur reçoive des fichiers mal nommés.
+ */
+function applyKnownFixes(files) {
+    const fixed = [];
+    const seen = new Set();
+    const fixesApplied = [];
+
+    for (const file of files) {
+        let path = file.path;
+        let content = file.content;
+        const basename = path.split("/").pop() || path;
+
+        // Index.html → index.html
+        if (basename === "Index.html") {
+            fixesApplied.push("Index.html->index.html");
+            path = path.replace(/Index\.html$/, "index.html");
+        }
+        // package.js → package.json
+        if (basename === "package.js" && content.trim().startsWith("{")) {
+            fixesApplied.push("package.js->package.json");
+            path = path.replace(/package\.js$/, "package.json");
+        }
+        // tsconfig.js → tsconfig.json
+        if (basename === "tsconfig.js" && content.trim().startsWith("{")) {
+            fixesApplied.push("tsconfig.js->tsconfig.json");
+            path = path.replace(/tsconfig\.js$/, "tsconfig.json");
+        }
+        // App.ts → App.tsx
+        if (basename === "App.ts" && /<[A-Z]|<div|<span|<button/i.test(content)) {
+            fixesApplied.push("App.ts->App.tsx");
+            path = path.replace(/App\.ts$/, "App.tsx");
+        }
+        // Skip .vue
+        if (path.endsWith(".vue")) {
+            fixesApplied.push(`delete:${path}`);
+            continue;
+        }
+        // Skip phantom files
+        if (FORBIDDEN_FILES.has(basename)) {
+            fixesApplied.push(`delete:${path}`);
+            continue;
+        }
+        // Strip language prefix
+        const firstLine = content.split("\n")[0];
+        if (/^(html|javascript|typescript|tsx|jsx|css)\s*$/i.test(firstLine.trim())) {
+            fixesApplied.push(`strip-prefix:${path}`);
+            content = content.split("\n").slice(1).join("\n");
+        }
+        // BrowserRouter → HashRouter
+        if ((path.endsWith(".tsx") || path.endsWith(".jsx")) && content.includes("BrowserRouter")) {
+            fixesApplied.push("BrowserRouter->HashRouter");
+            content = content.replace(/BrowserRouter/g, "HashRouter");
+        }
+        // package.json fixes
+        if (path === "package.json") {
+            try {
+                const pkg = JSON.parse(content);
+                if (pkg.type !== "module") { pkg.type = "module"; fixesApplied.push("set:type=module"); }
+                if (!pkg.scripts) pkg.scripts = {};
+                if (!pkg.scripts.build || pkg.scripts.build.includes("tsc")) {
+                    pkg.scripts.build = "vite build"; fixesApplied.push("set:build=vite build");
+                }
+                if (pkg.scripts.prepare) { delete pkg.scripts.prepare; fixesApplied.push("remove:prepare"); }
+                for (const depType of ["dependencies", "devDependencies"]) {
+                    if (pkg[depType]) {
+                        for (const key of Object.keys(pkg[depType])) {
+                            if (FORBIDDEN_DEPS.some(d => key === d || key.startsWith(d + "/"))) {
+                                delete pkg[depType][key];
+                                fixesApplied.push(`remove-dep:${key}`);
+                            }
+                        }
+                    }
+                }
+                content = JSON.stringify(pkg, null, 2);
+            } catch {}
+        }
+
+        if (!seen.has(path)) {
+            seen.add(path);
+            fixed.push({ ...file, path, content });
+        }
+    }
+
+    return { files: fixed, fixesApplied };
+}
+
+/**
+ * validateConstitution — checklist de validation côté extension.
+ * Retourne les issues trouvées + le statut OK.
+ */
+function validateConstitution(files) {
+    const issues = [];
+    const fileMap = new Map(files.map(f => [f.path, f]));
+
+    // R1: index.html
+    const indexHtml = fileMap.get("index.html");
+    if (!indexHtml) {
+        if (fileMap.get("Index.html")) {
+            issues.push({ severity: "critical", path: "Index.html", issue: "Index.html (majuscule) — devrait être index.html", rule: "R1" });
+        } else {
+            issues.push({ severity: "critical", path: "index.html", issue: "index.html manquant", rule: "R1" });
+        }
+    } else {
+        if (!indexHtml.content.includes('id="root"') && !indexHtml.content.includes("id='root'")) {
+            issues.push({ severity: "critical", path: "index.html", issue: 'id="root" manquant', rule: "R1" });
+        }
+    }
+
+    // R2: vite.config.ts
+    if (!fileMap.get("vite.config.ts") && !fileMap.get("vite.config.js")) {
+        issues.push({ severity: "critical", path: "vite.config.ts", issue: "vite.config.ts manquant", rule: "R2" });
+    }
+
+    // R3: package.json
+    const pkg = fileMap.get("package.json");
+    if (!pkg) {
+        issues.push({ severity: "critical", path: "package.json", issue: "package.json manquant", rule: "R3" });
+    } else {
+        try {
+            const p = JSON.parse(pkg.content);
+            if (p.type !== "module") issues.push({ severity: "error", path: "package.json", issue: 'type:module manquant', rule: "R3" });
+            if (p.scripts?.build && !p.scripts.build.includes("vite build")) {
+                issues.push({ severity: "warning", path: "package.json", issue: 'build devrait être "vite build"', rule: "R3" });
+            }
+            // Forbidden deps
+            const allDeps = { ...(p.dependencies || {}), ...(p.devDependencies || {}) };
+            for (const dep of FORBIDDEN_DEPS) {
+                for (const key of Object.keys(allDeps)) {
+                    if (key === dep || key.startsWith(dep + "/")) {
+                        issues.push({ severity: "critical", path: "package.json", issue: `Dépendance interdite: ${key}`, rule: "X5" });
+                    }
+                }
+            }
+        } catch {
+            issues.push({ severity: "critical", path: "package.json", issue: "JSON invalide", rule: "R3" });
+        }
+    }
+
+    // R4: HashRouter
+    const appFiles = files.filter(f => f.path.endsWith("App.tsx") || f.path.endsWith("App.jsx"));
+    for (const app of appFiles) {
+        if (app.content.includes("BrowserRouter")) {
+            issues.push({ severity: "critical", path: app.path, issue: "BrowserRouter interdit — utiliser HashRouter", rule: "X8" });
+        }
+    }
+
+    // X1-X4: forbidden files
+    for (const file of files) {
+        const basename = file.path.split("/").pop() || file.path;
+        if (FORBIDDEN_FILES.has(basename)) {
+            issues.push({ severity: "critical", path: file.path, issue: `Fichier interdit: ${basename}`, rule: "X1" });
+        }
+        if (file.path.endsWith(".vue")) {
+            issues.push({ severity: "critical", path: file.path, issue: "Fichier .vue interdit", rule: "X4" });
+        }
+    }
+
+    // S1: texte conversationnel
+    for (const file of files) {
+        if (file.path.endsWith(".tsx") || file.path.endsWith(".ts")) {
+            const first5 = file.content.split("\n").slice(0, 5).join(" ");
+            if (/^(Voici|Here is|Le projet|The project|Je génère|I generate)/i.test(first5.trim())) {
+                issues.push({ severity: "critical", path: file.path, issue: "Texte conversationnel (Silence Absolu)", rule: "S1" });
+            }
+        }
+    }
+
+    const criticalCount = issues.filter(i => i.severity === "critical").length;
+    const errorCount = issues.filter(i => i.severity === "error").length;
+    const warningCount = issues.filter(i => i.severity === "warning").length;
+
+    return {
+        ok: criticalCount === 0 && errorCount === 0,
+        criticalCount,
+        errorCount,
+        warningCount,
+        issues,
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Envoi rapport de validation au serveur (coordination hybride)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function sendConstitutionReport(report) {
+    try {
+        const res = await fetch(`${CONFIG.SERVER_URL}/api/bridge/constitution-report`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                ...report,
+                missionId: currentMissionId,
+                timestamp: Date.now(),
+            }),
+        });
+        const data = await res.json();
+        KirovLogger.info(`Rapport Constitution envoyé au serveur: ok=${report.ok}, fixes=${report.fixesApplied.length}`);
+        return data;
+    } catch (e) {
+        KirovLogger.warn(`Envoi rapport échoué (non bloquant): ${e.message}`);
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Polling — fetch next prompt from bridge server
+//  Polling
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function pollForPrompt() {
-    // CRITICAL: don't poll if we're still injecting/capturing a previous prompt
     if (isProcessing) return;
 
     try {
@@ -154,202 +386,191 @@ async function pollForPrompt() {
         if (!res.ok) return;
         const data = await res.json();
 
-        if (data.status === 'idle' || !data.prompt) return;
+        if (data.status === "idle" || !data.prompt) return;
 
-        // Hash check — prevent re-injection of the same prompt
         const hash = await sha256(data.prompt);
-        const lastHash = localStorage.getItem('kirov_last_hash');
-        if (hash === lastHash) return; // Already processed
+        const lastHash = localStorage.getItem("kirov_last_hash");
+        if (hash === lastHash) return;
 
-        // New prompt! Lock processing and handle it
         isProcessing = true;
-        localStorage.setItem('kirov_last_hash', hash);
+        currentMissionId = data.projectId || `mission_${Date.now()}`;
+        localStorage.setItem("kirov_last_hash", hash);
 
-        KirovLogger.info(`Phase ${data.phase_num}: New prompt (${data.prompt.length} chars) — injecting`);
+        KirovLogger.info(`Phase ${data.phase_num}: Nouveau prompt (${data.prompt.length} chars) — injection`);
 
-        const injected = await injectPrompt(data.prompt);
+        // ── SILENCE ABSOLU: injecter SILENCE_ABSOLU avant le prompt DeepSeek ──
+        const promptWithSilence = SILENCE_ABSOLU + "\n\n---\n\n" + data.prompt;
+        const injected = await injectPrompt(promptWithSilence);
         if (!injected) {
-            KirovLogger.error('Injection failed — releasing lock');
+            KirovLogger.error("Injection échouée — libération du lock");
             isProcessing = false;
             return;
         }
 
-        KirovLogger.info('Prompt injected. Waiting for DeepSeek to finish generating...');
+        KirovLogger.info("Prompt injecté (avec SILENCE_ABSOLU). Attente génération DeepSeek...");
 
-        // Wait for generation to complete (smart capture)
         const captured = await waitForFullResponse();
 
         if (captured && captured.length >= CONFIG.MIN_RESPONSE_LENGTH) {
-            KirovLogger.info(`✅ Full response captured (${captured.length} chars) — sending to server`);
-            const result = await sendCapture(captured);
+            KirovLogger.info(`Réponse capturée (${captured.length} chars) — validation Constitution G50+`);
+
+            // ── CONSTITUTION G50+ côté extension ──
+            // 1. Parse files
+            const parsedFiles = parseFiles(captured);
+            if (parsedFiles.length === 0) {
+                KirovLogger.warn("Aucun fichier parsé — envoi brut au serveur");
+                await sendCapture(captured);
+                isProcessing = false;
+                return;
+            }
+
+            // 2. applyKnownFixes
+            const { files: fixedFiles, fixesApplied } = applyKnownFixes(parsedFiles);
+            if (fixesApplied.length > 0) {
+                KirovLogger.info(`applyKnownFixes: ${fixesApplied.length} corrections appliquées`);
+                fixesApplied.forEach(f => console.log(`  ↳ ${f}`));
+            }
+
+            // 3. validateConstitution
+            const validation = validateConstitution(fixedFiles);
+            console.log(`%c[KIROV3-G50+] Validation: ${validation.ok ? "✅ OK" : "❌ " + validation.criticalCount + " critical, " + validation.errorCount + " errors"}`, `color: ${validation.ok ? "#10b981" : "#ef4444"}; font-weight: bold`);
+            if (validation.issues.length > 0) {
+                validation.issues.forEach(i => console.log(`  [${i.rule}] ${i.path}: ${i.issue}`));
+            }
+
+            // 4. Envoi rapport au serveur (pour coordination hybride)
+            await sendConstitutionReport({
+                ok: validation.ok,
+                criticalCount: validation.criticalCount,
+                errorCount: validation.errorCount,
+                warningCount: validation.warningCount,
+                fixesApplied,
+                issues: validation.issues,
+            });
+
+            // 5. MAX_HEALING_CYCLES = 0 → pas d'auto-suture locale
+            //    Le serveur fera le healing si nécessaire
+            if (CONFIG.MAX_HEALING_CYCLES === 0) {
+                KirovLogger.info("MAX_HEALING_CYCLES=0 — le serveur fera le healing");
+            }
+
+            // 6. Envoi du code corrigé au serveur
+            //    On envoie le JSON re-sérialisé avec les fixes appliquées
+            const fixedContent = JSON.stringify({ files: fixedFiles });
+            const result = await sendCapture(fixedContent);
             if (result && result.phase === 5) {
-                KirovLogger.info('🎉 MISSION COMPLETE — code captured on Vercel!');
-                KirovLogger.info(`📦 Download: ${CONFIG.SERVER_URL}/api/bridge/download`);
+                KirovLogger.success("🎉 MISSION COMPLETE — code capturé + validé!");
+                KirovLogger.success(`📦 Download: ${CONFIG.SERVER_URL}/api/bridge/download`);
             } else if (result && result.phase === 2) {
-                KirovLogger.info('✅ PRD captured — Phase 2 (code gen) will start on next poll');
+                KirovLogger.success("✅ PRD capturé — Phase 2 démarre");
+            } else if (result && result.mode === "oneshot") {
+                KirovLogger.success("✅ Passe Gold capturée + validée");
             }
         } else {
-            KirovLogger.error(`Capture failed or too short (${captured ? captured.length : 0} chars)`);
+            KirovLogger.error(`Capture échec (${captured ? captured.length : 0} chars)`);
         }
 
-        // Release the lock — next poll can pick up Phase 2 prompt (if any)
         isProcessing = false;
     } catch (e) {
-        KirovLogger.error('Poll error:', e.message);
+        KirovLogger.error("Poll error:", e.message);
         isProcessing = false;
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Inject prompt into DeepSeek chat
+//  Inject prompt
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function injectPrompt(prompt) {
     const textarea = findTextarea();
     if (!textarea) {
-        KirovLogger.error('Textarea not found — are you on chat.deepseek.com?');
+        KirovLogger.error("Textarea introuvable — es-tu sur chat.deepseek.com?");
         return false;
     }
-
-    // Focus + clear any existing content
     textarea.focus();
     await sleep(100);
 
-    // Set value using React-compatible setter
-    if (textarea.tagName === 'TEXTAREA') {
-        const setter = Object.getOwnPropertyDescriptor(
-            window.HTMLTextAreaElement.prototype, 'value'
-        ).set;
+    if (textarea.tagName === "TEXTAREA") {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
         setter.call(textarea, prompt);
     } else {
-        // contenteditable div
         textarea.textContent = prompt;
     }
-
-    // Fire input event so React detects the change
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    textarea.dispatchEvent(new Event('change', { bubbles: true }));
-
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
     await sleep(500);
 
-    // Find and click send button
     const sendBtn = findSendButton();
     if (sendBtn) {
         sendBtn.click();
-        KirovLogger.info('Send button clicked');
+        KirovLogger.info("Bouton Send cliqué");
         return true;
     }
-
-    // Fallback: simulate Enter key
-    KirovLogger.warn('Send button not found, trying Enter key');
-    textarea.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
-    }));
-    textarea.dispatchEvent(new KeyboardEvent('keypress', {
-        key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
-    }));
-    textarea.dispatchEvent(new KeyboardEvent('keyup', {
-        key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
-    }));
+    KirovLogger.warn("Bouton Send introuvable — tentative Enter");
+    textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true }));
     return true;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  CRITICAL v3 FIX: Wait for FULL response before capturing
-//  - Waits for generation to START (stop button appears)
-//  - Then waits for generation to FINISH (stop button disappears + content stable)
-//  - Requires STABLE_CHECKS_REQUIRED consecutive identical content checks
+//  Wait for full response (smart capture)
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function waitForFullResponse() {
-    // Step 1: wait for generation to START (max 15s)
-    KirovLogger.info('Waiting for generation to start...');
+    KirovLogger.info("Attente démarrage génération...");
     let started = false;
-    for (let i = 0; i < 30; i++) { // 30 * 500ms = 15s
+    for (let i = 0; i < 30; i++) {
         await sleep(500);
-        if (isGenerating()) {
-            started = true;
-            break;
-        }
+        if (isGenerating()) { started = true; break; }
     }
-    if (started) {
-        KirovLogger.info('Generation started (Stop button detected)');
-    } else {
-        KirovLogger.warn('Generation did not start — maybe send failed. Trying capture anyway');
-    }
+    if (started) KirovLogger.info("Génération démarrée (bouton Stop détecté)");
+    else KirovLogger.warn("Génération non démarrée — capture quand même");
 
-    // Step 2: wait for generation to FINISH
-    // A response is "complete" when:
-    //   - NOT generating (no Stop button)
-    //   - Content is STABLE (same text 2 consecutive checks = 6s)
     const startTime = Date.now();
-    let previousContent = '';
+    let previousContent = "";
     let stableCount = 0;
     let checkNum = 0;
 
     while (Date.now() - startTime < CONFIG.CAPTURE_TIMEOUT) {
         await sleep(CONFIG.CAPTURE_CHECK_INTERVAL);
         checkNum++;
-
         const generating = isGenerating();
         const lastEl = getLastAssistantElement();
-        const currentContent = lastEl ? extractContent(lastEl) : '';
-
-        // Track stability — content must be IDENTICAL across checks
+        const currentContent = lastEl ? extractContent(lastEl) : "";
         const contentChanged = currentContent !== previousContent;
-        if (!contentChanged && currentContent.length > 0) {
-            stableCount++;
-        } else {
-            stableCount = 0;
-        }
+        if (!contentChanged && currentContent.length > 0) stableCount++;
+        else stableCount = 0;
         previousContent = currentContent;
 
-        KirovLogger.info(
-            `Check #${checkNum}: generating=${generating} len=${currentContent.length} ` +
-            `changed=${contentChanged} stable=${stableCount}/${CONFIG.STABLE_CHECKS_REQUIRED}`
-        );
+        KirovLogger.info(`Check #${checkNum}: generating=${generating} len=${currentContent.length} stable=${stableCount}/${CONFIG.STABLE_CHECKS_REQUIRED}`);
 
-        // Response is COMPLETE when:
-        //   - Not generating
-        //   - Content stable for STABLE_CHECKS_REQUIRED checks (6s)
-        //   - Long enough
         if (!generating && stableCount >= CONFIG.STABLE_CHECKS_REQUIRED && currentContent.length >= CONFIG.MIN_RESPONSE_LENGTH) {
-            KirovLogger.info(`✅ Generation complete — stable for ${stableCount} checks, ${currentContent.length} chars`);
-            return currentContent;
-        }
-
-        // Safety: if not generating and content is substantial and stable 3x, capture
-        if (!generating && stableCount >= 3 && currentContent.length >= 100) {
-            KirovLogger.info(`✅ Generation complete (stable 3x) — ${currentContent.length} chars`);
+            KirovLogger.success(`Génération complète — stable ${stableCount} checks, ${currentContent.length} chars`);
             return currentContent;
         }
     }
-
-    // Timeout — return whatever we have if it's long enough
     if (previousContent.length >= CONFIG.MIN_RESPONSE_LENGTH) {
-        KirovLogger.warn(`⏱️ Timeout — capturing partial response (${previousContent.length} chars)`);
+        KirovLogger.warn(`Timeout — capture partielle (${previousContent.length} chars)`);
         return previousContent;
     }
-
     return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Send captured response to bridge server
+//  Send capture to server
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function sendCapture(content) {
     try {
         const res = await fetch(`${CONFIG.SERVER_URL}/api/bridge/code`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content, response: content }),
         });
         const data = await res.json();
-        KirovLogger.info('Server response:', JSON.stringify(data));
+        KirovLogger.info("Serveur:", JSON.stringify(data));
         return data;
     } catch (e) {
-        KirovLogger.error('Send capture error:', e.message);
+        KirovLogger.error("Envoi capture échec:", e.message);
         return null;
     }
 }
@@ -358,25 +579,26 @@ async function sendCapture(content) {
 //  Utils
 // ═══════════════════════════════════════════════════════════════════════════
 
-function sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function sha256(text) {
-    const msgBuffer = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    return Array.from(new Uint8Array(hashBuffer))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
+    const buf = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Start
 // ═══════════════════════════════════════════════════════════════════════════
 
-KirovLogger.info('KIROV3 Vercel Edition v3 loaded — smart capture');
-KirovLogger.info(`Server: ${CONFIG.SERVER_URL}`);
-KirovLogger.info(`Config: poll=${CONFIG.POLLING_INTERVAL}ms, check=${CONFIG.CAPTURE_CHECK_INTERVAL}ms, ` +
-    `minLen=${CONFIG.MIN_RESPONSE_LENGTH}, stableChecks=${CONFIG.STABLE_CHECKS_REQUIRED}`);
+KirovLogger.info("KIROV3 Vercel Edition v14.1 loaded — Constitution G50+ hybride");
+KirovLogger.info(`Serveur: ${CONFIG.SERVER_URL}`);
+KirovLogger.info(`Config: poll=${CONFIG.POLLING_INTERVAL}ms, MAX_HEALING_CYCLES=${CONFIG.MAX_HEALING_CYCLES} (serveur fait le healing)`);
+console.log("%c🏛️ Constitution Diamond G50+ côté extension:", "color: #f59e0b; font-weight: bold");
+console.log("  ✅ SILENCE_ABSOLU (injection prompt)");
+console.log("  ✅ applyKnownFixes (corrections sûres)");
+console.log("  ✅ validateConstitution (détection + rapport)");
+console.log("  ❌ autoSuture locale DÉSACTIVÉE (le serveur le fait)");
 
 setInterval(pollForPrompt, CONFIG.POLLING_INTERVAL);
 pollForPrompt();

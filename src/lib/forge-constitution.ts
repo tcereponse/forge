@@ -534,16 +534,47 @@ SILENCE ABSOLU — UNIQUEMENT le JSON, aucun texte autour.`;
 
 /**
  * Boucle principale d'auto-guérison:
+ *   0. Vérifie le rapport de l'extension v14.1 (si déjà validé, skip)
  *   1. applyKnownFixes (corrections sûres)
  *   2. validateConstitution (checklist)
  *   3. Si erreurs → autoSuture (retry LLM)
  *   4. Répéter jusqu'à OK ou maxCycles
+ *
+ * COORDINATION AVEC L'EXTENSION V14.1:
+ * Si l'extension a déjà validé le code (ok=true, criticalCount=0), le serveur
+ * skip le healing et utilise les fichiers tels quels. Évite le double-emploi.
  */
 export async function autoHealingCycles(
   files: GeneratedFile[],
   config: ProjectConfig,
   maxCycles = 3
-): Promise<{ files: GeneratedFile[]; validation: ValidationResult; cyclesUsed: number }> {
+): Promise<{ files: GeneratedFile[]; validation: ValidationResult; cyclesUsed: number; skipped?: boolean }> {
+  // ── Étape 0: Vérifier le rapport de l'extension v14.1 ──
+  let extensionReport: { ok: boolean; criticalCount: number; fixesApplied: string[] } | null = null;
+  try {
+    // Dynamic import to avoid circular dependency
+    const { getExtensionReport } = await import("@/app/api/bridge/constitution-report/route");
+    extensionReport = getExtensionReport();
+  } catch {
+    // Module not available (e.g., in tests) — continue without extension report
+  }
+
+  if (extensionReport) {
+    console.log(`[autoHealing] Rapport extension v14.1 reçu: ok=${extensionReport.ok}, critical=${extensionReport.criticalCount}, fixes=${extensionReport.fixesApplied.length}`);
+    if (extensionReport.ok && extensionReport.criticalCount === 0) {
+      // Extension already validated — apply fixes (in case extension didn't catch everything)
+      // but skip the LLM healing cycles
+      const fixedFiles = applyKnownFixes(files);
+      const validation = validateConstitution(fixedFiles);
+      if (validation.ok) {
+        console.log("[autoHealing] ✅ Extension v14.1 a déjà validé — skip healing serveur");
+        return { files: fixedFiles, validation, cyclesUsed: 0, skipped: true };
+      }
+      console.log("[autoHealing] Extension a validé mais serveur trouve encore des erreurs — healing quand même");
+    }
+  }
+
+  // ── Étape 1: applyKnownFixes (corrections sûres) ──
   let currentFiles = applyKnownFixes(files);
   let validation = validateConstitution(currentFiles);
   let cyclesUsed = 0;
@@ -555,6 +586,7 @@ export async function autoHealingCycles(
     return { files: currentFiles, validation, cyclesUsed: 0 };
   }
 
+  // ── Étapes 2-4: cycles de healing (autoSuture LLM) ──
   for (let cycle = 1; cycle <= maxCycles; cycle++) {
     cyclesUsed = cycle;
     console.log(`[autoHealing] Cycle ${cycle}/${maxCycles} — autoSuture en cours...`);
