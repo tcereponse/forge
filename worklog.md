@@ -2258,3 +2258,23 @@ Stage Summary:
 - npm install devrait maintenant installer tous les packages (100+ au lieu de 10)
 - Dossier propre garanti à chaque requête
 - vite sera réellement présent dans node_modules/.bin
+
+---
+Task ID: FIX-BROKEN-SYMLINKS-VERCEL
+Agent: orchestrator (main)
+Task: Fix vite not found malgré install — symlinks .bin cassés sur Vercel /tmp
+
+Work Log:
+- ROOT CAUSE FOUND: Vercel /tmp ne supporte pas les symlinks npm correctement
+- npm installe les packages dans node_modules/ MAIS ne crée pas les symlinks .bin/
+- Donc node_modules/.bin/vite n'existe pas, mais node_modules/vite/ est bien là
+- Fix 1: Vérification change de .bin/vite → node_modules/vite/package.json
+- Fix 2: Build utilise 'node node_modules/vite/bin/vite.js build' directement
+  (contourne complètement les symlinks .bin cassés)
+- Fix 3: Fallbacks npx vite + npm run build conservés
+- Commit d3c3853 poussé, Vercel a déployé
+
+Stage Summary:
+- "added 10 packages" = les 9 deps étaient installées, juste les symlinks manquaient
+- Vérification maintenant sur node_modules/vite/package.json (fichier réel, pas symlink)
+- Build via node + chemin direct vers vite.js → plus de dépendance aux symlinks
