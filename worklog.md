@@ -2332,3 +2332,39 @@ Stage Summary:
 - Max 3 cycles de healing pour atteindre 100% validité
 - SILENCE_ABSOLU renforcé dans tous les prompts
 - Impact estimé: erreurs TypeScript 15-20 → 0-2, build échec 60% → <10%
+
+---
+Task ID: HYBRID-CONSTITUTION-EXTENSION-V14
+Agent: orchestrator (main)
+Task: Architecture hybride Constitution G50+ — extension v14.1 + coordination serveur
+
+Work Log:
+- Créé endpoint POST /api/bridge/constitution-report:
+  - Reçoit rapport validation de l'extension (ok, criticalCount, fixesApplied, issues)
+  - Stocke en mémoire (keyed by missionId)
+  - GET pour debug
+- Modifié autoHealingCycles() dans forge-constitution.ts:
+  - Étape 0: vérifie rapport extension via getExtensionReport()
+  - Si ok=true + criticalCount=0 → skip healing serveur (économise 1-3 cycles LLM)
+  - Sinon → healing normal avec contexte complet
+- Réécrit content.js en v14.1:
+  - ✅ SILENCE_ABSOLU constant injectée avant chaque prompt DeepSeek
+  - ✅ parseFiles() avec 4 stratégies (fences, direct, extract, regex repair)
+  - ✅ applyKnownFixes() côté client (Index.html, package.js, BrowserRouter, etc.)
+  - ✅ validateConstitution() côté client (R1-R5, X1-X12, S1)
+  - ✅ sendConstitutionReport() → POST /api/bridge/constitution-report
+  - ❌ MAX_HEALING_CYCLES = 0 (auto-suture locale DÉSACTIVÉE)
+  - Logs couleur dans console DeepSeek (vert = OK, rouge = erreur)
+- Régénéré ZIP extension (v14.1)
+- Commit 6e5a842 poussé, Vercel a déployé:
+  - Endpoint testé: HTTP 200 "Rapport reçu — code validé côté extension, le serveur skipera le healing"
+  - Extension v14.1: 17 marqueurs confirmés
+
+Stage Summary:
+- Architecture hybride complète:
+  Extension v14.1: prépare (silence + fix + validate + rapport)
+  Serveur: guérit si besoin (avec rapport extension pour skip)
+- Pas de double-emploi: extension ne fait pas d'auto-suture LLM
+- Économie: si extension valide → serveur skip 1-3 cycles LLM (~30-90s économisés)
+- Feedback immédiat: utilisateur voit validation dans console DeepSeek
+- Sécurité: serveur re-valide même si extension dit OK (belt + suspenders)
