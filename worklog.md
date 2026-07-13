@@ -2540,3 +2540,25 @@ Stage Summary:
 - DeepSeek se souvient: architecture (passe 1) → types (passe 3) → logic (passe 4)
 - Contexte préservé = meilleure cohérence du code
 - Protection refresh: empêche de perdre le contexte accidentellement
+
+---
+Task ID: FIX-POPUP-SYNTAX-ERROR-APOSTROPHE
+Agent: orchestrator (main)
+Task: SyntaxError: missing ) after argument list — apostrophe non échappée
+
+Work Log:
+- Erreur user: "Uncaught SyntaxError: missing ) after argument list" popup.js:79
+- Cause: string single-quote contenait apostrophe non échappée:
+  confirm('...c'est un PAT GitHub valide?')
+                    ^ ce ' fermait la string prématurément
+- Fix: changé en double-quotes avec inner quotes échappées:
+  confirm("Le token ne commence pas par \"ghp_\" — es-tu sûr que c est un PAT GitHub valide?")
+- Aussi remplacé c'est → c est (sécurité)
+- Validé popup.js + content.js avec node --check — les deux passent ✅
+- Régénéré ZIP, commit 5e448a2 poussé, Vercel a déployé
+- Vérifié popup.js déployé: syntaxe valide ✅
+
+Stage Summary:
+- popup.js ne crash plus au chargement
+- Le popup devrait maintenant afficher le statut Bridge correctement
+- L'extension v14.3 est fonctionnelle
