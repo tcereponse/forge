@@ -1,4 +1,5 @@
-// Shared bridge state — lives in the Next.js process, no separate server needed
+// Bridge state — stored in PostgreSQL for Vercel serverless compatibility.
+import { db } from "./db";
 
 interface Mission {
   id: string;
@@ -16,8 +17,6 @@ interface Mission {
   updatedAt: number;
 }
 
-let mission: Mission | null = null;
-
 function buildPhase1Prompt(name: string, vision: string): string {
   return `[PHASE 1 : PRD]\nProjet : ${name.toUpperCase()}\nVision : "${vision}"\n\nTu es un Ingenieur Senior. Genere un PRD technique.\n\n## Problem Statement & Solution\n## User Stories\n## Implementation Decisions (React+Vite+TS, HashRouter)\n## Testing Decisions\n## Out of Scope\n\nStack : React 18 + Vite 5 + TypeScript 5 + Tailwind 3.`;
 }
@@ -33,50 +32,90 @@ function parseFiles(content: string): any[] {
   return [];
 }
 
+function dbToMission(row: any): Mission {
+  return {
+    id: row.missionId,
+    name: row.name,
+    prompt: row.prompt,
+    stack: row.stack,
+    phase: row.phase,
+    status: row.status,
+    currentPrompt: row.currentPrompt,
+    capturedContent: row.capturedContent,
+    prd: row.prd,
+    files: (() => { try { return JSON.parse(row.filesJson || "[]"); } catch { return []; } })(),
+    projectId: row.projectId,
+    createdAt: row.createdAt?.getTime?.() || Date.now(),
+    updatedAt: row.updatedAt?.getTime?.() || Date.now(),
+  };
+}
+
 export const bridgeState = {
-  getMission: () => mission,
-
-  startMission: (name: string, prompt: string, projectId?: string) => {
-    mission = {
-      id: `mission_${Date.now()}`,
-      name: name || "Untitled",
-      prompt: prompt || "",
-      stack: "react-vite",
-      phase: 1,
-      status: "prompt",
-      currentPrompt: buildPhase1Prompt(name, prompt),
-      capturedContent: "",
-      prd: "",
-      files: [],
-      projectId: projectId || null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    return mission;
+  getMission: async (): Promise<Mission | null> => {
+    const row = await db.bridgeState.findFirst({ orderBy: { updatedAt: "desc" } });
+    if (!row) return null;
+    return dbToMission(row);
   },
 
-  capture: (content: string) => {
-    if (!mission) return null;
-    mission.capturedContent = content;
-    mission.status = "captured";
-    mission.updatedAt = Date.now();
-
-    if (mission.phase === 1) {
-      mission.prd = content;
-      mission.phase = 2;
-      mission.status = "prompt";
-      mission.currentPrompt = buildPhase2Prompt(mission.name, mission.prd);
-      return { phase: 2, status: "prompt" };
-    }
-    if (mission.phase === 2) {
-      mission.files = parseFiles(content);
-      mission.phase = 5;
-      mission.status = "done";
-      mission.currentPrompt = null;
-      return { phase: 5, status: "done", fileCount: mission.files.length };
-    }
-    return { phase: mission.phase, status: mission.status };
+  startMission: async (name: string, prompt: string, projectId?: string): Promise<Mission> => {
+    const missionId = `mission_${Date.now()}`;
+    const currentPrompt = buildPhase1Prompt(name, prompt);
+    
+    // Delete old missions
+    await db.bridgeState.deleteMany({});
+    
+    const row = await db.bridgeState.create({
+      data: {
+        missionId,
+        name: name || "Untitled",
+        prompt: prompt || "",
+        stack: "react-vite",
+        phase: 1,
+        status: "prompt",
+        currentPrompt,
+        capturedContent: "",
+        prd: "",
+        filesJson: "[]",
+        projectId: projectId || null,
+      },
+    });
+    return dbToMission(row);
   },
 
-  reset: () => { mission = null; },
+  capture: async (content: string): Promise<{ phase: number; status: string; fileCount?: number } | null> => {
+    const row = await db.bridgeState.findFirst({ orderBy: { updatedAt: "desc" } });
+    if (!row) return null;
+
+    let phase = row.phase;
+    let status = "captured";
+    let prd = row.prd;
+    let currentPrompt: string | null = null;
+    let filesJson = row.filesJson;
+    let fileCount = 0;
+
+    if (row.phase === 1) {
+      prd = content;
+      phase = 2;
+      status = "prompt";
+      currentPrompt = buildPhase2Prompt(row.name, prd);
+    } else if (row.phase === 2) {
+      const files = parseFiles(content);
+      filesJson = JSON.stringify(files);
+      fileCount = files.length;
+      phase = 5;
+      status = "done";
+      currentPrompt = null;
+    }
+
+    await db.bridgeState.update({
+      where: { id: row.id },
+      data: { phase, status, currentPrompt, capturedContent: content, prd, filesJson },
+    });
+
+    return { phase, status, fileCount };
+  },
+
+  reset: async (): Promise<void> => {
+    await db.bridgeState.deleteMany({});
+  },
 };

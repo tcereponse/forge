@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "ELITE FORGE — KIROV3 Vercel",
+  "version": "14.0",
+  "description": "Extension pour React Forge sur Vercel — DeepSeek Chat bridge",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "*://*.deepseek.com/*",
+    "*://chat.deepseek.com/*",
+    "*://chatgpt.com/*",
+    "*://gemini.google.com/*",
+    "https://forge-kohl-kappa.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

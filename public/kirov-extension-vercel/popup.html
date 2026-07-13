@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body { width: 320px; padding: 16px; font-family: system-ui, sans-serif; background: #0f172a; color: #f1f5f9; }
+h2 { font-size: 16px; margin: 0 0 12px; color: #06b6d4; }
+.status { padding: 8px 12px; border-radius: 8px; background: #1e293b; margin-bottom: 12px; font-size: 12px; }
+.status.online { border: 1px solid #10b981; color: #10b981; }
+.status.offline { border: 1px solid #ef4444; color: #ef4444; }
+button { width: 100%; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; margin-bottom: 8px; font-weight: 600; }
+.btn-primary { background: linear-gradient(135deg, #06b6d4, #14b8a6); color: #0f172a; }
+.btn-secondary { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.btn-danger { background: #1e293b; color: #ef4444; border: 1px solid #ef4444; }
+.info { font-size: 10px; color: #64748b; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+<h2>ELITE FORGE — KIROV3</h2>
+<div id="status" class="status offline">Vérification...</div>
+<div id="phase-info" style="font-size:11px;color:#94a3b8;margin-bottom:12px;"></div>
+<button class="btn-primary" id="start-btn">Lancer une mission</button>
+<button class="btn-secondary" id="check-btn">Vérifier le statut</button>
+<button class="btn-danger" id="reset-btn">Réinitialiser</button>
+<p class="info">Serveur: forge-kohl-kappa.vercel.app</p>
+<script src="popup.js"></script>
+</body>
+</html>

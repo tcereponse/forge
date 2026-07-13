@@ -80,3 +80,20 @@ model Snapshot {
 
   @@index([projectId, createdAt])
 }
+
+model BridgeState {
+  id             String   @id @default(cuid())
+  missionId      String   @unique
+  name           String   @default("")
+  prompt         String   @default("")
+  stack          String   @default("react-vite")
+  phase          Int      @default(0)
+  status         String   @default("idle")
+  currentPrompt  String?
+  capturedContent String  @default("")
+  prd            String   @default("")
+  filesJson      String   @default("[]")
+  projectId      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
