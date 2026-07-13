@@ -1,63 +1,37 @@
-import { promises as fs } from "fs";
-import path from "path";
 import crypto from "crypto";
+import { db } from "./db";
 
 // Re-export password functions from password-crypto (AES-256 reversible)
 export { encryptPassword as hashPassword, decryptPassword, verifyPassword, validatePassword } from "./password-crypto";
 
-const SESSIONS_FILE = path.join(process.cwd(), "db", "sessions.json");
-
-interface Session {
-  userId: string;
-  username: string;
-  createdAt: number;
-}
-
-/** Reads sessions from the JSON file. */
-async function readSessions(): Promise<Record<string, Session>> {
-  try {
-    const data = await fs.readFile(SESSIONS_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return {};
-  }
-}
-
-/** Writes sessions to the JSON file. */
-async function writeSessions(sessions: Record<string, Session>): Promise<void> {
-  await fs.writeFile(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
-}
-
-/** Creates a new session token and stores it. */
+/** Creates a new session token and stores it in the database. */
 export async function createSession(userId: string, username: string): Promise<string> {
   const token = crypto.randomBytes(32).toString("hex");
-  const sessions = await readSessions();
-  sessions[token] = { userId, username, createdAt: Date.now() };
-  await writeSessions(sessions);
+  await db.session.create({
+    data: { token, userId, username },
+  });
   return token;
 }
 
 /** Gets the session from a token. Returns null if not found or expired. */
-export async function getSession(token: string | null | undefined): Promise<Session | null> {
+export async function getSession(token: string | null | undefined): Promise<{ userId: string; username: string } | null> {
   if (!token) return null;
-  const sessions = await readSessions();
-  const session = sessions[token];
+  const session = await db.session.findUnique({ where: { token } });
   if (!session) return null;
   // Session expires after 30 days
-  if (Date.now() - session.createdAt > 30 * 24 * 60 * 60 * 1000) {
-    delete sessions[token];
-    await writeSessions(sessions);
+  if (Date.now() - session.createdAt.getTime() > 30 * 24 * 60 * 60 * 1000) {
+    await db.session.delete({ where: { id: session.id } });
     return null;
   }
-  return session;
+  return { userId: session.userId, username: session.username };
 }
 
 /** Deletes a session (logout). */
 export async function deleteSession(token: string | null | undefined): Promise<void> {
   if (!token) return;
-  const sessions = await readSessions();
-  delete sessions[token];
-  await writeSessions(sessions);
+  try {
+    await db.session.deleteMany({ where: { token } });
+  } catch { /* ignore */ }
 }
 
 /** Extracts the session token from a request (cookie or Authorization header). */
