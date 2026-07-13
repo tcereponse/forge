@@ -199,24 +199,38 @@ export async function POST(
       }, { status: 422 });
     }
 
-    // 3. npm run build (max 90s)
+    // 3. npm run build (max 90s) — with fallback to npx vite build
     console.log("[install-build] Running npm run build...");
     await db.project.update({
       where: { id },
       data: { buildStatus: "building" },
     });
 
-    const buildResult = await runCommandSync(
+    let buildResult = await runCommandSync(
       "npm",
       ["run", "build"],
       projectDir,
       90000
     );
 
-    const buildLog = buildResult.output;
-    const buildOk = buildResult.code === 0;
+    let buildLog = buildResult.output;
+    let buildOk = buildResult.code === 0;
 
-    console.log(`[install-build] npm run build exit code: ${buildResult.code} (${Date.now() - startTime}ms total)`);
+    // Fallback: if npm run build failed due to "command not found", try npx vite build directly
+    if (!buildOk && buildLog.includes("command not found")) {
+      console.log("[install-build] npm run build failed (command not found), trying npx vite build...");
+      buildLog += "\n--- Fallback: npx vite build ---\n";
+      const fallbackResult = await runCommandSync(
+        "npx",
+        ["vite", "build"],
+        projectDir,
+        60000
+      );
+      buildLog += fallbackResult.output;
+      buildOk = fallbackResult.code === 0;
+    }
+
+    console.log(`[install-build] build exit code: ${buildOk ? 0 : 1} (${Date.now() - startTime}ms total)`);
 
     // Check if dist/ exists
     let distExists = false;

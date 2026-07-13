@@ -174,7 +174,7 @@ export async function POST(
           data: { installStatus: installOk ? "installed" : "failed" },
         });
 
-        // npm run build (max 80s)
+        // npm run build (max 80s) — with fallback to npx vite build
         if (installOk) {
           console.log("[gold/next] Running npm run build (synchronous)...");
           await db.project.update({
@@ -182,7 +182,7 @@ export async function POST(
             data: { buildStatus: "building" },
           });
 
-          const buildResult = await runCommandSync(
+          let buildResult = await runCommandSync(
             "npm",
             ["run", "build"],
             projectDir,
@@ -190,6 +190,20 @@ export async function POST(
           );
           buildLog = buildResult.output;
           buildOk = buildResult.code === 0;
+
+          // Fallback: if npm run build failed due to "command not found", try npx vite build
+          if (!buildOk && buildLog.includes("command not found")) {
+            console.log("[gold/next] npm run build failed (command not found), trying npx vite build...");
+            buildLog += "\n--- Fallback: npx vite build ---\n";
+            const fallbackResult = await runCommandSync(
+              "npx",
+              ["vite", "build"],
+              projectDir,
+              60000
+            );
+            buildLog += fallbackResult.output;
+            buildOk = fallbackResult.code === 0;
+          }
 
           // Check dist/
           try {
@@ -201,7 +215,7 @@ export async function POST(
             where: { id },
             data: { buildStatus: buildOk && distExists ? "built" : "failed" },
           });
-          console.log(`[gold/next] npm run build: code=${buildResult.code}, dist=${distExists}`);
+          console.log(`[gold/next] build: code=${buildOk ? 0 : 1}, dist=${distExists}`);
         }
       } catch (e) {
         console.error("[gold/next] Finalization failed:", e);
