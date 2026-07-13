@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "ELITE FORGE — KIROV3 Vercel",
-  "version": "14.2",
+  "version": "14.3",
   "description": "Extension pour React Forge sur Vercel — DeepSeek Chat bridge + GitHub Auto-Push",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "*://*.deepseek.com/*",
     "*://chat.deepseek.com/*",

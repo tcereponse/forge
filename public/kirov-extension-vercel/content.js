@@ -804,10 +804,37 @@ async function sha256(text) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  PROTECTION CONTRE LE REFRESH — garde la session DeepSeek alive
+// ═══════════════════════════════════════════════════════════════════════════
+
+let missionInProgress = false;
+
+function updateMissionStatus() {
+    fetch(`${CONFIG.SERVER_URL}/api/bridge/prompt`)
+        .then(r => r.json())
+        .then(data => {
+            const wasInProgress = missionInProgress;
+            missionInProgress = data.status !== "idle" && !!data.prompt;
+            if (missionInProgress && !wasInProgress) {
+                KirovLogger.info("🔒 Mission en cours — refresh bloqué pour préserver le contexte DeepSeek");
+            }
+        })
+        .catch(() => {});
+}
+
+window.addEventListener("beforeunload", (e) => {
+    if (missionInProgress) {
+        e.preventDefault();
+        e.returnValue = "Une mission KIROV3 est en cours. Fermer cette page perdra le contexte DeepSeek. Continuer?";
+        return e.returnValue;
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Start
 // ═══════════════════════════════════════════════════════════════════════════
 
-KirovLogger.info("KIROV3 Vercel Edition v14.1 loaded — Constitution G50+ hybride");
+KirovLogger.info("KIROV3 Vercel Edition v14.3 loaded — Constitution G50+ + GitHub + Refresh Protection");
 KirovLogger.info(`Serveur: ${CONFIG.SERVER_URL}`);
 KirovLogger.info(`Config: poll=${CONFIG.POLLING_INTERVAL}ms, MAX_HEALING_CYCLES=${CONFIG.MAX_HEALING_CYCLES} (serveur fait le healing)`);
 console.log("%c🏛️ Constitution Diamond G50+ côté extension:", "color: #f59e0b; font-weight: bold");
@@ -815,6 +842,9 @@ console.log("  ✅ SILENCE_ABSOLU (injection prompt)");
 console.log("  ✅ applyKnownFixes (corrections sûres)");
 console.log("  ✅ validateConstitution (détection + rapport)");
 console.log("  ❌ autoSuture locale DÉSACTIVÉE (le serveur le fait)");
+console.log("  🔒 Protection refresh activée (préserve le contexte DeepSeek)");
 
 setInterval(pollForPrompt, CONFIG.POLLING_INTERVAL);
+setInterval(updateMissionStatus, 5000);
 pollForPrompt();
+updateMissionStatus();

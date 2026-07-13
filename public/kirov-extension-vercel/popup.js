@@ -91,8 +91,20 @@ document.getElementById('start-btn').addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, prompt: desc, stack: 'react-vite' }),
         });
-        alert('Mission lancée! Ouvre chat.deepseek.com dans un nouvel onglet.');
-        updateStatus();
+
+        // Check if a DeepSeek tab is already open — if so, reuse it (don't open new)
+        chrome.tabs.query({ url: "*://chat.deepseek.com/*" }, (tabs) => {
+            if (tabs && tabs.length > 0) {
+                // DeepSeek tab exists — focus it (DON'T open new tab, preserve context!)
+                chrome.tabs.update(tabs[0].id, { active: true });
+                alert('Mission lancée! Onglet DeepSeek existant réutilisé (contexte conservé).');
+            } else {
+                // No DeepSeek tab — open one
+                chrome.tabs.create({ url: 'https://chat.deepseek.com/' });
+                alert('Mission lancée! Nouvel onglet DeepSeek ouvert. NE LE FERME PAS pendant la mission.');
+            }
+            updateStatus();
+        });
     } catch (e) {
         alert('Erreur: ' + e.message);
     }
