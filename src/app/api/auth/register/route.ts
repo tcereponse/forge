@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("[/api/auth/register]", error);
-    return NextResponse.json({ success: false, error: "Erreur lors de l'inscription" }, { status: 500 });
+    const errorMsg = error instanceof Error ? error.message : "Erreur inconnue";
+    return NextResponse.json({ success: false, error: `Erreur: ${errorMsg}` }, { status: 500 });
   }
 }

@@ -39,6 +39,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("[/api/auth/login]", error);
-    return NextResponse.json({ success: false, error: "Erreur de connexion" }, { status: 500 });
+    return NextResponse.json({ success: false, error: `Erreur: ${error instanceof Error ? error.message : "inconnue"}` }, { status: 500 });
   }
 }
