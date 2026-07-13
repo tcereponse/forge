@@ -185,15 +185,9 @@ export async function POST(
         "react-router-dom": "^6.26.0",
         zod: "^3.23.8",
         "lucide-react": "^0.439.0",
-        clsx: "^2.1.1",
-        "tailwind-merge": "^2.5.2",
       },
       devDependencies: {
-        "@types/react": "^18.3.5",
-        "@types/react-dom": "^18.3.0",
         "@vitejs/plugin-react": "^4.3.1",
-        autoprefixer: "^10.4.20",
-        postcss: "^8.4.41",
         tailwindcss: "^3.4.10",
         typescript: "^5.5.4",
         vite: "^5.4.0",
@@ -277,16 +271,17 @@ export async function POST(
       }, { status: 422 });
     }
 
-    // 3. npm run build (max 90s) — with fallback to npx vite build
-    console.log("[install-build] Running npm run build...");
+    // 3. Build — use node_modules/.bin/vite directly (most reliable on Vercel)
+    console.log("[install-build] Running vite build...");
     await db.project.update({
       where: { id },
       data: { buildStatus: "building" },
     });
 
+    const viteBin = path.join(projectDir, "node_modules", ".bin", "vite");
     let buildResult = await runCommandSync(
-      "npm",
-      ["run", "build"],
+      viteBin,
+      ["build"],
       projectDir,
       90000
     );
@@ -294,9 +289,9 @@ export async function POST(
     let buildLog = buildResult.output;
     let buildOk = buildResult.code === 0;
 
-    // Fallback: if npm run build failed due to "command not found", try npx vite build directly
-    if (!buildOk && buildLog.includes("command not found")) {
-      console.log("[install-build] npm run build failed (command not found), trying npx vite build...");
+    // Fallback 1: if direct vite bin failed, try npx vite build
+    if (!buildOk) {
+      console.log("[install-build] Direct vite failed, trying npx vite build...");
       buildLog += "\n--- Fallback: npx vite build ---\n";
       const fallbackResult = await runCommandSync(
         "npx",
@@ -306,6 +301,20 @@ export async function POST(
       );
       buildLog += fallbackResult.output;
       buildOk = fallbackResult.code === 0;
+    }
+
+    // Fallback 2: if npx failed, try npm run build
+    if (!buildOk) {
+      console.log("[install-build] npx failed, trying npm run build...");
+      buildLog += "\n--- Fallback: npm run build ---\n";
+      const fallbackResult2 = await runCommandSync(
+        "npm",
+        ["run", "build"],
+        projectDir,
+        60000
+      );
+      buildLog += fallbackResult2.output;
+      buildOk = fallbackResult2.code === 0;
     }
 
     console.log(`[install-build] build exit code: ${buildOk ? 0 : 1} (${Date.now() - startTime}ms total)`);
