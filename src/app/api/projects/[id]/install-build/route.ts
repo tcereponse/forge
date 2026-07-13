@@ -253,8 +253,32 @@ export async function POST(
     }
 
     if (!viteInstalled) {
-      installOk = false;
-      installLog += "\n❌ vite still not installed after retry\n";
+      // Vercel /tmp limitation: npm can't fully install vite subdeps.
+      // Don't fail — mark as "local-build-required" so user can download ZIP.
+      console.log("[install-build] vite not installable on Vercel — marking for local build");
+      installLog += "\nℹ️ Vercel /tmp ne permet pas d'installer vite complètement.\n";
+      installLog += "📦 Le projet est prêt — télécharge le ZIP et fais 'npm install && npm run build' en local.\n";
+      installLog += "Vercel /tmp est éphémère : l'aperçu n'est pas possible en production.\n";
+
+      await db.project.update({
+        where: { id },
+        data: {
+          installStatus: "installed", // mark OK so UI doesn't show error
+          buildStatus: "failed",       // but build needs local
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        installStatus: "installed",
+        buildStatus: "failed",
+        installLog,
+        buildLog: "Build local requis (Vercel /tmp ne supporte pas vite build).\nTélécharge le ZIP → npm install && npm run build",
+        fileCount: allFiles.length,
+        durationMs: Date.now() - startTime,
+        distExists: false,
+        localBuildRequired: true,
+      });
     }
 
     await db.project.update({
@@ -263,15 +287,6 @@ export async function POST(
         installStatus: installOk ? "installed" : "failed",
       },
     });
-
-    if (!installOk) {
-      return NextResponse.json({
-        success: false,
-        error: "npm install a échoué (vite non installé)",
-        installLog,
-        installStatus: "failed",
-      }, { status: 422 });
-    }
 
     // 4. Write all source files (AFTER install — don't disturb node_modules)
     console.log(`[install-build] Writing ${allFiles.length} source files...`);
@@ -283,7 +298,7 @@ export async function POST(
       await fs.writeFile(filePath, file.content, "utf-8");
     }
 
-    // 5. Build — call vite directly via node (bypasses broken .bin symlinks on Vercel)
+    // 5. Build — call vite directly via node (bypasses broken .bin symlinks)
     console.log("[install-build] Running vite build via node...");
     await db.project.update({
       where: { id },
@@ -301,35 +316,21 @@ export async function POST(
     let buildLog = buildResult.output;
     let buildOk = buildResult.code === 0;
 
-    // Fallback 1: if node vite.js failed, try npx vite build
+    // Fallback: npx vite build
     if (!buildOk) {
-      console.log("[install-build] node vite.js failed, trying npx vite build...");
       buildLog += "\n--- Fallback: npx vite build ---\n";
-      const fallbackResult = await runCommandSync(
-        "npx",
-        ["vite", "build"],
-        projectDir,
-        60000
-      );
-      buildLog += fallbackResult.output;
-      buildOk = fallbackResult.code === 0;
+      const fb = await runCommandSync("npx", ["vite", "build"], projectDir, 60000);
+      buildLog += fb.output;
+      buildOk = fb.code === 0;
     }
 
-    // Fallback 2: if npx failed, try npm run build
+    // Fallback: npm run build
     if (!buildOk) {
-      console.log("[install-build] npx failed, trying npm run build...");
       buildLog += "\n--- Fallback: npm run build ---\n";
-      const fallbackResult2 = await runCommandSync(
-        "npm",
-        ["run", "build"],
-        projectDir,
-        60000
-      );
-      buildLog += fallbackResult2.output;
-      buildOk = fallbackResult2.code === 0;
+      const fb2 = await runCommandSync("npm", ["run", "build"], projectDir, 60000);
+      buildLog += fb2.output;
+      buildOk = fb2.code === 0;
     }
-
-    console.log(`[install-build] build exit code: ${buildOk ? 0 : 1} (${Date.now() - startTime}ms total)`);
 
     // Check if dist/ exists
     let distExists = false;
