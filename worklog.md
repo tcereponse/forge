@@ -2167,3 +2167,23 @@ Stage Summary:
 - npm install/build devrait maintenant marcher sur Vercel
 - Le bouton "Installer" dans PreviewPanel déclenche install+build synchrone
 - Logs visibles directement dans la réponse HTTP
+
+---
+Task ID: FIX-BUILD-COMMAND-NOT-FOUND
+Agent: orchestrator (main)
+Task: Fix "tsc: command not found" + "vite: command not found" during npm run build
+
+Work Log:
+- Erreur: npm install réussit mais npm run build échoue
+  "sh: line 1: tsc: command not found" / "vite: command not found"
+- Cause: buildSafeEnv() ne prepend pas ./node_modules/.bin au PATH
+- npm run-script devrait le faire automatiquement mais Vercel env peut interférer
+- Fix 1: buildSafeEnv(cwd) prepend \${cwd}/node_modules/.bin au PATH
+- Fix 2 (fallback): si npm run build échoue avec "command not found", retry avec npx vite build
+- Appliqué sur install-build route + gold/next finalization
+- Commit f186338 poussé, Vercel a déployé
+
+Stage Summary:
+- Build devrait maintenant réussir sur Vercel
+- PATH inclut node_modules/.bin → tsc et vite trouvables
+- Fallback npx vite build si toujours "command not found"
