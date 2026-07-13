@@ -1855,3 +1855,35 @@ Stage Summary:
 - Endpoint de téléchargement ZIP: https://forge-kohl-kappa.vercel.app/api/bridge/download
 - L'extension KIROV3 peut maintenant télécharger le code source directement depuis Vercel
 - Le prompt endpoint est idle (plus de prompt à injecter), l'extension s'arrête proprement
+
+---
+Task ID: FIX-EXTENSION-CAPTURE-V2
+Agent: orchestrator (main)
+Task: Corriger l'extension KIROV3 — la capture échouait ("No messages found") car les sélecteurs CSS ne matchaient pas DeepSeek
+
+Work Log:
+- Analysé les logs utilisateur: Phase 1 OK (prompt injecté, réponse 81 chars capturée — trop court), Phase 2 échoue ("No messages found")
+- Identifié les problèmes dans content.js v1:
+  1. Sélecteurs trop génériques ([class*="markdown"] capturait 81 chars = élément UI, pas la réponse)
+  2. Pas de détection de fin de génération (wait fixe de 15s)
+  3. Pas de lock contre injections concurrentes
+  4. Log avant hash check (bruit)
+- Réécrit content.js v2 avec:
+  - isGenerating(): détecte le bouton "stop" / indicateurs de chargement de DeepSeek
+  - waitForResponseAndCapture(): attend que la génération démarre, puis se termine, avec tracking de stabilité (contenu stable 2+ checks = terminé)
+  - getLastAssistantElement(): stratégies multiples (ds-markdown > markdown-body > data-role=assistant)
+  - isProcessing lock: empêche les injections concurrentes pendant la capture
+  - Hash check avant le log (moins de bruit)
+  - CAPTURE_TIMEOUT 2min, MIN_RESPONSE_LENGTH 100 chars
+  - findSendButton() avec check aria-disabled
+  - Logs de progression (phase 2 / phase 5 done / URL de téléchargement)
+- Régénéré le ZIP de l'extension (8029 bytes)
+- Commit + push GitHub, Vercel a déployé (vérifié: 7 marqueurs v2 dans content.js déployé)
+- Reset mission sur Vercel + start fresh (mission_1783917404163, phase 1, prompt 372 chars prêt)
+
+Stage Summary:
+- Extension KIROV3 v2 déployée sur Vercel avec capture robuste
+- URL extension: https://forge-kohl-kappa.vercel.app/kirov-extension-vercel/content.js
+- URL ZIP: https://forge-kohl-kappa.vercel.app/kirov-extension-vercel-download/kirov-extension-vercel.zip
+- Mission prête: phase 1, prompt 372 chars
+- L'utilisateur doit recharger l'extension dans Chrome pour obtenir la v2
