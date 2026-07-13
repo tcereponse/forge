@@ -1941,3 +1941,39 @@ Stage Summary:
 - URL ZIP: https://forge-kohl-kappa.vercel.app/kirov-extension-vercel-download/kirov-extension-vercel.zip
 - Mission prête: phase 1, prompt 364 chars
 - L'utilisateur doit recharger l'extension dans Chrome pour obtenir la v3
+
+---
+Task ID: FIX-PARSEFILES-CONNECT-PROJECT
+Agent: orchestrator (main)
+Task: Corriger fileCount:0 (parseFiles échouait sur markdown fences) + connecter capture bridge aux onglets du projet Forge
+
+Work Log:
+- Diagnostic: logs DeepSeek montraient capture 22880 chars reussie MAIS server retournait fileCount:0
+- Cause: parseFiles() ne gerait pas les markdown fences ```json ... ``` de DeepSeek
+- Reécrit parseFiles() avec 4 stratégies en cascade:
+  1. Strip markdown code fences (```json ... ```)
+  2. JSON.parse direct
+  3. Extract outermost { ... } containing "files"
+  4. Regex repair pour JSON tronqué (extrait les file objects individuels)
+- Validé avec 6 tests (direct, fenced, text-around, escaped, truncated, realistic) — tous passent
+- Testé sur Vercel avec payload propre: fileCount=2 ✅ (extrait App.tsx + MainComponent.tsx depuis JSON fenced)
+- Connecté bridge au projet Forge:
+  - bridgeState.capture() appelle applyToProject() si projectId lié
+  - Phase 1 done → project.prd mis à jour (onglet PRD + Arsenal PRD)
+  - Phase 5 done → project.filesJson + fileCount + status='ready' (onglet Code source)
+- Nouvel endpoint POST /api/bridge/mission/apply { projectId }
+  - Applique manuellement PRD + files à un projet
+  - Retourne { success, fileCount, prdLength, message }
+- KirovPanel mis à jour:
+  - Accepte projectId prop
+  - handleStartMission envoie projectId pour lier la mission
+  - Bouton "Appliquer au projet (PRD + Code source)" apparait à phase 5
+  - Lien "Telecharger le ZIP" aussi présent
+  - Warning amber si 0 fichiers parsés
+- Commit 07c3981 poussé, Vercel a déployé (apply endpoint testé HTTP 200)
+
+Stage Summary:
+- parseFiles() corrigé et validé sur Vercel (fileCount=2 avec markdown fences)
+- Bridge connecté au système Forge: capture → onglets PRD + Code source
+- KirovPanel a maintenant bouton "Appliquer au projet" quand mission done
+- L'utilisateur peut lancer mission depuis onglet KIROV Bridge, attendre capture, puis appliquer
