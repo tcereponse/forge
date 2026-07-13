@@ -1912,3 +1912,32 @@ Stage Summary:
 - Test local: glmChat() fonctionne (1.2s, contenu valide)
 - Fix déployé sur Vercel (commit 4fb4cbd)
 - Le serveur local a des problèmes de stabilité (crash aléatoire) mais le fix est validé
+
+---
+Task ID: FIX-EXTENSION-V3-SMART-CAPTURE
+Agent: orchestrator (main)
+Task: Corriger le timing de capture — DeepSeek n'avait pas fini de générer que l'extension capturait déjà (81 chars) puis injectait Phase 2 pendant que Phase 1 était encore en cours
+
+Work Log:
+- Diagnostic user: capture à 81 chars = DeepSeek tapait encore le PRD
+- Phase 2 injectée pendant génération Phase 1 -> bug UI DeepSeek (send button stuck)
+- Réécrit content.js v3 avec waitForFullResponse():
+  1. Attend que la génération démarre (bouton Stop visible, max 15s)
+  2. Poll toutes les 3s, track isGenerating + stabilité du contenu
+  3. Réponse COMPLETE seulement quand: NOT generating AND stable 2 checks (6s) AND >= 200 chars
+  4. Timeout 3min -> capture partielle si assez longue
+- isProcessing lock RENFORCÉ: reste verrouillé pendant TOUTE la capture, relâché seulement APRÈS envoi au serveur
+- Meilleurs sélecteurs DeepSeek:
+  - Stop button: button[aria-label*="Stop" i] (le plus fiable)
+  - Spinner: .ds-spinner, .generating, [class*="loading-dots"]
+  - Assistant: .ds-markdown, [data-role="assistant"], .ds-message--assistant
+- Régénéré ZIP (8634 bytes)
+- Commit + push GitHub, Vercel a déployé (9 marqueurs v3 confirmés)
+- Reset mission sur Vercel (mission_1783918947437, phase 1, prompt 364 chars prêt)
+
+Stage Summary:
+- Extension KIROV3 v3 déployée sur Vercel avec capture intelligente
+- URL extension: https://forge-kohl-kappa.vercel.app/kirov-extension-vercel/content.js
+- URL ZIP: https://forge-kohl-kappa.vercel.app/kirov-extension-vercel-download/kirov-extension-vercel.zip
+- Mission prête: phase 1, prompt 364 chars
+- L'utilisateur doit recharger l'extension dans Chrome pour obtenir la v3
