@@ -2410,3 +2410,42 @@ Stage Summary:
 - 3 endpoints de coordination déployés
 - Plus de problème /tmp 500MB ou timeout 300s
 - dist/ généré sur PC, prêt pour APK
+
+---
+Task ID: GITHUB-AUTO-PUSH-V14.2
+Agent: orchestrator (main)
+Task: Extension v14.2 — GitHub Auto-Push pour build APK automatique
+
+Work Log:
+- ⚠️ SÉCURITÉ: user a partagé son PAT GitHub en clair dans la conversation
+  → recommandé de le révoquer immédiatement et en créer un nouveau
+- Implémenté pushToGitHub() dans content.js:
+  - Encode fichiers en base64
+  - Vérifie existence (SHA pour update)
+  - Crée/met à jour via API GitHub Contents
+  - Ajoute .github/workflows/build-apk.yml en premier
+  - Délai 100ms entre fichiers (rate limit)
+- Créé GITHUB_ACTIONS_WORKFLOW (Capacitor + Gradle):
+  - npm install → vite build → cap init/add/sync → gradlew assembleDebug
+  - Upload artifact app-debug.apk
+- getGitHubToken() depuis chrome.storage.local (SÉCURISÉ)
+- Appel pushToGitHub après sendCapture si code final
+- Mis à jour popup.html/popup.js:
+  - Champ token GitHub (password)
+  - Champ dépôt cible (défaut: tcereponse/apk-builder)
+  - Bouton sauvegarder config
+  - Statut configuré/manquant
+- manifest.json v14.2: ajouté host_permissions api.github.com + github.com
+- Régénéré ZIP (14964 bytes)
+- Commit 5163f71 poussé, Vercel a déployé:
+  - 14 marqueurs v14.2 confirmés
+  - manifest version 14.2
+  - permissions GitHub présentes
+
+Stage Summary:
+- Architecture Cloud-to-GitHub complète:
+  DeepSeek → Extension → Vercel (dashboard) + GitHub (apk-builder)
+  → GitHub Actions → APK Android
+- Token stocké dans chrome.storage.local (pas en clair)
+- Workflow Capacitor build APK automatique
+- L'utilisateur doit configurer son token via le popup
