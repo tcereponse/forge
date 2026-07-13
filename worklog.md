@@ -1977,3 +1977,32 @@ Stage Summary:
 - Bridge connecté au système Forge: capture → onglets PRD + Code source
 - KirovPanel a maintenant bouton "Appliquer au projet" quand mission done
 - L'utilisateur peut lancer mission depuis onglet KIROV Bridge, attendre capture, puis appliquer
+
+---
+Task ID: GOLD-VIA-DEEPSEEK-BRIDGE
+Agent: orchestrator (main)
+Task: Route "Générer Gold Grade Industrial" through DeepSeek via KIROV Bridge (GLM fails on Vercel)
+
+Work Log:
+- Diagnostic: bouton Gold utilisait glmChat() directement → échec sur Vercel (internal-api.z.ai bloqué)
+- Identifié forge-pipeline.ts callLLM() comme point d'extension
+- Ajouté bridgeState.runOneShot(prompt, timeoutMs):
+  1. Reset + create mission phase=10 (mode one-shot, pas de transition)
+  2. Set currentPrompt = prompt (extension KIROV3 le récupère)
+  3. Poll capturedContent jusqu'à non-vide (timeout 90s par passe)
+  4. Retourne le contenu capturé
+- Ajouté bridgeState.submitOneShotCapture(content) pour phase=10
+- Modifié /api/bridge/code pour détecter phase=10 et appeler submitOneShotCapture
+- Modifié forge-pipeline callLLM():
+  Strategy 1: glmChat() direct (rapide, marche en local)
+  Strategy 2: bridgeState.runOneShot() fallback (DeepSeek via extension)
+  Log warn: "Ouvre chat.deepseek.com avec extension KIROV3 active"
+- Timeout par passe: 90s (5 passes × 90s = ~7.5 min, sous la limite Vercel 300s)
+- vercel.json: maxDuration 60s → 300s pour generate + generate-gold
+- Commit 342332b poussé, Vercel a déployé (bridge health OK)
+
+Stage Summary:
+- Pipeline Gold route maintenant via DeepSeek quand GLM échoue
+- Flux: bouton Gold → GLM fail → bridge one-shot → extension injecte dans DeepSeek → capture → pipeline continue
+- 5 passes × 90s = ~7.5 min total
+- L'utilisateur doit avoir DeepSeek + extension KIROV3 ouverts en parallèle
