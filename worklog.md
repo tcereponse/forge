@@ -2303,3 +2303,32 @@ Stage Summary:
 - Message clair: build local requis
 - ZIP téléchargeable avec tous les fichiers
 - L'utilisateur fait npm install && npm run build en local (fonctionne parfaitement)
+
+---
+Task ID: CONSTITUTION-G50-PLUS-IMPLEMENTATION
+Agent: orchestrator (main)
+Task: Implémenter la Constitution Diamond G50+ v4.0 — auto-healing pipeline
+
+Work Log:
+- Créé src/lib/forge-constitution.ts (gardien de la Constitution):
+  1. validateConstitution() — checklist R1-R5, X1-X12, O2, S1
+  2. applyKnownFixes() — corrections sûres automatiques
+  3. autoSuture() — retry LLM avec erreurs ciblées (Phase 3)
+  4. autoHealingCycles() — boucle jusqu'à validation OK (max 3 cycles)
+- forge-gold-async.ts:
+  - Constant SILENCE_ABSOLU ajoutée à TOUS les prompts (5 passes)
+  - finalizeFiles() maintenant async avec auto-healing
+  - Retourne FinalizeResult { files, validation { ok, counts, cyclesUsed, issues } }
+- gold/next route:
+  - Appelle finalizeFiles() async
+  - Sauvegarde validationJson dans le project
+  - Retourne constitutionValidation dans la réponse JSON
+- PRD mis à jour avec rapport de validation Constitution
+- Commit b714811 poussé, Vercel a déployé
+
+Stage Summary:
+- Constitution G50+ entièrement implémentée dans le code
+- Auto-healing: applyKnownFixes → validate → autoSuture (LLM) → repeat
+- Max 3 cycles de healing pour atteindre 100% validité
+- SILENCE_ABSOLU renforcé dans tous les prompts
+- Impact estimé: erreurs TypeScript 15-20 → 0-2, build échec 60% → <10%
