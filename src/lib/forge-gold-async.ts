@@ -11,6 +11,9 @@
 //
 // Intermediate state (architecture plan + accumulated files) is stored in the
 // project's `arsenalJson` field as JSON.
+//
+// CONSTITUTION DIAMOND G50+: all prompts enforce SILENCE ABSOLU and the
+// finalizeFiles step runs autoHealingCycles() to guarantee 100% validity.
 
 import type { ProjectConfig, GeneratedFile } from "./forge-config";
 import {
@@ -27,6 +30,33 @@ import { glmChat } from "./glm-direct";
 import { bridgeState } from "./bridge-state";
 import { buildAllGoldTemplates } from "./forge-gold-templates";
 import { postProcessProject } from "./forge-postprocess";
+import { autoHealingCycles } from "./forge-constitution";
+
+// ─── SILENCE ABSOLU (Constitution Diamond G50+ — Règle S1) ─────────────────
+//
+// Cette directive est ajoutée à TOUS les prompts LLM pour garantir que l'IA
+// ne génère AUCUN texte conversationnel. Toute violation corrompt le projet
+// (fichiers vérolés avec du texte français au lieu de code).
+const SILENCE_ABSOLU = `
+SILENCE ABSOLU — RÈGLE S1 DE LA CONSTITUTION DIAMOND G50+:
+- Ne génère AUCUN texte conversationnel (pas de "Voici", "Le projet", etc.)
+- AUCUNE explication, AUCUNE introduction, AUCUNE conclusion
+- UNIQUEMENT du JSON valide avec les fichiers
+- Toute violation corrompt le projet et déclenche un cycle de correction
+- Format strict: {"files":[{"path":"...","content":"...","language":"..."}]}
+
+RÈGLES DE STRUCTURE (R1-R5):
+- index.html en MINUSCULES avec id="root" et <script src="./src/app/main.tsx">
+- vite.config.ts présent avec plugins:[react()]
+- package.json: type:"module", build:"vite build" (JAMAIS tsc)
+- HashRouter OBLIGATOIRE (JAMAIS BrowserRouter)
+
+INTERDICTIONS (X1-X12):
+- JAMAIS package.js, tsconfig.js, App.ts, main.js, *.vue
+- Toutes balises JSX DOIVENT être fermées
+- Template strings AVEC backticks: \`...\${value}...\`
+- Pas de préfixe de langage (html, javascript, etc.) dans les fichiers
+`;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -147,7 +177,7 @@ Réponds UNIQUEMENT avec le JSON.`;
 async function passArchitecture(config: ProjectConfig): Promise<ArchitecturePlan | null> {
   const response = await callLLM(
     "Tu es un architecte logiciel senior React/TypeScript. Tu réponds UNIQUEMENT par du JSON valide.",
-    buildArchitecturePrompt(config)
+    SILENCE_ABSOLU + "\n\n" + buildArchitecturePrompt(config)
   );
   const parsed = extractJson(response) as ArchitecturePlan | null;
   if (!parsed || !Array.isArray(parsed.folders)) return null;
@@ -181,7 +211,7 @@ RÈGLES CRITIQUES:
 Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
 Réponds UNIQUEMENT avec le JSON.`;
 
-  const response = await callLLM("Tu es un ingénieur TypeScript senior. Tu réponds UNIQUEMENT par du JSON valide.", prompt);
+  const response = await callLLM("Tu es un ingénieur TypeScript senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
@@ -202,7 +232,7 @@ Chaque composant doit être fonctionnel avec useState/useEffect, pas juste stati
 Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
 Réponds UNIQUEMENT avec le JSON.`;
 
-  const response = await callLLM("Tu es un développeur React senior. Tu réponds UNIQUEMENT par du JSON valide.", prompt);
+  const response = await callLLM("Tu es un développeur React senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
@@ -234,7 +264,7 @@ RÈGLES CRITIQUES DE COHÉRENCE:
 Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
 Réponds UNIQUEMENT avec le JSON.`;
 
-  const response = await callLLM("Tu es un designer React senior. Tu réponds UNIQUEMENT par du JSON valide.", prompt);
+  const response = await callLLM("Tu es un designer React senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
@@ -252,7 +282,7 @@ Tests de comportement (pas d'implémentation interne).
 Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
 Réponds UNIQUEMENT avec le JSON.`;
 
-  const response = await callLLM("Tu es un ingénieur test senior. Tu réponds UNIQUEMENT par du JSON valide.", prompt);
+  const response = await callLLM("Tu es un ingénieur test senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
@@ -398,9 +428,32 @@ export async function runNextPass(
   }
 }
 
-// ── Finalize: merge all files + Gold templates ─────────────────────────────
+// ── Finalize: merge all files + Gold templates + Auto-Healing (Constitution G50+) ──
 
-export function finalizeFiles(state: GoldPassState, config: ProjectConfig): GeneratedFile[] {
+export interface FinalizeResult {
+  files: GeneratedFile[];
+  validation: {
+    ok: boolean;
+    criticalCount: number;
+    errorCount: number;
+    warningCount: number;
+    cyclesUsed: number;
+    issues: Array<{ severity: string; path: string; issue: string; rule: string }>;
+  };
+}
+
+/**
+ * Finalise le projet avec auto-guérison Constitution Diamond G50+:
+ *   1. Merge LLM files + Gold templates
+ *   2. Post-process (validators existants)
+ *   3. applyKnownFixes (corrections sûres automatiques)
+ *   4. validateConstitution (checklist complète)
+ *   5. autoHealingCycles (retry LLM si erreurs critiques, max 3 cycles)
+ */
+export async function finalizeFiles(
+  state: GoldPassState,
+  config: ProjectConfig
+): Promise<FinalizeResult> {
   // Start with Gold templates (Docker, CI/CD, ESLint, Vitest, docs)
   const goldTemplates = buildAllGoldTemplates(config);
   const templatePaths = new Set(goldTemplates.map((f) => f.path));
@@ -430,7 +483,30 @@ export function finalizeFiles(state: GoldPassState, config: ProjectConfig): Gene
     }
   }
 
-  // Post-process (validators + auto-repair)
-  const { files: finalFiles } = postProcessProject(deduped, config);
-  return finalFiles;
+  // Post-process (validators + auto-repair existant)
+  const { files: postProcessed } = postProcessProject(deduped, config);
+
+  // ── CONSTITUTION DIAMOND G50+ AUTO-HEALING ──
+  // applyKnownFixes + validateConstitution + autoSuture (retry LLM) jusqu'à OK
+  console.log("[finalize] Démarrage auto-healing Constitution G50+...");
+  const healingResult = await autoHealingCycles(postProcessed, config, 3);
+
+  console.log(`[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles)`);
+
+  return {
+    files: healingResult.files,
+    validation: {
+      ok: healingResult.validation.ok,
+      criticalCount: healingResult.validation.criticalCount,
+      errorCount: healingResult.validation.errorCount,
+      warningCount: healingResult.validation.warningCount,
+      cyclesUsed: healingResult.cyclesUsed,
+      issues: healingResult.validation.issues.map((i) => ({
+        severity: i.severity,
+        path: i.path,
+        issue: i.issue,
+        rule: i.rule,
+      })),
+    },
+  };
 }

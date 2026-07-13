@@ -123,10 +123,22 @@ export async function POST(
 
     // If all passes done, finalize
     if (result.done) {
-      const finalFiles = finalizeFiles(newState, config);
+      console.log("[gold/next] Finalisation avec auto-healing Constitution G50+...");
+      const finalizeResult = await finalizeFiles(newState, config);
+      const finalFiles = finalizeResult.files;
+      const validation = finalizeResult.validation;
+
+      console.log(`[gold/next] Finalisation: ${finalFiles.length} fichiers, validation ${validation.ok ? "OK" : `${validation.criticalCount} critical/${validation.errorCount} errors`} (${validation.cyclesUsed} cycles healing)`);
+
       const prd = newState.arch
-        ? `# Architecture Plan\n\nFeatures: ${newState.arch.features.join(", ")}\nComponents: ${newState.arch.components.join(", ")}\nFolders: ${newState.arch.folders.join(", ")}`
+        ? `# Architecture Plan\n\nFeatures: ${newState.arch.features.join(", ")}\nComponents: ${newState.arch.components.join(", ")}\nFolders: ${newState.arch.folders.join(", ")}\n\n## Validation Constitution G50+\n- OK: ${validation.ok}\n- Erreurs critiques: ${validation.criticalCount}\n- Erreurs: ${validation.errorCount}\n- Cycles de healing: ${validation.cyclesUsed}`
         : "";
+
+      // Build validation report
+      const validationReport = {
+        constitution: validation,
+        timestamp: Date.now(),
+      };
 
       await db.project.update({
         where: { id },
@@ -135,6 +147,7 @@ export async function POST(
           prd,
           filesJson: JSON.stringify(finalFiles),
           fileCount: finalFiles.length,
+          validationJson: JSON.stringify(validationReport),
           installStatus: "installing",
           buildStatus: "pending",
         },
@@ -237,6 +250,8 @@ export async function POST(
         installLog,
         buildLog,
         distExists,
+        // Constitution G50+ validation report
+        constitutionValidation: validation,
       });
     }
 
