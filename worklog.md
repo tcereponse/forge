@@ -2144,3 +2144,26 @@ Stage Summary:
 - Logs visibles directement depuis la réponse HTTP
 - Le bouton "Installer" dans PreviewPanel déclenche install+build en une fois
 - Timeout max: 300s (npm install 180s + npm build 90s + overhead)
+
+---
+Task ID: FIX-NPM-HOME-VERCEL-ENOENT
+Agent: orchestrator (main)
+Task: Fix npm install ENOENT error — HOME=/home/sbx_user1051 non-writable on Vercel
+
+Work Log:
+- Erreur user: "npm error code ENOENT, syscall mkdir, path /home/sbx_user1051"
+- Cause: Vercel serverless set HOME=/home/sbx_user1051 (inexistant/non-writable)
+- npm essaie de créer ~/.npm/_logs → échec ENOENT
+- Solution: buildSafeEnv() redirige npm vers /tmp:
+  - HOME=/tmp
+  - NPM_CONFIG_CACHE=/tmp/.npm
+  - NPM_CONFIG_PREFIX=/tmp/.npm-global
+  - NPM_CONFIG_LOGLEVEL=error
+- mkdir /tmp/.npm récursif avant spawn
+- Appliqué sur install-build route + gold/next finalization
+- Commit d630a74 poussé, Vercel a déployé (endpoint HTTP 404 JSON = OK)
+
+Stage Summary:
+- npm install/build devrait maintenant marcher sur Vercel
+- Le bouton "Installer" dans PreviewPanel déclenche install+build synchrone
+- Logs visibles directement dans la réponse HTTP
