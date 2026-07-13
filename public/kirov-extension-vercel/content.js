@@ -1,8 +1,8 @@
 /**
- * ELITE FORGE — KIROV3 Vercel Edition v14.2
+ * ELITE FORGE — KIROV3 Vercel Edition v14.5
  * Fonctionne avec https://forge-kohl-kappa.vercel.app
  *
- * v14.2 — Constitution G50+ + GitHub Auto-Push (Cloud-to-GitHub):
+ * v14.5 — Smart Capture v2 (6 garde-fous + drop detection):
  *   ✅ SILENCE_ABSOLU (injection prompt DeepSeek)
  *   ✅ applyKnownFixes (corrections sûres côté client)
  *   ✅ validateConstitution (détection + feedback immédiat)
