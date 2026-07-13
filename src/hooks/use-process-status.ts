@@ -130,30 +130,48 @@ export function useProcessStatus(
     if (!projectId) return;
     if (errorCount.current >= 5) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}/install`, { method: "POST" });
+      // Optimistically update status to installing
+      const optimistic: ProcessStatus = {
+        ...(statusRef.current ?? { install: "pending", build: "pending", installLog: "", buildLog: "" }),
+        install: "installing",
+        installLog: "$ npm install (synchronous mode for Vercel)...\n",
+      };
+      setStatus(optimistic);
+      statusRef.current = optimistic;
+
+      // Use the synchronous install-build endpoint (works on Vercel serverless)
+      // This request may take up to 300s (npm install + npm run build)
+      const res = await fetch(`/api/projects/${projectId}/install-build`, {
+        method: "POST",
+      });
       if (res.status === 404) {
         errorCount.current += 1;
         return;
       }
       errorCount.current = 0;
-      // Optimistically update status to installing
-      const optimistic: ProcessStatus = {
-        ...(statusRef.current ?? { install: "pending", build: "pending", installLog: "", buildLog: "" }),
-        install: "installing",
-        installLog: "$ npm install\n",
+      const data = await res.json();
+
+      // Update with real logs from the synchronous run
+      const finalStatus: ProcessStatus = {
+        install: data.installStatus === "installed" ? "installed" : data.installStatus === "failed" ? "failed" : "pending",
+        build: data.buildStatus === "built" ? "built" : data.buildStatus === "failed" ? "failed" : "pending",
+        installLog: data.installLog || "$ npm install\n(no log)",
+        buildLog: data.buildLog || "$ npm run build\n(no log)",
       };
-      setStatus(optimistic);
-      statusRef.current = optimistic;
-      // Start polling
-      setPollingEnabled(true);
-      // Immediate refresh after 500ms
-      setTimeout(() => refresh(), 500);
-      // And another after 2s to ensure we catch the server-side status
-      setTimeout(() => refresh(), 2000);
+      setStatus(finalStatus);
+      statusRef.current = finalStatus;
     } catch {
       errorCount.current += 1;
+      // On network error, show error in log
+      const errStatus: ProcessStatus = {
+        ...(statusRef.current ?? { install: "pending", build: "pending", installLog: "", buildLog: "" }),
+        install: "failed",
+        installLog: "❌ Erreur réseau ou timeout (300s max sur Vercel)\n",
+      };
+      setStatus(errStatus);
+      statusRef.current = errStatus;
     }
-  }, [projectId, refresh]);
+  }, [projectId]);
 
   return { status, triggerBuild, triggerInstall, refresh };
 }

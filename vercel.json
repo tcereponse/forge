@@ -15,7 +15,10 @@
       "maxDuration": 120
     },
     "src/app/api/projects/[id]/gold/next/route.ts": {
-      "maxDuration": 120
+      "maxDuration": 300
+    },
+    "src/app/api/projects/[id]/install-build/route.ts": {
+      "maxDuration": 300
     },
     "src/app/api/build-apk/route.ts": {
       "maxDuration": 60

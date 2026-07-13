@@ -2,10 +2,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { type ProjectConfig } from "@/lib/forge-config";
 import { deserializeState, runNextPass, finalizeFiles, serializeState } from "@/lib/forge-gold-async";
-import { writeProjectFiles, runInstall } from "@/lib/workspace";
+import { writeProjectFiles } from "@/lib/workspace";
+import { promises as fs } from "fs";
+import path from "path";
+import os from "os";
+import { spawn } from "child_process";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300; // finalization pass needs time for install+build
+
+/**
+ * Runs a command synchronously — used for npm install + build on Vercel serverless.
+ */
+function runCommandSync(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number
+): Promise<{ code: number; output: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, {
+      cwd,
+      shell: false,
+      env: { ...process.env, CI: "true" },
+    });
+    let output = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      output += `\n⏱️ Timeout after ${timeoutMs / 1000}s\n`;
+      resolve({ code: 124, output });
+    }, timeoutMs);
+    child.stdout?.on("data", (data) => { output += data.toString(); });
+    child.stderr?.on("data", (data) => { output += data.toString(); });
+    child.on("close", (code) => { clearTimeout(timer); resolve({ code: code ?? 1, output }); });
+    child.on("error", (err) => { clearTimeout(timer); resolve({ code: 1, output: output + `\n❌ ${err.message}\n` }); });
+  });
+}
 
 /**
  * POST /api/projects/[id]/gold/next
@@ -84,17 +116,74 @@ export async function POST(
           prd,
           filesJson: JSON.stringify(finalFiles),
           fileCount: finalFiles.length,
-          installStatus: "pending",
+          installStatus: "installing",
           buildStatus: "pending",
         },
       });
 
-      // Write to disk + install
+      // Write to disk + SYNCHRONOUS install + build (Vercel serverless can't do background)
+      let installLog = "";
+      let buildLog = "";
+      let installOk = false;
+      let buildOk = false;
+      let distExists = false;
+
       try {
+        console.log("[gold/next] Finalizing: writing files to disk...");
         await writeProjectFiles(id, finalFiles);
-        runInstall(id);
+
+        const WORKSPACES_DIR = path.join(os.tmpdir(), "react-forge-workspaces");
+        const projectDir = path.join(WORKSPACES_DIR, id);
+
+        // npm install (max 150s)
+        console.log("[gold/next] Running npm install (synchronous)...");
+        const installResult = await runCommandSync(
+          "npm",
+          ["install", "--no-fund", "--no-audit", "--legacy-peer-deps"],
+          projectDir,
+          150000
+        );
+        installLog = installResult.output;
+        installOk = installResult.code === 0;
+        console.log(`[gold/next] npm install: code=${installResult.code}`);
+
+        await db.project.update({
+          where: { id },
+          data: { installStatus: installOk ? "installed" : "failed" },
+        });
+
+        // npm run build (max 80s)
+        if (installOk) {
+          console.log("[gold/next] Running npm run build (synchronous)...");
+          await db.project.update({
+            where: { id },
+            data: { buildStatus: "building" },
+          });
+
+          const buildResult = await runCommandSync(
+            "npm",
+            ["run", "build"],
+            projectDir,
+            80000
+          );
+          buildLog = buildResult.output;
+          buildOk = buildResult.code === 0;
+
+          // Check dist/
+          try {
+            const distStat = await fs.stat(path.join(projectDir, "dist"));
+            distExists = distStat.isDirectory();
+          } catch {}
+
+          await db.project.update({
+            where: { id },
+            data: { buildStatus: buildOk && distExists ? "built" : "failed" },
+          });
+          console.log(`[gold/next] npm run build: code=${buildResult.code}, dist=${distExists}`);
+        }
       } catch (e) {
-        console.error("[gold/next] writeProjectFiles failed:", e);
+        console.error("[gold/next] Finalization failed:", e);
+        installLog += `\n❌ Finalization error: ${e instanceof Error ? e.message : "unknown"}\n`;
       }
 
       return NextResponse.json({
@@ -107,6 +196,11 @@ export async function POST(
         fileCount: finalFiles.length,
         currentPass: 7,
         phases: newState.phases,
+        installStatus: installOk ? "installed" : "failed",
+        buildStatus: buildOk && distExists ? "built" : "failed",
+        installLog,
+        buildLog,
+        distExists,
       });
     }
 

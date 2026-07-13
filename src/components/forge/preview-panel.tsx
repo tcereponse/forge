@@ -58,9 +58,9 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
 
   async function handleInstall() {
     setInstallTriggering(true);
-    toast.success("Installation des dépendances démarrée…");
+    toast.success("Installation + Build synchrones démarrés (peut prendre 2-4 min sur Vercel)…");
     await triggerInstall();
-    setTimeout(() => setInstallTriggering(false), 2000);
+    setInstallTriggering(false);
   }
 
   async function handleBuild() {
