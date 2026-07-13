@@ -2232,3 +2232,29 @@ Stage Summary:
 - Build devrait maintenant réussir avec vite bin direct
 - Moins de risque d'échec install (package.json minimal)
 - 3 fallbacks si vite bin échoue encore
+
+---
+Task ID: FIX-CLEAN-DIR-INSTALL
+Agent: orchestrator (main)
+Task: Fix npm install "added 10 packages" + "up to date" — stale node_modules on Vercel
+
+Work Log:
+- Log critique: "added 10 packages in 7s" puis retry "up to date in 1s"
+- Diagnostic: Vercel réutilise /tmp entre requêtes → node_modules stale
+- npm pense que tout est installé ("up to date") mais vite manque
+- Solution: nouveau flow:
+  1. fs.rm(projectDir, recursive) — nettoyage complet
+  2. fs.mkdir(projectDir) — dossier frais vide
+  3. Écriture du slim package.json SEUL (pas d'autres fichiers)
+  4. npm install — voit un dossier propre, installe tout correctement
+  5. Vérification node_modules/.bin/vite (retry si manquant)
+  6. Écriture des fichiers source APRÈS install (ne perturbe pas node_modules)
+  7. vite build
+- Supprimé writeProjectFiles (faisait rm+write de 109 fichiers en une fois)
+- Remplacé par écriture manuelle fichier par fichier après install
+- Commit 1daa90a poussé, Vercel a déployé
+
+Stage Summary:
+- npm install devrait maintenant installer tous les packages (100+ au lieu de 10)
+- Dossier propre garanti à chaque requête
+- vite sera réellement présent dans node_modules/.bin
