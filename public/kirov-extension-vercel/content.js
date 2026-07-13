@@ -1,15 +1,21 @@
 /**
- * ELITE FORGE — KIROV3 Vercel Edition v2
+ * ELITE FORGE — KIROV3 Vercel Edition v3
  * Fonctionne avec https://forge-kohl-kappa.vercel.app
- * Improved DeepSeek capture: waits for generation to finish, uses specific selectors
+ *
+ * v3 fix: capture intelligente qui attend que DeepSeek ait TOTALEMENT fini
+ * de générer avant de capturer. Détecte:
+ *   - Le bouton "Stop generating" (signature de génération en cours)
+ *   - La stabilisation du texte (même contenu 2 checks de suite = fini)
+ *   - Empêche l'injection Phase 2 pendant que Phase 1 est encore en cours
  */
 
 const CONFIG = {
     SERVER_URL: "https://forge-kohl-kappa.vercel.app",
-    POLLING_INTERVAL: 3000,
-    CAPTURE_TIMEOUT: 120000,    // 2 min max to wait for response
-    CAPTURE_CHECK_INTERVAL: 1500, // check every 1.5s if generation finished
-    MIN_RESPONSE_LENGTH: 100,   // min chars to accept a response
+    POLLING_INTERVAL: 3000,        // poll server every 3s
+    CAPTURE_CHECK_INTERVAL: 3000,  // check generation status every 3s
+    CAPTURE_TIMEOUT: 180000,       // 3 min max to wait for response
+    MIN_RESPONSE_LENGTH: 200,      // min chars to accept a PRD/code response
+    STABLE_CHECKS_REQUIRED: 2,     // need 2 consecutive stable checks (6s) = done
     DEBUG_MODE: true
 };
 
@@ -19,85 +25,105 @@ class KirovLogger {
     static warn(...args) { console.warn('[KIROV3]', ...args); }
 }
 
-// ─── DeepSeek DOM helpers ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE — prevents concurrent prompt injection / capture
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Find the chat textarea (DeepSeek uses #chat-input or a textarea with specific attrs)
+let isProcessing = false;  // true while injecting + capturing (blocks polling)
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DeepSeek DOM helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Find the chat textarea (DeepSeek uses #chat-input)
 function findTextarea() {
     return document.querySelector('textarea#chat-input')
-        || document.querySelector('textarea[placeholder*="Message"]')
-        || document.querySelector('textarea[placeholder*="message"]')
+        || document.querySelector('textarea[placeholder*="Message" i]')
+        || document.querySelector('textarea[placeholder*="message" i]')
         || document.querySelector('div[contenteditable="true"]')
         || document.querySelector('textarea');
 }
 
-// Find the send button — DeepSeek uses a div with role="button" or a specific send button
+// Find the send button — DeepSeek uses a div with role="button"
 function findSendButton() {
-    // DeepSeek send button strategies (most specific first)
     const candidates = [
         'div[role="button"][aria-disabled="false"]',
+        'div[role="button"]:not([aria-disabled="true"])',
         'button[data-testid="send-button"]',
-        'button[aria-label*="Send"]',
+        'button[aria-label*="Send" i]',
         'div[role="button"][class*="send"]',
-        'div[role="button"]:last-child',
     ];
     for (const sel of candidates) {
         const el = document.querySelector(sel);
-        if (el && !el.getAttribute('aria-disabled')) return el;
+        if (el) return el;
     }
     return null;
 }
 
-// Detect if DeepSeek is currently generating a response
-// During generation, a "stop" button appears; when it disappears, response is done
+/**
+ * Detect if DeepSeek is currently generating a response.
+ * Signs of generation:
+ *   - "Stop generating" button visible (aria-label contains "Stop")
+ *   - .ds-spinner or .generating indicators
+ *   - Loading/cursor elements in the last message
+ */
 function isGenerating() {
-    // DeepSeek stop button: div with role="button" containing stop icon, or aria-label "Stop"
+    // Strategy 1: Stop button (most reliable — DeepSeek shows it during generation)
     const stopBtn = document.querySelector(
-        'div[role="button"][aria-label*="Stop" i], ' +
-        'div[role="button"][aria-label*="stop" i], ' +
         'button[aria-label*="Stop" i], ' +
+        'div[role="button"][aria-label*="Stop" i], ' +
+        'div[aria-label*="Stop" i], ' +
+        'button[aria-label*="stop" i], ' +
+        '.ds-stop-button, ' +
         'div[class*="stop-generating"], ' +
         'div[class*="stop"]'
     );
     if (stopBtn) return true;
 
-    // Fallback: check if the last assistant message has a cursor/loading indicator
+    // Strategy 2: spinner / loading indicators
+    const spinner = document.querySelector('.ds-spinner, .generating, [class*="loading-dots"]');
+    if (spinner) return true;
+
+    // Strategy 3: cursor/typing indicator in the last assistant message
     const lastMsg = getLastAssistantElement();
     if (lastMsg) {
-        // DeepSeek shows a blinking cursor or "..." while generating
-        const loading = lastMsg.querySelector('.loading, [class*="loading"], [class*="cursor"], [class*="typing"]');
-        if (loading) return true;
+        const typing = lastMsg.querySelector(
+            '[class*="cursor"], [class*="typing"], [class*="blink"], ' +
+            '.loading-dots, [class*="loading"]'
+        );
+        if (typing) return true;
     }
+
     return false;
 }
 
-// Find the LAST assistant message element using multiple DeepSeek-specific strategies
+/**
+ * Find the LAST assistant message element using multiple DeepSeek strategies.
+ * Returns the element containing the AI's markdown response.
+ */
 function getLastAssistantElement() {
     // Strategy 1: DeepSeek renders markdown in .ds-markdown inside assistant messages
-    let markdowns = document.querySelectorAll('div.ds-markdown');
-    if (markdowns.length > 0) {
-        return markdowns[markdowns.length - 1];
-    }
+    let els = document.querySelectorAll('div.ds-markdown');
+    if (els.length > 0) return els[els.length - 1];
 
-    // Strategy 2: elements with markdown-related classes, but exclude user input
-    markdowns = document.querySelectorAll(
+    // Strategy 2: markdown-related classes (exclude user input area)
+    els = document.querySelectorAll(
         '[class*="ds-markdown"], ' +
         'div[class*="markdown-body"], ' +
-        'div[class*="message-content"]'
+        'div[class*="message-content"]:not([class*="user"]):not([class*="input"])'
     );
-    if (markdowns.length > 0) {
-        return markdowns[markdowns.length - 1];
-    }
+    if (els.length > 0) return els[els.length - 1];
 
-    // Strategy 3: look for assistant role containers
+    // Strategy 3: assistant role containers
     const assistants = document.querySelectorAll(
         '[data-role="assistant"], ' +
-        'div[class*="assistant"], ' +
+        'div[class*="assistant-message"], ' +
         'div[class*="bot-message"], ' +
-        'div[class*="ai-message"]'
+        'div[class*="ai-message"], ' +
+        'div[class*="ds-message--assistant"]'
     );
     if (assistants.length > 0) {
         const last = assistants[assistants.length - 1];
-        // Try to find markdown content inside
         const inner = last.querySelector('.ds-markdown, [class*="markdown"], [class*="content"]');
         return inner || last;
     }
@@ -105,25 +131,23 @@ function getLastAssistantElement() {
     return null;
 }
 
-// Extract text content from an element, preserving code blocks structure
+// Extract text content from an element
 function extractContent(el) {
     if (!el) return '';
-    // Use innerText to get rendered text (respects CSS), fallback to textContent
-    let text = '';
     try {
-        text = el.innerText || el.textContent || '';
+        return (el.innerText || el.textContent || '').trim();
     } catch {
-        text = el.textContent || '';
+        return (el.textContent || '').trim();
     }
-    return text.trim();
 }
 
-// ─── Polling ────────────────────────────────────────────────────────────────
-
-let isProcessing = false; // Prevent concurrent prompt injection
+// ═══════════════════════════════════════════════════════════════════════════
+//  Polling — fetch next prompt from bridge server
+// ═══════════════════════════════════════════════════════════════════════════
 
 async function pollForPrompt() {
-    if (isProcessing) return; // Don't poll while injecting/capturing
+    // CRITICAL: don't poll if we're still injecting/capturing a previous prompt
+    if (isProcessing) return;
 
     try {
         const res = await fetch(`${CONFIG.SERVER_URL}/api/bridge/prompt`);
@@ -135,27 +159,40 @@ async function pollForPrompt() {
         // Hash check — prevent re-injection of the same prompt
         const hash = await sha256(data.prompt);
         const lastHash = localStorage.getItem('kirov_last_hash');
-        if (hash === lastHash) return; // Already processed this prompt
+        if (hash === lastHash) return; // Already processed
 
-        // New prompt! Process it
+        // New prompt! Lock processing and handle it
         isProcessing = true;
         localStorage.setItem('kirov_last_hash', hash);
 
         KirovLogger.info(`Phase ${data.phase_num}: New prompt (${data.prompt.length} chars) — injecting`);
 
-        await injectPrompt(data.prompt);
-        KirovLogger.info('Prompt injected, waiting for DeepSeek response...');
-
-        // Wait for generation to start, then finish
-        const captured = await waitForResponseAndCapture();
-
-        if (captured) {
-            KirovLogger.info(`Capture complete (${captured.length} chars) — sending to server`);
-            await sendCapture(captured);
-        } else {
-            KirovLogger.error('Capture failed — no response detected');
+        const injected = await injectPrompt(data.prompt);
+        if (!injected) {
+            KirovLogger.error('Injection failed — releasing lock');
+            isProcessing = false;
+            return;
         }
 
+        KirovLogger.info('Prompt injected. Waiting for DeepSeek to finish generating...');
+
+        // Wait for generation to complete (smart capture)
+        const captured = await waitForFullResponse();
+
+        if (captured && captured.length >= CONFIG.MIN_RESPONSE_LENGTH) {
+            KirovLogger.info(`✅ Full response captured (${captured.length} chars) — sending to server`);
+            const result = await sendCapture(captured);
+            if (result && result.phase === 5) {
+                KirovLogger.info('🎉 MISSION COMPLETE — code captured on Vercel!');
+                KirovLogger.info(`📦 Download: ${CONFIG.SERVER_URL}/api/bridge/download`);
+            } else if (result && result.phase === 2) {
+                KirovLogger.info('✅ PRD captured — Phase 2 (code gen) will start on next poll');
+            }
+        } else {
+            KirovLogger.error(`Capture failed or too short (${captured ? captured.length : 0} chars)`);
+        }
+
+        // Release the lock — next poll can pick up Phase 2 prompt (if any)
         isProcessing = false;
     } catch (e) {
         KirovLogger.error('Poll error:', e.message);
@@ -163,7 +200,9 @@ async function pollForPrompt() {
     }
 }
 
-// ─── Inject prompt into DeepSeek ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  Inject prompt into DeepSeek chat
+// ═══════════════════════════════════════════════════════════════════════════
 
 async function injectPrompt(prompt) {
     const textarea = findTextarea();
@@ -172,7 +211,7 @@ async function injectPrompt(prompt) {
         return false;
     }
 
-    // Focus the textarea
+    // Focus + clear any existing content
     textarea.focus();
     await sleep(100);
 
@@ -191,7 +230,7 @@ async function injectPrompt(prompt) {
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
 
-    await sleep(400);
+    await sleep(500);
 
     // Find and click send button
     const sendBtn = findSendButton();
@@ -215,74 +254,89 @@ async function injectPrompt(prompt) {
     return true;
 }
 
-// ─── Wait for response & capture ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  CRITICAL v3 FIX: Wait for FULL response before capturing
+//  - Waits for generation to START (stop button appears)
+//  - Then waits for generation to FINISH (stop button disappears + content stable)
+//  - Requires STABLE_CHECKS_REQUIRED consecutive identical content checks
+// ═══════════════════════════════════════════════════════════════════════════
 
-async function waitForResponseAndCapture() {
-    // Step 1: wait for generation to START (stop button appears)
+async function waitForFullResponse() {
+    // Step 1: wait for generation to START (max 15s)
     KirovLogger.info('Waiting for generation to start...');
     let started = false;
-    for (let i = 0; i < 20; i++) { // 20 * 500ms = 10s max to start
+    for (let i = 0; i < 30; i++) { // 30 * 500ms = 15s
         await sleep(500);
-        if (isGenerating()) { started = true; break; }
+        if (isGenerating()) {
+            started = true;
+            break;
+        }
     }
-    if (!started) {
-        KirovLogger.warn('Generation did not start — maybe prompt failed. Trying capture anyway');
+    if (started) {
+        KirovLogger.info('Generation started (Stop button detected)');
     } else {
-        KirovLogger.info('Generation started, waiting for it to finish...');
+        KirovLogger.warn('Generation did not start — maybe send failed. Trying capture anyway');
     }
 
-    // Step 2: wait for generation to FINISH (stop button disappears)
+    // Step 2: wait for generation to FINISH
+    // A response is "complete" when:
+    //   - NOT generating (no Stop button)
+    //   - Content is STABLE (same text 2 consecutive checks = 6s)
     const startTime = Date.now();
+    let previousContent = '';
     let stableCount = 0;
-    let lastContent = '';
-    let lastContentLength = 0;
+    let checkNum = 0;
 
     while (Date.now() - startTime < CONFIG.CAPTURE_TIMEOUT) {
         await sleep(CONFIG.CAPTURE_CHECK_INTERVAL);
+        checkNum++;
 
-        const stillGenerating = isGenerating();
+        const generating = isGenerating();
         const lastEl = getLastAssistantElement();
         const currentContent = lastEl ? extractContent(lastEl) : '';
-        const currentLen = currentContent.length;
 
-        // Track content stability — if content hasn't changed for 3 checks and not generating, done
-        if (currentLen === lastContentLength && currentContent === lastContent) {
+        // Track stability — content must be IDENTICAL across checks
+        const contentChanged = currentContent !== previousContent;
+        if (!contentChanged && currentContent.length > 0) {
             stableCount++;
         } else {
             stableCount = 0;
         }
-        lastContent = currentContent;
-        lastContentLength = currentLen;
+        previousContent = currentContent;
 
         KirovLogger.info(
-            `Check: generating=${stillGenerating} len=${currentLen} stable=${stableCount}`
+            `Check #${checkNum}: generating=${generating} len=${currentContent.length} ` +
+            `changed=${contentChanged} stable=${stableCount}/${CONFIG.STABLE_CHECKS_REQUIRED}`
         );
 
-        // Response is complete when:
-        // - Not generating AND content is stable (3 consecutive identical checks)
-        // - OR content is substantial and not generating
-        if (!stillGenerating && stableCount >= 2 && currentLen >= CONFIG.MIN_RESPONSE_LENGTH) {
-            KirovLogger.info(`Response complete (${currentLen} chars)`);
+        // Response is COMPLETE when:
+        //   - Not generating
+        //   - Content stable for STABLE_CHECKS_REQUIRED checks (6s)
+        //   - Long enough
+        if (!generating && stableCount >= CONFIG.STABLE_CHECKS_REQUIRED && currentContent.length >= CONFIG.MIN_RESPONSE_LENGTH) {
+            KirovLogger.info(`✅ Generation complete — stable for ${stableCount} checks, ${currentContent.length} chars`);
             return currentContent;
         }
 
-        // Early exit if very long response and stable for 4 checks
-        if (stableCount >= 4 && currentLen >= CONFIG.MIN_RESPONSE_LENGTH) {
-            KirovLogger.info(`Response stable (${currentLen} chars) — capturing`);
+        // Safety: if not generating and content is substantial and stable 3x, capture
+        if (!generating && stableCount >= 3 && currentContent.length >= 100) {
+            KirovLogger.info(`✅ Generation complete (stable 3x) — ${currentContent.length} chars`);
             return currentContent;
         }
     }
 
     // Timeout — return whatever we have if it's long enough
-    if (lastContentLength >= CONFIG.MIN_RESPONSE_LENGTH) {
-        KirovLogger.warn(`Timeout — capturing partial response (${lastContentLength} chars)`);
-        return lastContent;
+    if (previousContent.length >= CONFIG.MIN_RESPONSE_LENGTH) {
+        KirovLogger.warn(`⏱️ Timeout — capturing partial response (${previousContent.length} chars)`);
+        return previousContent;
     }
 
     return null;
 }
 
-// ─── Send captured response to server ───────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  Send captured response to bridge server
+// ═══════════════════════════════════════════════════════════════════════════
 
 async function sendCapture(content) {
     try {
@@ -293,13 +347,6 @@ async function sendCapture(content) {
         });
         const data = await res.json();
         KirovLogger.info('Server response:', JSON.stringify(data));
-
-        if (data.success && data.phase === 5) {
-            KirovLogger.info('🎉 MISSION COMPLETE — code captured on Vercel!');
-            KirovLogger.info(`📦 Download: ${CONFIG.SERVER_URL}/api/bridge/download`);
-        } else if (data.success && data.phase === 2) {
-            KirovLogger.info('✅ PRD captured — Phase 2 (code gen) starting...');
-        }
         return data;
     } catch (e) {
         KirovLogger.error('Send capture error:', e.message);
@@ -307,7 +354,9 @@ async function sendCapture(content) {
     }
 }
 
-// ─── Utils ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  Utils
+// ═══════════════════════════════════════════════════════════════════════════
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
@@ -320,11 +369,14 @@ async function sha256(text) {
         .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── Start ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  Start
+// ═══════════════════════════════════════════════════════════════════════════
 
-KirovLogger.info('KIROV3 Vercel Edition v2 loaded — improved capture');
+KirovLogger.info('KIROV3 Vercel Edition v3 loaded — smart capture');
 KirovLogger.info(`Server: ${CONFIG.SERVER_URL}`);
-KirovLogger.info('Waiting for prompts from bridge...');
+KirovLogger.info(`Config: poll=${CONFIG.POLLING_INTERVAL}ms, check=${CONFIG.CAPTURE_CHECK_INTERVAL}ms, ` +
+    `minLen=${CONFIG.MIN_RESPONSE_LENGTH}, stableChecks=${CONFIG.STABLE_CHECKS_REQUIRED}`);
 
 setInterval(pollForPrompt, CONFIG.POLLING_INTERVAL);
 pollForPrompt();
