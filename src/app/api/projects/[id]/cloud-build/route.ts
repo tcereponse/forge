@@ -145,11 +145,20 @@ jobs:
           test -f src/App.tsx || echo 'import React from "react";export default function App(){return React.createElement("div",null,"Hello")}' > src/App.tsx
           test -f src/main.tsx || echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App))' > src/main.tsx
           test -f src/index.css || echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
-          test -f vite.config.ts || echo 'import {defineConfig}from"vite";import react from"@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist"}})' > vite.config.ts
+          test -f vite.config.ts || echo 'import {defineConfig}from"vite";import react from"@vitejs/plugin-react";export default defineConfig({plugins:[react()],base:"./",build:{outDir:"dist",target:"es2015",modulePreload:false,rollupOptions:{output:{format:"iife",inlineDynamicImports:true,entryFileNames:"assets/[name].js",chunkFileNames:"assets/[name].js",assetFileNames:"assets/[name].[ext]"}}}})' > vite.config.ts
           test -f tsconfig.json || echo '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json
           test -f tailwind.config.js || echo '/** @type {import("tailwindcss").Config} */' > tailwind.config.js
           test -f tailwind.config.js && echo 'export default{content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js || true
           test -f postcss.config.js || echo 'export default{plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
+      - name: Fix vite config for Capacitor
+        run: |
+          if [ -f vite.config.ts ]; then
+            if ! grep -q 'base' vite.config.ts; then
+              sed -i 's/defineConfig({/defineConfig({base:".\/"/' vite.config.ts
+              echo "Added base:./ to existing vite.config.ts"
+            fi
+          fi
+          cat vite.config.ts
       - name: Install
         run: npm install --legacy-peer-deps
       - name: Build
