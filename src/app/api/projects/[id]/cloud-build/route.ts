@@ -209,9 +209,13 @@ jobs:
       const commit = await githubApi(`git/commits/${latestCommitSha}`);
       const baseTreeSha = commit.tree.sha;
 
-      // ── 6. Create blobs for all files ──
+      // ── 6. Create blobs for all files (with rate limit protection) ──
       const treeItems: any[] = [];
       for (let i = 0; i < allFiles.length; i++) {
+        // Delay every 5 files to avoid GitHub secondary rate limit
+        if (i > 0 && i % 5 === 0) {
+          await new Promise(r => setTimeout(r, 500));
+        }
         const file = allFiles[i];
         const blob = await githubApi("git/blobs", "POST", {
           content: file.content,
