@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronRight,
   Smartphone,
+  Cloud,
+  Download,
 } from "lucide-react";
 import { useProcessStatus } from "@/hooks/use-process-status";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,9 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
   const [previewKey, setPreviewKey] = useState(0);
   const [apkBuilding, setApkBuilding] = useState(false);
   const [installTriggering, setInstallTriggering] = useState(false);
+  const [cloudBuilding, setCloudBuilding] = useState(false);
+  const [cloudDownloading, setCloudDownloading] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState<string>("");
 
   const installDone = status?.install === "installed";
   const buildDone = status?.build === "built";
@@ -73,6 +78,69 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
     }
     toast.success("Build démarré…");
     await triggerBuild();
+  }
+
+  // ── Cloud Forge: Push to GitHub + trigger Actions ──
+  async function handleCloudBuild() {
+    const token = localStorage.getItem("github_token") || "";
+    if (!token) {
+      toast.error("Token GitHub manquant — configure-le dans le popup de l'extension");
+      setCloudStatus("❌ Token GitHub manquant");
+      return;
+    }
+    setCloudBuilding(true);
+    setCloudStatus("☁️ Push du code vers GitHub...");
+    toast.success("Cloud Forge: Push du code + déclenchement GitHub Actions...");
+    try {
+      const res = await fetch(`/api/projects/${projectId}/cloud-build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ github_token: token }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCloudStatus(`✅ Code poussé! (${data.files_pushed} fichiers, commit ${data.commit_sha})`);
+        toast.success("Cloud Forge: Code poussé! GitHub Actions compile l'APK...");
+      } else {
+        setCloudStatus(`❌ ${data.error}`);
+        toast.error(data.error || "Échec Cloud Forge");
+      }
+    } catch (e) {
+      setCloudStatus(`❌ Erreur: ${e instanceof Error ? e.message : "inconnue"}`);
+      toast.error("Erreur Cloud Forge");
+    }
+    setCloudBuilding(false);
+  }
+
+  // ── Cloud Forge: Poll + Download APK ──
+  async function handleCloudDownload() {
+    const token = localStorage.getItem("github_token") || "";
+    if (!token) {
+      toast.error("Token GitHub manquant");
+      setCloudStatus("❌ Token GitHub manquant");
+      return;
+    }
+    setCloudDownloading(true);
+    setCloudStatus("📥 Vérification du statut GitHub Actions...");
+    try {
+      const res = await fetch(`/api/projects/${projectId}/cloud-download?github_token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (data.success) {
+        setCloudStatus(`📱 APK prêt! ${data.artifact_name} (${data.artifact_size})`);
+        toast.success(`APK prêt! ${data.artifact_name} (${data.artifact_size})`);
+      } else if (data.status === "building") {
+        setCloudStatus("⏳ Compilation en cours... réessaie dans 1-2 min");
+        toast.info("Compilation en cours sur GitHub Actions...");
+      } else if (data.status === "failed") {
+        setCloudStatus("❌ Build échoué sur GitHub Actions");
+        toast.error("Build GitHub Actions échoué");
+      } else {
+        setCloudStatus(`❌ ${data.message || data.error || "Inconnu"}`);
+      }
+    } catch (e) {
+      setCloudStatus(`❌ Erreur: ${e instanceof Error ? e.message : "inconnue"}`);
+    }
+    setCloudDownloading(false);
   }
 
   async function handleApk() {
@@ -162,6 +230,35 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
             {apkBuilding ? "Compilation…" : "APK"}
           </Button>
           <Button
+            onClick={handleCloudBuild}
+            disabled={cloudBuilding}
+            size="sm"
+            className="h-8 bg-gradient-to-r from-violet-500 to-purple-500 text-xs text-white hover:from-violet-400 hover:to-purple-400"
+            title="Cloud Forge: Push code vers GitHub + déclencher GitHub Actions"
+          >
+            {cloudBuilding ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Cloud className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {cloudBuilding ? "Push…" : "☁️ Cloud Forge"}
+          </Button>
+          <Button
+            onClick={handleCloudDownload}
+            disabled={cloudDownloading}
+            size="sm"
+            variant="outline"
+            className="h-8 border-violet-500/30 text-violet-300 hover:text-violet-200 text-xs"
+            title="Récupérer l'APK depuis GitHub Actions"
+          >
+            {cloudDownloading ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {cloudDownloading ? "…" : "📥 APK"}
+          </Button>
+          <Button
             onClick={handleBuild}
             disabled={status?.build === "building"}
             size="sm"
@@ -202,6 +299,13 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
           <p className="text-xs text-rose-300">
             ❌ Le build a échoué. Vérifie les logs ci-dessous.
           </p>
+        </div>
+      )}
+
+      {/* Cloud Forge status */}
+      {cloudStatus && (
+        <div className="border-b border-violet-500/20 bg-violet-500/5 px-4 py-2.5 sm:px-6">
+          <p className="text-xs text-violet-300">{cloudStatus}</p>
         </div>
       )}
 
