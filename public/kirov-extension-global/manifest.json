@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ELITE FORGE GLOBAL — KIROV3 Vercel",
-  "version": "15.0",
+  "version": "15.1",
   "description": "Extension Maîtresse GLOBAL_KIROV3 — Vercel Sovereign Cloud + GitHub Actions APK Pusher",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
@@ -29,6 +29,13 @@
       ],
       "js": ["content.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://forge-kohl-kappa.vercel.app/*"
+      ],
+      "js": ["forge-sync.js"],
+      "run_at": "document_idle"
     }
   ]
 }

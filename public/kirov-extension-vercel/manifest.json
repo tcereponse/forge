@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ELITE FORGE — KIROV3 Vercel",
-  "version": "14.5",
-  "description": "Extension pour React Forge sur Vercel — DeepSeek Chat bridge + GitHub Auto-Push",
+  "version": "14.6",
+  "description": "Extension pour React Forge sur Vercel — DeepSeek Chat bridge + GitHub Auto-Push + Forge Sync",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "*://*.deepseek.com/*",
@@ -29,6 +29,13 @@
       ],
       "js": ["content.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://forge-kohl-kappa.vercel.app/*"
+      ],
+      "js": ["forge-sync.js"],
+      "run_at": "document_idle"
     }
   ]
 }
