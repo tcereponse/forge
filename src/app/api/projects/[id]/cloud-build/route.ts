@@ -122,42 +122,33 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Debug files
-        run: find . -maxdepth 2 -not -path './.git/*' | head -30
-      - name: Ensure package.json
+      - uses: android-actions/setup-android@v3
+      - name: Files
+        run: find . -maxdepth 2 -not -path './.git/*' -not -path './node_modules/*' | head -30
+      - name: Ensure files
         run: |
-          test -f package.json || echo '{"name":"forge-app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","typescript":"^5.5.4","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json
-      - name: Ensure index.html
-        run: test -f index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > index.html
-      - name: Ensure src
-        run: |
+          test -f package.json || echo '{"name":"app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json
+          test -f index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > index.html
           mkdir -p src
           test -f src/App.tsx || echo 'import React from "react";export default function App(){return React.createElement("div",null,"Hello")}' > src/App.tsx
           test -f src/main.tsx || echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App))' > src/main.tsx
           test -f src/index.css || echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
-      - name: Ensure configs
-        run: |
-          test -f vite.config.ts || echo 'import {defineConfig} from "vite";import react from "@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist"}})' > vite.config.ts
+          test -f vite.config.ts || echo 'import {defineConfig}from"vite";import react from"@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist"}})' > vite.config.ts
           test -f tsconfig.json || echo '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json
-          test -f tailwind.config.js || printf '%s\n' '/** @type {import("tailwindcss").Config} */' 'export default {content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' > tailwind.config.js
-          test -f postcss.config.js || echo 'export default {plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
+          test -f tailwind.config.js || printf '%s\n' '/** @type {import("tailwindcss").Config} */' 'export default{content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' > tailwind.config.js
+          test -f postcss.config.js || echo 'export default{plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
       - name: Install
         run: npm install --legacy-peer-deps
       - name: Build
@@ -169,9 +160,7 @@ jobs:
           npx cap add android
           npx cap sync android
       - name: APK
-        run: |
-          cd android
-          ./gradlew assembleDebug
+        run: cd android && ./gradlew assembleDebug
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
