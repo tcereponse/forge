@@ -140,7 +140,7 @@ jobs:
       - name: Ensure files
         run: |
           test -f package.json || echo '{"name":"app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json
-          test -f index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > index.html
+          test -f index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="./src/main.tsx"></script></body></html>' > index.html
           mkdir -p src
           test -f src/App.tsx || echo 'import React from "react";export default function App(){return React.createElement("div",null,"Hello")}' > src/App.tsx
           test -f src/main.tsx || echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App))' > src/main.tsx
@@ -150,14 +150,27 @@ jobs:
           test -f tailwind.config.js || echo '/** @type {import("tailwindcss").Config} */' > tailwind.config.js
           test -f tailwind.config.js && echo 'export default{content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js || true
           test -f postcss.config.js || echo 'export default{plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
-      - name: Fix vite config for Capacitor
+      - name: Force vite config for Capacitor
         run: |
-          if [ -f vite.config.ts ]; then
-            if ! grep -q 'base' vite.config.ts; then
-              sed -i 's/defineConfig({/defineConfig({base:".\/"/' vite.config.ts
-              echo "Added base:./ to existing vite.config.ts"
-            fi
-          fi
+          echo 'import { defineConfig } from "vite"' > vite.config.ts
+          echo 'import react from "@vitejs/plugin-react"' >> vite.config.ts
+          echo 'export default defineConfig({' >> vite.config.ts
+          echo '  plugins: [react()],' >> vite.config.ts
+          echo '  base: "./",' >> vite.config.ts
+          echo '  build: {' >> vite.config.ts
+          echo '    outDir: "dist",' >> vite.config.ts
+          echo '    target: "es2015",' >> vite.config.ts
+          echo '    modulePreload: false,' >> vite.config.ts
+          echo '    rollupOptions: {' >> vite.config.ts
+          echo '      output: {' >> vite.config.ts
+          echo '        format: "iife",' >> vite.config.ts
+          echo '        inlineDynamicImports: true,' >> vite.config.ts
+          echo '        entryFileNames: "assets/[name].js",' >> vite.config.ts
+          echo '      }' >> vite.config.ts
+          echo '    }' >> vite.config.ts
+          echo '  }' >> vite.config.ts
+          echo '})' >> vite.config.ts
+          echo "=== vite.config.ts ==="
           cat vite.config.ts
       - name: Install
         run: npm install --legacy-peer-deps
