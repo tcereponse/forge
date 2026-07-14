@@ -133,22 +133,71 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v3
+
+      - name: Ensure project files
+        run: |
+          if [ ! -f package.json ]; then
+            cat > package.json << 'EOF'
+          {"name":"forge-app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1","react-router-dom":"^6.26.0","lucide-react":"^0.427.0"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","typescript":"^5.5.4","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}
+          EOF
+          fi
+          if [ ! -f index.html ]; then
+            cat > index.html << 'EOF'
+          <!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+          EOF
+          fi
+          if [ ! -f src/main.tsx ]; then
+            mkdir -p src
+            cat > src/main.tsx << 'EOF'
+          import React from "react";import ReactDOM from "react-dom/client";import App from "./App";import "./index.css";ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App/></React.StrictMode>)
+          EOF
+          fi
+          if [ ! -f vite.config.ts ]; then
+            cat > vite.config.ts << 'EOF'
+          import {defineConfig} from "vite";import react from "@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist",target:"es2015",modulePreload:false,rollupOptions:{output:{format:"iife",inlineDynamicImports:true,entryFileNames:"assets/[name].js"}}}})
+          EOF
+          fi
+          if [ ! -f tsconfig.json ]; then
+            cat > tsconfig.json << 'EOF'
+          {"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM","DOM.Iterable"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}
+          EOF
+          fi
+          if [ ! -f tailwind.config.js ]; then
+            cat > tailwind.config.js << 'EOF'
+          /** @type {import('tailwindcss').Config} */\nexport default {content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}
+          EOF
+          fi
+          if [ ! -f postcss.config.js ]; then
+            cat > postcss.config.js << 'EOF'
+          export default {plugins:{tailwindcss:{},autoprefixer:{}}}
+          EOF
+          fi
+          if [ ! -f src/index.css ]; then
+            mkdir -p src
+            cat > src/index.css << 'EOF'
+          @tailwind base;@tailwind components;@tailwind utilities;
+          EOF
+          fi
+          echo "=== Project files ==="
+          ls -la
+          echo "=== package.json ==="
+          cat package.json
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
       - name: Build Vite
-        run: npm run build
+        run: npx vite build
 
       - name: Setup Capacitor
         run: |
