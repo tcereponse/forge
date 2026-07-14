@@ -131,7 +131,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -139,43 +139,72 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-      - name: Ensure project files
+      - name: Debug - List files
+        run: |
+          echo "=== All files ==="
+          find . -maxdepth 3 -not -path './.git/*' -not -path './node_modules/*' | head -50
+          echo "=== package.json ==="
+          cat package.json 2>/dev/null || echo "NO package.json"
+          echo "=== src/ ==="
+          ls -la src/ 2>/dev/null || echo "NO src/ directory"
+      - name: Ensure package.json
         run: |
           if [ ! -f package.json ]; then
             echo '{"name":"forge-app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1","react-router-dom":"^6.26.0","lucide-react":"^0.427.0"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","typescript":"^5.5.4","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json
+            echo "Created package.json"
           fi
+      - name: Ensure index.html
+        run: |
           if [ ! -f index.html ]; then
             echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > index.html
+            echo "Created index.html"
           fi
+      - name: Ensure src files
+        run: |
           mkdir -p src
           if [ ! -f src/main.tsx ]; then
-            echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";import "./index.css";ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App/></React.StrictMode>)' > src/main.tsx
+            echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";import "./index.css";ReactDOM.createRoot(document.getElementById("root")!).render(React.createElement(React.StrictMode, null, React.createElement(App)))' > src/main.tsx
+            echo "Created src/main.tsx"
           fi
+          if [ ! -f src/App.tsx ] && [ ! -f src/App.jsx ]; then
+            echo 'import React from "react";export default function App() { return React.createElement("div", null, "Hello Forge") }' > src/App.tsx
+            echo "Created src/App.tsx"
+          fi
+          if [ ! -f src/index.css ]; then
+            echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
+            echo "Created src/index.css"
+          fi
+      - name: Ensure config files
+        run: |
           if [ ! -f vite.config.ts ]; then
-            echo 'import {defineConfig} from "vite";import react from "@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist",target:"es2015",modulePreload:false,rollupOptions:{output:{format:"iife",inlineDynamicImports:true,entryFileNames:"assets/[name].js"}}}})' > vite.config.ts
+            echo 'import { defineConfig } from "vite";import react from "@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist"}})' > vite.config.ts
+            echo "Created vite.config.ts"
           fi
           if [ ! -f tsconfig.json ]; then
             echo '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM","DOM.Iterable"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json
+            echo "Created tsconfig.json"
           fi
           if [ ! -f tailwind.config.js ]; then
             echo '/** @type {import("tailwindcss").Config} */' > tailwind.config.js
             echo 'export default {content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js
+            echo "Created tailwind.config.js"
           fi
           if [ ! -f postcss.config.js ]; then
             echo 'export default {plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
+            echo "Created postcss.config.js"
           fi
-          if [ ! -f src/index.css ]; then
-            echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
-          fi
-          ls -la
       - name: Install dependencies
         run: npm install --legacy-peer-deps
       - name: Build Vite
         run: npx vite build
+      - name: Verify dist
+        run: |
+          ls -la dist/ 2>/dev/null || echo "No dist/ folder"
+          ls -la dist/assets/ 2>/dev/null || echo "No dist/assets/ folder"
       - name: Setup Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init ${safeName} com.forge.${safeName.toLowerCase()} --web-dir dist
+          npx cap init App com.forge.app --web-dir dist
           npx cap add android
           npx cap sync android
       - name: Build APK
@@ -186,7 +215,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${project.name}_APK
+          name: app-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
 `;
