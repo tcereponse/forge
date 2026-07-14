@@ -147,7 +147,8 @@ jobs:
           test -f src/index.css || echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
           test -f vite.config.ts || echo 'import {defineConfig}from"vite";import react from"@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist"}})' > vite.config.ts
           test -f tsconfig.json || echo '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json
-          test -f tailwind.config.js || printf '%s\n' '/** @type {import("tailwindcss").Config} */' 'export default{content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' > tailwind.config.js
+          test -f tailwind.config.js || echo '/** @type {import("tailwindcss").Config} */' > tailwind.config.js
+          test -f tailwind.config.js && echo 'export default{content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js || true
           test -f postcss.config.js || echo 'export default{plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
       - name: Install
         run: npm install --legacy-peer-deps
