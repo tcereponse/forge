@@ -124,7 +124,7 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -135,56 +135,88 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
       - uses: android-actions/setup-android@v3
-      - name: Files
-        run: find . -maxdepth 2 -not -path './.git/*' -not -path './node_modules/*' | head -30
-      - name: Ensure files
+      - name: List files
+        run: find . -maxdepth 2 -not -path './.git/*' | head -30
+      - name: Ensure package.json
         run: |
           test -f package.json || echo '{"name":"app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json
+      - name: Ensure index.html
+        run: |
           test -f index.html || echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="./src/main.tsx"></script></body></html>' > index.html
+      - name: Ensure src
+        run: |
           mkdir -p src
-          test -f src/App.tsx || echo 'import React from "react";export default function App(){return React.createElement("div",null,"Hello")}' > src/App.tsx
+          test -f src/App.tsx || echo 'import React from "react";export default function App(){return React.createElement("div",{style:{padding:20,fontFamily:"sans-serif"}},React.createElement("h1",null,"Hello Forge"),React.createElement("p",null,"App is working!"))}' > src/App.tsx
           test -f src/main.tsx || echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App))' > src/main.tsx
           test -f src/index.css || echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
-          test -f vite.config.ts || echo 'import {defineConfig}from"vite";import react from"@vitejs/plugin-react";export default defineConfig({plugins:[react()],base:"./",build:{outDir:"dist",target:"es2015",modulePreload:false,rollupOptions:{output:{format:"iife",inlineDynamicImports:true,entryFileNames:"assets/[name].js",chunkFileNames:"assets/[name].js",assetFileNames:"assets/[name].[ext]"}}}})' > vite.config.ts
+      - name: Ensure configs
+        run: |
           test -f tsconfig.json || echo '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json
           test -f tailwind.config.js || echo '/** @type {import("tailwindcss").Config} */' > tailwind.config.js
           test -f tailwind.config.js && echo 'export default{content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js || true
           test -f postcss.config.js || echo 'export default{plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
-      - name: Force vite config for Capacitor
+      - name: Force vite.config for Capacitor
         run: |
-          echo 'import { defineConfig } from "vite"' > vite.config.ts
-          echo 'import react from "@vitejs/plugin-react"' >> vite.config.ts
-          echo 'export default defineConfig({' >> vite.config.ts
-          echo '  plugins: [react()],' >> vite.config.ts
-          echo '  base: "./",' >> vite.config.ts
-          echo '  build: {' >> vite.config.ts
-          echo '    outDir: "dist",' >> vite.config.ts
-          echo '    target: "es2015",' >> vite.config.ts
-          echo '    modulePreload: false,' >> vite.config.ts
-          echo '    rollupOptions: {' >> vite.config.ts
-          echo '      output: {' >> vite.config.ts
-          echo '        format: "iife",' >> vite.config.ts
-          echo '        inlineDynamicImports: true,' >> vite.config.ts
-          echo '        entryFileNames: "assets/[name].js",' >> vite.config.ts
-          echo '      }' >> vite.config.ts
-          echo '    }' >> vite.config.ts
-          echo '  }' >> vite.config.ts
-          echo '})' >> vite.config.ts
+          cat > vite.config.ts << 'VITEEOF'
+          import { defineConfig } from 'vite'
+          import react from '@vitejs/plugin-react'
+          export default defineConfig({
+            plugins: [react()],
+            base: './',
+            build: {
+              outDir: 'dist',
+              target: 'es2015',
+              modulePreload: false,
+              rollupOptions: {
+                output: {
+                  format: 'iife',
+                  inlineDynamicImports: true,
+                  entryFileNames: 'assets/[name].js',
+                  chunkFileNames: 'assets/[name].js',
+                  assetFileNames: 'assets/[name].[ext]',
+                },
+              },
+            },
+          })
+          VITEEOF
           echo "=== vite.config.ts ==="
           cat vite.config.ts
       - name: Install
         run: npm install --legacy-peer-deps
       - name: Build
         run: npx vite build
+      - name: Verify dist
+        run: |
+          echo "=== dist/ ==="
+          ls -la dist/ || echo "NO dist/ directory"
+          echo "=== dist/index.html ==="
+          cat dist/index.html || echo "NO dist/index.html"
+          echo "=== dist/assets/ ==="
+          ls -la dist/assets/ || echo "NO dist/assets/"
+      - name: Fix absolute paths in dist
+        run: |
+          if [ -f dist/index.html ]; then
+            sed -i 's|src="/|src="./|g' dist/index.html
+            sed -i 's|href="/|href="./|g' dist/index.html
+            echo "=== Fixed dist/index.html ==="
+            cat dist/index.html
+          fi
       - name: Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init App com.forge.app --web-dir dist
           npx cap add android
+          npx cap copy android
           npx cap sync android
+      - name: Verify capacitor assets
+        run: |
+          echo "=== Android assets ==="
+          ls -la android/app/src/main/assets/public/ || echo "NO assets/public/"
+          echo "=== index.html in assets ==="
+          cat android/app/src/main/assets/public/index.html || echo "NO index.html in assets"
       - name: APK
         run: cd android && ./gradlew assembleDebug
-      - name: Upload
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
