@@ -141,19 +141,32 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Ensure project files
         run: |
-          [ ! -f package.json ] && printf '%s' '{"name":"forge-app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1","react-router-dom":"^6.26.0","lucide-react":"^0.427.0"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","typescript":"^5.5.4","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json || true
-          [ ! -f index.html ] && printf '%s' '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > index.html || true
+          if [ ! -f package.json ]; then
+            echo '{"name":"forge-app","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"react":"^18.3.1","react-dom":"^18.3.1","react-router-dom":"^6.26.0","lucide-react":"^0.427.0"},"devDependencies":{"@vitejs/plugin-react":"^4.3.1","typescript":"^5.5.4","vite":"^5.4.0","tailwindcss":"^3.4.10","postcss":"^8.4.41","autoprefixer":"^10.4.20"}}' > package.json
+          fi
+          if [ ! -f index.html ]; then
+            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > index.html
+          fi
           mkdir -p src
-          [ ! -f src/main.tsx ] && printf '%s' 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";import "./index.css";ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App/></React.StrictMode>)' > src/main.tsx || true
-          [ ! -f vite.config.ts ] && printf '%s' 'import {defineConfig} from "vite";import react from "@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist",target:"es2015",modulePreload:false,rollupOptions:{output:{format:"iife",inlineDynamicImports:true,entryFileNames:"assets/[name].js"}}}})' > vite.config.ts || true
-          [ ! -f tsconfig.json ] && printf '%s' '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM","DOM.Iterable"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json || true
-          [ ! -f tailwind.config.js ] && printf '%s
-' '/** @type {import("tailwindcss").Config} */' > tailwind.config.js && printf '%s
-' 'export default {content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js || true
-          [ ! -f postcss.config.js ] && printf '%s
-' 'export default {plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js || true
-          [ ! -f src/index.css ] && printf '%s
-' '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css || true
+          if [ ! -f src/main.tsx ]; then
+            echo 'import React from "react";import ReactDOM from "react-dom/client";import App from "./App";import "./index.css";ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App/></React.StrictMode>)' > src/main.tsx
+          fi
+          if [ ! -f vite.config.ts ]; then
+            echo 'import {defineConfig} from "vite";import react from "@vitejs/plugin-react";export default defineConfig({plugins:[react()],build:{outDir:"dist",target:"es2015",modulePreload:false,rollupOptions:{output:{format:"iife",inlineDynamicImports:true,entryFileNames:"assets/[name].js"}}}})' > vite.config.ts
+          fi
+          if [ ! -f tsconfig.json ]; then
+            echo '{"compilerOptions":{"target":"ES2020","lib":["ES2020","DOM","DOM.Iterable"],"module":"ESNext","skipLibCheck":true,"moduleResolution":"bundler","noEmit":true,"jsx":"react-jsx","strict":false},"include":["src"]}' > tsconfig.json
+          fi
+          if [ ! -f tailwind.config.js ]; then
+            echo '/** @type {import("tailwindcss").Config} */' > tailwind.config.js
+            echo 'export default {content:["./index.html","./src/**/*.{js,ts,jsx,tsx}"],theme:{extend:{}},plugins:[]}' >> tailwind.config.js
+          fi
+          if [ ! -f postcss.config.js ]; then
+            echo 'export default {plugins:{tailwindcss:{},autoprefixer:{}}}' > postcss.config.js
+          fi
+          if [ ! -f src/index.css ]; then
+            echo '@tailwind base;@tailwind components;@tailwind utilities;' > src/index.css
+          fi
           ls -la
       - name: Install dependencies
         run: npm install --legacy-peer-deps
