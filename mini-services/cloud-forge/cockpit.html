@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💎 Cloud Forge — Cockpit</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.container { max-width: 600px; width: 90%; padding: 40px 30px; background: #1e293b; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid #334155; }
+h1 { font-size: 28px; text-align: center; margin-bottom: 8px; background: linear-gradient(135deg, #06b6d4, #14b8a6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.subtitle { text-align: center; color: #64748b; font-size: 13px; margin-bottom: 30px; }
+.input-group { margin-bottom: 20px; }
+label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+input, select { width: 100%; padding: 12px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #f1f5f9; font-size: 14px; outline: none; transition: border-color 0.2s; }
+input:focus, select:focus { border-color: #06b6d4; }
+.btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-build { background: linear-gradient(135deg, #06b6d4, #14b8a6); color: #0f172a; }
+.btn-build:hover { transform: translateY(-2px); box-shadow: 0 10px 30px -5px rgba(6,182,212,0.4); }
+.btn-build:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-download { background: linear-gradient(135deg, #f59e0b, #f97316); color: #0f172a; }
+.btn-download:hover { transform: translateY(-2px); box-shadow: 0 10px 30px -5px rgba(245,158,11,0.4); }
+.btn-download:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.status { padding: 16px; border-radius: 12px; margin-top: 20px; font-size: 14px; display: none; }
+.status.show { display: block; }
+.status.success { background: #064e3b; color: #10b981; border: 1px solid #10b981; }
+.status.error { background: #450a0a; color: #ef4444; border: 1px solid #ef4444; }
+.status.info { background: #0c4a6e; color: #0ea5e9; border: 1px solid #0ea5e9; }
+.status.building { background: #451a03; color: #f59e0b; border: 1px solid #f59e0b; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid currentColor; border-radius: 50%; border-top-color: transparent; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.link { display: inline-block; margin-top: 8px; color: #06b6d4; text-decoration: none; font-size: 13px; }
+.link:hover { text-decoration: underline; }
+.divider { height: 1px; background: #334155; margin: 24px 0; }
+.info-text { font-size: 12px; color: #64748b; text-align: center; margin-top: 16px; }
+.apk-result { background: #064e3b; border: 1px solid #10b981; border-radius: 12px; padding: 20px; margin-top: 12px; text-align: center; }
+.apk-result .apk-name { font-size: 18px; font-weight: 700; color: #10b981; margin-bottom: 4px; }
+.apk-result .apk-size { font-size: 14px; color: #94a3b8; }
+.apk-result .apk-path { font-size: 11px; color: #64748b; margin-top: 8px; word-break: break-all; font-family: monospace; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>💎 Cloud Forge</h1>
+    <p class="subtitle">Zero-Touch APK Deployment via GitHub Actions</p>
+
+    <div class="input-group">
+        <label>Nom du projet</label>
+        <input type="text" id="project-name" placeholder="ex: TestApp" value="TestApp">
+    </div>
+
+    <div class="input-group">
+        <label>Dossier du projet (local)</label>
+        <input type="text" id="project-dir" placeholder="ex: C:\Users\patri\projects\TestApp">
+    </div>
+
+    <button class="btn btn-build" id="build-btn" onclick="cloudBuild()">
+        ☁️ Cloud Forge — Push & Build APK
+    </button>
+
+    <button class="btn btn-download" id="download-btn" onclick="cloudDownload()" disabled>
+        📥 Récupérer l'APK
+    </button>
+
+    <div class="status" id="status"></div>
+
+    <div class="divider"></div>
+
+    <p class="info-text">
+        Serveur: <code>http://localhost:5005</code><br>
+        Dépôt: <code>tcereponse/apk-builder</code><br>
+        GitHub Actions compile l'APK automatiquement
+    </p>
+</div>
+
+<script>
+const SERVER = "http://localhost:5005";
+
+function showStatus(type, message, extra = "") {
+    const el = document.getElementById("status");
+    el.className = `status show ${type}`;
+    el.innerHTML = message + (extra ? `<br>${extra}` : "");
+}
+
+function cloudBuild() {
+    const projectName = document.getElementById("project-name").value.trim();
+    const projectDir = document.getElementById("project-dir").value.trim();
+
+    if (!projectName || !projectDir) {
+        showStatus("error", "❌ Remplis le nom et le dossier du projet");
+        return;
+    }
+
+    const btn = document.getElementById("build-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Push en cours...';
+    showStatus("info", "🚀 Push du code vers GitHub...");
+
+    fetch(`${SERVER}/v1/forge/cloud_build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_name: projectName, project_dir: projectDir })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = "☁️ Cloud Forge — Push & Build APK";
+
+        if (data.success) {
+            const fixes = data.auto_suture_fixes && data.auto_suture_fixes.length > 0
+                ? `<br>🔧 Auto-Suture: ${data.auto_suture_fixes.join(", ")}`
+                : "";
+            showStatus("success",
+                `✅ Code poussé sur GitHub! (${data.files_pushed} fichiers, commit ${data.commit_sha})${fixes}<br>${data.message}`,
+                `<a href="https://github.com/tcereponse/apk-builder/actions" target="_blank" class="link">🔗 Voir GitHub Actions</a>`
+            );
+            document.getElementById("download-btn").disabled = false;
+        } else {
+            showStatus("error", `❌ ${data.error || "Échec du push"}`);
+        }
+    })
+    .catch(e => {
+        btn.disabled = false;
+        btn.innerHTML = "☁️ Cloud Forge — Push & Build APK";
+        showStatus("error", `❌ Erreur réseau: ${e.message}`);
+    });
+}
+
+function cloudDownload() {
+    const projectName = document.getElementById("project-name").value.trim();
+    const btn = document.getElementById("download-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Vérification...';
+    showStatus("building", "📥 Vérification du statut GitHub Actions...");
+
+    fetch(`${SERVER}/v1/forge/cloud_download?project=${projectName}`)
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = "📥 Récupérer l'APK";
+
+        if (data.success) {
+            showStatus("success", "",
+                `<div class="apk-result">
+                    <div class="apk-name">📱 ${projectName}_Final.apk</div>
+                    <div class="apk-size">${data.apk_size}</div>
+                    <div class="apk-path">${data.apk_path}</div>
+                </div>
+                <a href="${data.html_url}" target="_blank" class="link">🔗 Voir le run GitHub Actions</a>`
+            );
+        } else if (data.status === "building") {
+            showStatus("building", `⏳ ${data.message}`,
+                `<a href="${data.html_url}" target="_blank" class="link">🔗 Voir le run</a><br>Réessaie dans 1-2 min.`
+            );
+        } else if (data.status === "failed") {
+            showStatus("error", `❌ ${data.message}`,
+                `<a href="${data.html_url}" target="_blank" class="link">🔗 Voir les logs d'erreur</a>`
+            );
+        } else {
+            showStatus("error", `❌ ${data.message || data.error || "Échec"}`);
+        }
+    })
+    .catch(e => {
+        btn.disabled = false;
+        btn.innerHTML = "📥 Récupérer l'APK";
+        showStatus("error", `❌ Erreur réseau: ${e.message}`);
+    });
+}
+
+// Auto-check health on load
+fetch(`${SERVER}/v1/health`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === "online") {
+            console.log("Cloud Forge server online");
+        }
+    })
+    .catch(() => {
+        showStatus("error", "❌ Serveur Cloud Forge injoignable. Lance mobile_bridge_server.py");
+    });
+</script>
+</body>
+</html>
