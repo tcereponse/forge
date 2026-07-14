@@ -182,7 +182,9 @@ jobs:
           echo "=== vite.config.ts ==="
           cat vite.config.ts
       - name: Install
-        run: npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps --ignore-scripts=false
+      - name: Rebuild esbuild
+        run: node node_modules/esbuild/install.js || true
       - name: Build
         run: npx vite build
       - name: Verify dist
