@@ -133,7 +133,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - uses: android-actions/setup-android@v3
       - name: Files
         run: find . -maxdepth 2 -not -path './.git/*' -not -path './node_modules/*' | head -30
