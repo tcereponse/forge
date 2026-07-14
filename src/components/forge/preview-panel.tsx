@@ -53,6 +53,15 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
   const [cloudBuilding, setCloudBuilding] = useState(false);
   const [cloudDownloading, setCloudDownloading] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<string>("");
+  const [ghTokenInput, setGhTokenInput] = useState("");
+  const [ghTokenSaved, setGhTokenSaved] = useState(false);
+
+  // Check if token exists in localStorage on mount
+  useState(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("github_token")) {
+      setGhTokenSaved(true);
+    }
+  });
 
   const installDone = status?.install === "installed";
   const buildDone = status?.build === "built";
@@ -78,6 +87,19 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
     }
     toast.success("Build démarré…");
     await triggerBuild();
+  }
+
+  // ── Save GitHub token to localStorage ──
+  function handleSaveToken() {
+    const token = ghTokenInput.trim();
+    if (!token) {
+      toast.error("Entre ton token GitHub");
+      return;
+    }
+    window.localStorage.setItem("github_token", token);
+    setGhTokenSaved(true);
+    toast.success("Token GitHub sauvegardé!");
+    setGhTokenInput("");
   }
 
   // ── Cloud Forge: Push to GitHub + trigger Actions ──
@@ -298,6 +320,31 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
         <div className="border-b border-rose-500/20 bg-rose-500/5 px-4 py-2.5 sm:px-6">
           <p className="text-xs text-rose-300">
             ❌ Le build a échoué. Vérifie les logs ci-dessous.
+          </p>
+        </div>
+      )}
+
+      {/* GitHub token config (if not set) */}
+      {!ghTokenSaved && (
+        <div className="border-b border-violet-500/20 bg-violet-500/5 px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              value={ghTokenInput}
+              onChange={(e) => setGhTokenInput(e.target.value)}
+              placeholder="ghp_xxxxxxxxxxxx (GitHub PAT)"
+              className="flex-1 rounded-md border border-violet-500/30 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 focus:border-violet-400 focus:outline-none"
+            />
+            <Button
+              onClick={handleSaveToken}
+              size="sm"
+              className="h-7 bg-violet-500 text-xs text-white hover:bg-violet-400"
+            >
+              Sauver
+            </Button>
+          </div>
+          <p className="mt-1 text-[10px] text-violet-400/60">
+            🔑 Token GitHub requis pour Cloud Forge (droits repo + workflow)
           </p>
         </div>
       )}
