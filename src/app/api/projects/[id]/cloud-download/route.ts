@@ -6,13 +6,10 @@ export const maxDuration = 60;
 /**
  * GET /api/projects/[id]/cloud-download?github_token=ghp_xxx
  *
- * Cloud Forge — Poll GitHub Actions status + return artifact info.
- * Server-side implementation (no local Python server needed).
+ * Cloud Forge — Poll GitHub Actions status + proxy artifact download.
  *
- * Returns:
- *   - status: "building" | "success" | "failed" | "no_runs"
- *   - run_id, html_url
- *   - If success: artifact download URL
+ * If ?download=true, proxies the artifact ZIP download (with GitHub auth).
+ * Otherwise returns status info.
  */
 export async function GET(
   req: NextRequest,
@@ -24,6 +21,7 @@ export async function GET(
     const githubToken = url.searchParams.get("github_token");
     const owner = url.searchParams.get("owner") || "tcereponse";
     const repo = url.searchParams.get("repo") || "apk-builder";
+    const wantDownload = url.searchParams.get("download") === "true";
 
     if (!githubToken) {
       return NextResponse.json(
@@ -62,16 +60,15 @@ export async function GET(
       });
     }
 
-    // 2. Find most recent run
     const latestRun = workflowRuns[0];
     const runId = latestRun.id;
-    const status = latestRun.status;       // queued, in_progress, completed
-    const conclusion = latestRun.conclusion; // success, failure, null
+    const status = latestRun.status;
+    const conclusion = latestRun.conclusion;
     const htmlUrl = latestRun.html_url;
 
     console.log(`[cloud-download] Run #${latestRun.run_number}: ${status}/${conclusion}`);
 
-    // 3. Still building
+    // 2. Still building
     if (status === "queued" || status === "in_progress") {
       return NextResponse.json({
         success: false,
@@ -83,7 +80,7 @@ export async function GET(
       });
     }
 
-    // 4. Failed
+    // 3. Failed
     if (conclusion === "failure") {
       return NextResponse.json({
         success: false,
@@ -94,7 +91,7 @@ export async function GET(
       });
     }
 
-    // 5. Success — get artifacts
+    // 4. Success — get artifacts
     if (status === "completed" && conclusion === "success") {
       const artifacts = await githubApi(`actions/runs/${runId}/artifacts`);
       const artifactList = artifacts.artifacts || [];
@@ -110,6 +107,40 @@ export async function GET(
 
       const artifact = artifactList[0];
       const artifactSize = (artifact.size_in_bytes / 1024 / 1024).toFixed(1);
+      const downloadUrl = artifact.archive_download_url;
+
+      // If download=true, proxy the artifact ZIP download with GitHub auth
+      if (wantDownload) {
+        console.log(`[cloud-download] Proxying artifact download: ${artifact.name}`);
+        const zipRes = await fetch(downloadUrl, {
+          headers: {
+            "Authorization": `token ${githubToken}`,
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "CloudForge-Vercel/1.0",
+          },
+        });
+
+        if (!zipRes.ok) {
+          return NextResponse.json(
+            { success: false, error: `Download failed: ${zipRes.status}` },
+            { status: 502 }
+          );
+        }
+
+        const zipBuffer = await zipRes.arrayBuffer();
+        return new NextResponse(zipBuffer, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": `attachment; filename="${artifact.name}.zip"`,
+            "Content-Length": String(zipBuffer.byteLength),
+          },
+        });
+      }
+
+      // Otherwise return status + download link (with download=true param)
+      const projectId = id;
+      const proxyDownloadUrl = `/api/projects/${projectId}/cloud-download?github_token=${encodeURIComponent(githubToken)}&download=true`;
 
       return NextResponse.json({
         success: true,
@@ -118,10 +149,9 @@ export async function GET(
         run_number: latestRun.run_number,
         artifact_name: artifact.name,
         artifact_size: `${artifactSize} MB`,
-        artifact_url: artifact.archive_download_url,
+        download_url: proxyDownloadUrl,
         message: `APK prêt! ${artifact.name} (${artifactSize} MB)`,
         html_url: htmlUrl,
-        download_url: `https://github.com/${owner}/${repo}/actions/runs/${runId}`,
       });
     }
 

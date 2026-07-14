@@ -148,8 +148,29 @@ export function PreviewPanel({ projectId }: { projectId: string }) {
       const res = await fetch(`/api/projects/${projectId}/cloud-download?github_token=${encodeURIComponent(token)}`);
       const data = await res.json();
       if (data.success) {
-        setCloudStatus(`📱 APK prêt! ${data.artifact_name} (${data.artifact_size})`);
+        setCloudStatus(`📱 APK prêt! ${data.artifact_name} (${data.artifact_size}) — Téléchargement...`);
         toast.success(`APK prêt! ${data.artifact_name} (${data.artifact_size})`);
+        // Download the artifact ZIP via proxy
+        if (data.download_url) {
+          const dlRes = await fetch(data.download_url);
+          if (dlRes.ok) {
+            const blob = await dlRes.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${data.artifact_name}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            setCloudStatus(`✅ APK téléchargé! ${data.artifact_name} (${data.artifact_size})`);
+            toast.success("APK téléchargé! Décompresse le ZIP pour obtenir l'APK");
+          } else {
+            // Fallback: open GitHub URL
+            window.open(data.html_url, "_blank");
+            setCloudStatus(`📱 Télécharge l'APK depuis GitHub Actions`);
+          }
+        }
       } else if (data.status === "building") {
         setCloudStatus("⏳ Compilation en cours... réessaie dans 1-2 min");
         toast.info("Compilation en cours sur GitHub Actions...");
