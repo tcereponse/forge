@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "ELITE FORGE GLOBAL — KIROV3 Vercel",
+  "version": "15.0",
+  "description": "Extension Maîtresse GLOBAL_KIROV3 — Vercel Sovereign Cloud + GitHub Actions APK Pusher",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": [
+    "*://*.deepseek.com/*",
+    "*://chat.deepseek.com/*",
+    "*://chatgpt.com/*",
+    "*://gemini.google.com/*",
+    "https://forge-kohl-kappa.vercel.app/*",
+    "https://api.github.com/*",
+    "https://github.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.deepseek.com/*",
+        "*://chat.deepseek.com/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

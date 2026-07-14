@@ -1,32 +1,43 @@
 {
   "manifest_version": 3,
-  "name": "ELITE FORGE — KIROV3 Vercel",
-  "version": "14.1",
-  "description": "Extension avec Auto-Suture et Validation Constitution",
+  "name": "ELITE FORGE GLOBAL — KIROV3",
+  "version": "13.0",
+  "description": "Extension Maîtresse : Cycle complet P1-P5 One-Shot — Grade Diamond",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
     "*://*.deepseek.com/*",
-    "*://chat.deepseek.com/*",
     "*://chatgpt.com/*",
     "*://gemini.google.com/*",
-    "https://forge-kohl-kappa.vercel.app/*"
+    "http://localhost:5005/*",
+    "http://127.0.0.1:5005/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "index.html"
   },
   "content_scripts": [
     {
       "matches": [
-        "*://*.deepseek.com/*",
+        "*://*.deepseek.com/*", 
         "*://chat.deepseek.com/*",
         "*://chatgpt.com/*",
         "*://gemini.google.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "*://*.deepseek.com/*", 
+        "*://chat.deepseek.com/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*"
+      ],
+      "js": ["main-world-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ]
 }

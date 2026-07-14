@@ -1,61 +1,55 @@
-const SERVER_URL = "https://forge-kohl-kappa.vercel.app";
+const SERVER_URL = "http://localhost:5005";
 
-async function updateStatus() {
+async function updateUI() {
     try {
-        const res = await fetch(`${SERVER_URL}/api/bridge/health`);
+        const res = await fetch(`${SERVER_URL}/v1/bridge/poll`);
         const data = await res.json();
-        const statusEl = document.getElementById('status');
-        const phaseEl = document.getElementById('phase-info');
-
-        if (data.status === 'online') {
-            statusEl.className = 'status online';
-            statusEl.textContent = 'Bridge Online ✅';
-            if (data.mission) {
-                const phaseNames = ['', 'PRD Generation', 'Code Generation', '', '', 'Done'];
-                phaseEl.textContent = `Phase ${data.mission.phase}: ${phaseNames[data.mission.phase] || 'Unknown'} — ${data.mission.status}`;
-            } else {
-                phaseEl.textContent = 'Aucune mission active';
-            }
-        } else {
-            statusEl.className = 'status offline';
-            statusEl.textContent = 'Bridge Hors-ligne ❌';
+        const phase = data.phase_num || 1;
+        
+        // Update LEDs
+        for(let i=1; i<=6; i++) {
+            const led = document.getElementById(`led-${i}`);
+            if (i <= phase) led.classList.add('active');
+            else led.classList.remove('active');
         }
+
+        const statusText = document.getElementById('status-text');
+        statusText.innerText = `PHASE ${phase} : ${data.status.toUpperCase()}`;
     } catch (e) {
-        document.getElementById('status').className = 'status offline';
-        document.getElementById('status').textContent = 'Bridge Hors-ligne ❌';
+        document.getElementById('status-text').innerText = "Bridge Hors-ligne";
     }
 }
 
-document.getElementById('start-btn').addEventListener('click', async () => {
-    const name = prompt("Nom du projet:");
+document.getElementById('oneshot-btn').addEventListener('click', async () => {
+    const name = prompt("Nom du nouveau projet KIROV-LIKE :");
     if (!name) return;
-    const desc = prompt("Description du projet:");
-    if (!desc) return;
 
     try {
-        await fetch(`${SERVER_URL}/api/bridge/mission/start`, {
+        await fetch(`${SERVER_URL}/v1/mission/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, prompt: desc, stack: 'react-vite' }),
+            body: JSON.stringify({ 
+                name: name,
+                prompt: "Créer une application identique à KIROV3 (Monorepo pnpm, React Client, Hono Server).",
+                stack: "react-pnpm",
+                arch: "monorepo"
+            })
         });
-        alert('Mission lancée! Ouvre chat.deepseek.com dans un nouvel onglet.');
-        updateStatus();
+        alert("🚀 Mission One-Shot Lancée !");
     } catch (e) {
-        alert('Erreur: ' + e.message);
+        alert("❌ Erreur lancement mission.");
     }
 });
 
-document.getElementById('check-btn').addEventListener('click', updateStatus);
-
-document.getElementById('reset-btn').addEventListener('click', async () => {
+document.getElementById('p6-btn').addEventListener('click', async () => {
+    const promptP6 = `En tant que Senior Fullstack Engineer, ta mission est d'ajouter de nouvelles fonctionnalités (Phase P6) TOUT EN MAINTENANT STRICTEMENT l'Architecture Plate (Flat Structure) de la Forge Diamond. Tous les fichiers de configuration (vite.config.ts, package.json, postcss.config.js, tailwind.config.js, .npmrc, index.html) DOIVENT rester à la RACINE absolue. Le code source est uniquement dans un dossier src/. Ne crée jamais de monorepo (app/, server/). MISSION ACTUELLE : `;
     try {
-        await fetch(`${SERVER_URL}/api/bridge/mission/reset`, { method: 'POST' });
-        localStorage.removeItem('kirov_last_hash');
-        updateStatus();
-    } catch (e) {
-        alert('Erreur: ' + e.message);
+        await navigator.clipboard.writeText(promptP6);
+        alert("✅ Protocole P6 copié dans le presse-papier !\n\nCollez-le dans l'interface de chat IA, ajoutez votre demande, et envoyez !");
+    } catch (err) {
+        alert("❌ Impossible de copier dans le presse-papier.");
     }
 });
 
-updateStatus();
-setInterval(updateStatus, 3000);
+setInterval(updateUI, 2000);
+updateUI();
