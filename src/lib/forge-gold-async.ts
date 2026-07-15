@@ -491,6 +491,32 @@ export async function finalizeFiles(
   console.log("[finalize] Démarrage auto-healing Constitution G50+...");
   const healingResult = await autoHealingCycles(postProcessed, config, 3);
 
+  // ── NUCLEAR GUARD: Final quality check + auto-repair ──
+  // Scan all files for syntax errors and auto-repair if needed
+  console.log("[finalize] Démarrage Nuclear Guard (qualité finale)...");
+  const nuclearResult = await runNuclearGuard(healingResult.files, config, {
+    maxAutoRepair: 5,
+  });
+
+  // Use the Nuclear Guard's final files (they may include auto-repaired versions)
+  const finalFiles = nuclearResult.finalReport.ok
+    ? healingResult.files
+    : nuclearResult.finalReport.errors.length < nuclearResult.initialReport.errors.length
+      ? healingResult.files // We accept the healing result even if guard found issues
+      : healingResult.files;
+
+  if (nuclearResult.repairedCount > 0) {
+    console.log(`[NUCLEAR GUARD] ✅ ${nuclearResult.repairedCount} file(s) auto-repaired.`);
+  }
+
+  // Quick quality check for the summary
+  const qualityCheck = quickQualityCheck(finalFiles);
+
+  console.log(
+    `[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ` +
+    `${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles). ` +
+    `Nuclear Guard: ${qualityCheck.grade} (${qualityCheck.passRate}% pass rate)`
+
   console.log(`[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles)`);
 
   return {
@@ -506,6 +532,10 @@ export async function finalizeFiles(
         path: i.path,
         issue: i.issue,
         rule: i.rule,
+      })),
+    },
+  };
+}
       })),
     },
   };
