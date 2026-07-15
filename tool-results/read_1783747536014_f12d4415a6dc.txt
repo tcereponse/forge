@@ -1,0 +1,882 @@
+     1→import {
+     2→  CheckSquare,
+     3→  UtensilsCrossed,
+     4→  Code2,
+     5→  CloudSun,
+     6→  Wallet,
+     7→  Timer,
+     8→  StickyNote,
+     9→  GraduationCap,
+    10→  type LucideIcon,
+    11→} from 'lucide-react'
+    12→
+    13→export interface TemplateFile {
+    14→  path: string
+    15→  content: string
+    16→  language: string
+    17→}
+    18→
+    19→export interface Template {
+    20→  id: string
+    21→  name: string
+    22→  tagline: string
+    23→  description: string
+    24→  icon: LucideIcon
+    25→  accent: string
+    26→  files: TemplateFile[]
+    27→}
+    28→
+    29→const sharedPackageJson = (name: string) => `{
+    30→  "name": "${name.toLowerCase().replace(/\s+/g, '-')}",
+    31→  "private": true,
+    32→  "version": "0.0.0",
+    33→  "type": "module",
+    34→  "scripts": {
+    35→    "dev": "vite",
+    36→    "build": "vite build",
+    37→    "preview": "vite preview"
+    38→  },
+    39→  "dependencies": {
+    40→    "react": "^18.3.1",
+    41→    "react-dom": "^18.3.1"
+    42→  },
+    43→  "devDependencies": {
+    44→    "@vitejs/plugin-react": "^4.3.1",
+    45→    "vite": "^5.4.0",
+    46→    "tailwindcss": "^3.4.10"
+    47→  }
+    48→}`
+    49→
+    50→const sharedIndexHtml = `<!doctype html>
+    51→<html lang="fr">
+    52→  <head>
+    53→    <meta charset="UTF-8" />
+    54→    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    55→    <title>App</title>
+    56→  </head>
+    57→  <body>
+    58→    <div id="root"></div>
+    59→    <script type="module" src="/src/main.tsx"></script>
+    60→  </body>
+    61→</html>`
+    62→
+    63→const sharedMainTsx = `import { StrictMode } from 'react'
+    64→import { createRoot } from 'react-dom/client'
+    65→import './index.css'
+    66→import App from './App'
+    67→
+    68→createRoot(document.getElementById('root')!).render(
+    69→  <StrictMode>
+    70→    <App />
+    71→  </StrictMode>,
+    72→)`
+    73→
+    74→const sharedIndexCss = `@tailwind base;
+    75→@tailwind components;
+    76→@tailwind utilities;
+    77→
+    78→body {
+    79→  background: #0f172a;
+    80→  color: #f1f5f9;
+    81→  font-family: system-ui, sans-serif;
+    82→  margin: 0;
+    83→  min-height: 100vh;
+    84→}`
+    85→
+    86→// ============ 1. TaskFlow ============
+    87→const taskflowApp = `import { useState } from 'react'
+    88→
+    89→interface Task {
+    90→  id: number
+    91→  text: string
+    92→  done: boolean
+    93→  category: string
+    94→}
+    95→
+    96→const CATEGORIES = ['Travail', 'Perso', 'Courses', 'Urgent']
+    97→
+    98→export default function App() {
+    99→  const [tasks, setTasks] = useState<Task[]>([
+   100→    { id: 1, text: 'Préparer la réunion', done: false, category: 'Travail' },
+   101→    { id: 2, text: 'Acheter du pain', done: true, category: 'Courses' },
+   102→  ])
+   103→  const [text, setText] = useState('')
+   104→  const [cat, setCat] = useState(CATEGORIES[0])
+   105→
+   106→  const add = () => {
+   107→    if (!text.trim()) return
+   108→    setTasks([...tasks, { id: Date.now(), text, done: false, category: cat }])
+   109→    setText('')
+   110→  }
+   111→  const toggle = (id: number) =>
+   112→    setTasks(tasks.map(t => (t.id === id ? { ...t, done: !t.done } : t)))
+   113→  const remove = (id: number) => setTasks(tasks.filter(t => t.id !== id))
+   114→
+   115→  const done = tasks.filter(t => t.done).length
+   116→  const total = tasks.length
+   117→
+   118→  return (
+   119→    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 max-w-md mx-auto">
+   120→      <header className="mb-6">
+   121→        <h1 className="text-3xl font-bold text-cyan-400">TaskFlow</h1>
+   122→        <p className="text-slate-400 text-sm mt-1">
+   123→          {done} / {total} tâches complétées
+   124→        </p>
+   125→        <div className="h-2 bg-slate-800 rounded-full mt-2 overflow-hidden">
+   126→          <div
+   127→            className="h-full bg-cyan-500 transition-all"
+   128→            style={{ width: \`\${total ? (done / total) * 100 : 0}%\` }}
+   129→          />
+   130→        </div>
+   131→      </header>
+   132→
+   133→      <div className="flex gap-2 mb-4">
+   134→        <input
+   135→          value={text}
+   136→          onChange={e => setText(e.target.value)}
+   137→          onKeyDown={e => e.key === 'Enter' && add()}
+   138→          placeholder="Nouvelle tâche..."
+   139→          className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:border-cyan-500 outline-none"
+   140→        />
+   141→        <button
+   142→          onClick={add}
+   143→          className="bg-cyan-500 text-slate-950 px-4 py-2 rounded-lg font-semibold"
+   144→        >
+   145→          +
+   146→        </button>
+   147→      </div>
+   148→
+   149→      <select
+   150→        value={cat}
+   151→        onChange={e => setCat(e.target.value)}
+   152→        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 mb-4 text-sm"
+   153→      >
+   154→        {CATEGORIES.map(c => (
+   155→          <option key={c}>{c}</option>
+   156→        ))}
+   157→      </select>
+   158→
+   159→      <ul className="space-y-2">
+   160→        {tasks.map(t => (
+   161→          <li
+   162→            key={t.id}
+   163→            className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg p-3"
+   164→          >
+   165→            <button
+   166→              onClick={() => toggle(t.id)}
+   167→              className={\`w-6 h-6 rounded-full border-2 flex items-center justify-center \${
+   168→                t.done ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600'
+   169→              }\`}
+   170→            >
+   171→              {t.done && '✓'}
+   172→            </button>
+   173→            <span className={\`flex-1 \${t.done ? 'line-through text-slate-500' : ''}\`}>
+   174→              {t.text}
+   175→              <span className="ml-2 text-xs text-cyan-400">#{t.category}</span>
+   176→            </span>
+   177→            <button
+   178→              onClick={() => remove(t.id)}
+   179→              className="text-slate-500 hover:text-red-400"
+   180→            >
+   181→              ✕
+   182→            </button>
+   183→          </li>
+   184→        ))}
+   185→      </ul>
+   186→    </div>
+   187→  )
+   188→}`
+   189→
+   190→// ============ 2. RecipeBox ============
+   191→const recipeApp = `import { useState } from 'react'
+   192→
+   193→interface Recipe {
+   194→  id: number
+   195→  title: string
+   196→  time: string
+   197→  fav: boolean
+   198→  ingredients: string[]
+   199→}
+   200→
+   201→const SEED: Recipe[] = [
+   202→  { id: 1, title: 'Pâtes carbonara', time: '20 min', fav: true, ingredients: ['Pâtes', 'Lardons', 'Crème', 'Parmesan'] },
+   203→  { id: 2, title: 'Salade César', time: '15 min', fav: false, ingredients: ['Salade', 'Poulet', 'Croûtons', 'César'] },
+   204→  { id: 3, title: 'Soupe tomate', time: '30 min', fav: false, ingredients: ['Tomates', 'Oignon', 'Basilic'] },
+   205→]
+   206→
+   207→export default function App() {
+   208→  const [recipes, setRecipes] = useState<Recipe[]>(SEED)
+   209→  const [query, setQuery] = useState('')
+   210→  const [onlyFav, setOnlyFav] = useState(false)
+   211→  const [open, setOpen] = useState<number | null>(null)
+   212→
+   213→  const filtered = recipes.filter(
+   214→    r =>
+   215→      r.title.toLowerCase().includes(query.toLowerCase()) &&
+   216→      (!onlyFav || r.fav),
+   217→  )
+   218→
+   219→  const toggleFav = (id: number) =>
+   220→    setRecipes(recipes.map(r => (r.id === id ? { ...r, fav: !r.fav } : r)))
+   221→
+   222→  return (
+   223→    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 max-w-md mx-auto">
+   224→      <h1 className="text-3xl font-bold text-cyan-400 mb-4">RecipeBox</h1>
+   225→
+   226→      <input
+   227→        value={query}
+   228→        onChange={e => setQuery(e.target.value)}
+   229→        placeholder="Rechercher une recette..."
+   230→        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 mb-3 text-sm focus:border-cyan-500 outline-none"
+   231→      />
+   232→
+   233→      <button
+   234→        onClick={() => setOnlyFav(!onlyFav)}
+   235→        className={\`mb-4 px-4 py-2 rounded-lg text-sm font-medium \${
+   236→          onlyFav ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+   237→        }\`}
+   238→      >
+   239→        {onlyFav ? '★ Favoris seulement' : '☆ Voir favoris'}
+   240→      </button>
+   241→
+   242→      <ul className="space-y-3">
+   243→        {filtered.map(r => (
+   244→          <li key={r.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+   245→            <button
+   246→              onClick={() => setOpen(open === r.id ? null : r.id)}
+   247→              className="w-full flex items-center justify-between p-4 text-left"
+   248→            >
+   249→              <div>
+   250→                <p className="font-semibold">{r.title}</p>
+   251→                <p className="text-xs text-slate-400">⏱ {r.time}</p>
+   252→              </div>
+   253→              <span onClick={e => { e.stopPropagation(); toggleFav(r.id) }} className="text-xl">
+   254→                {r.fav ? '★' : '☆'}
+   255→              </span>
+   256→            </button>
+   257→            {open === r.id && (
+   258→              <ul className="px-4 pb-4 space-y-1 border-t border-slate-800 pt-3">
+   259→                {r.ingredients.map(i => (
+   260→                  <li key={i} className="text-sm text-slate-300 flex items-center gap-2">
+   261→                    <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full" />
+   262→                    {i}
+   263→                  </li>
+   264→                ))}
+   265→              </ul>
+   266→            )}
+   267→          </li>
+   268→        ))}
+   269→      </ul>
+   270→    </div>
+   271→  )
+   272→}`
+   273→
+   274→// ============ 3. DevPortfolio ============
+   275→const portfolioApp = `import { useState } from 'react'
+   276→
+   277→const PROJECTS = [
+   278→  { name: 'Weather App', tech: 'React + Vite', desc: 'App météo avec géoloc' },
+   279→  { name: 'E-commerce', tech: 'Next.js + Stripe', desc: 'Boutique en ligne' },
+   280→  { name: 'Chat Bot', tech: 'Node + WebSocket', desc: 'Assistant IA temps réel' },
+   281→]
+   282→
+   283→const SKILLS = ['TypeScript', 'React', 'Node.js', 'Tailwind', 'Prisma', 'Docker']
+   284→
+   285→export default function App() {
+   286→  const [section, setSection] = useState<'about' | 'projects' | 'contact'>('about')
+   287→
+   288→  return (
+   289→    <div className="min-h-screen bg-slate-950 text-slate-100">
+   290→      <header className="bg-slate-900/80 backdrop-blur sticky top-0 z-10 border-b border-slate-800">
+   291→        <div className="max-w-md mx-auto p-4 flex items-center justify-between">
+   292→          <div>
+   293→            <h1 className="text-xl font-bold text-cyan-400">Alex Dev</h1>
+   294→            <p className="text-xs text-slate-400">Développeur Full-Stack</p>
+   295→          </div>
+   296→          <nav className="flex gap-1 text-xs">
+   297→            {(['about', 'projects', 'contact'] as const).map(s => (
+   298→              <button
+   299→                key={s}
+   300→                onClick={() => setSection(s)}
+   301→                className={\`px-3 py-1.5 rounded-lg \${
+   302→                  section === s ? 'bg-cyan-500 text-slate-950' : 'text-slate-400'
+   303→                }\`}
+   304→              >
+   305→                {s === 'about' ? 'Moi' : s === 'projects' ? 'Projets' : 'Contact'}
+   306→              </button>
+   307→            ))}
+   308→          </nav>
+   309→        </div>
+   310→      </header>
+   311→
+   312→      <main className="max-w-md mx-auto p-4">
+   313→        {section === 'about' && (
+   314→          <div className="space-y-4">
+   315→            <p className="text-slate-300 leading-relaxed">
+   316→              Passionné par le web depuis 8 ans, je construis des applications
+   317→              modernes, performantes et accessibles.
+   318→            </p>
+   319→            <div className="flex flex-wrap gap-2">
+   320→              {SKILLS.map(s => (
+   321→                <span key={s} className="text-xs bg-slate-800 border border-slate-700 px-2 py-1 rounded-full text-cyan-300">
+   322→                  {s}
+   323→                </span>
+   324→              ))}
+   325→            </div>
+   326→          </div>
+   327→        )}
+   328→
+   329→        {section === 'projects' && (
+   330→          <div className="space-y-3">
+   331→            {PROJECTS.map(p => (
+   332→              <div key={p.name} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+   333→                <h3 className="font-semibold text-cyan-300">{p.name}</h3>
+   334→                <p className="text-xs text-slate-500 mt-0.5">{p.tech}</p>
+   335→                <p className="text-sm text-slate-300 mt-2">{p.desc}</p>
+   336→              </div>
+   337→            ))}
+   338→          </div>
+   339→        )}
+   340→
+   341→        {section === 'contact' && (
+   342→          <div className="space-y-3">
+   343→            <a href="mailto:alex@dev.fr" className="block bg-slate-900 border border-slate-800 rounded-xl p-4">
+   344→              <p className="text-sm text-slate-400">Email</p>
+   345→              <p className="text-cyan-300">alex@dev.fr</p>
+   346→            </a>
+   347→            <a href="#" className="block bg-slate-900 border border-slate-800 rounded-xl p-4">
+   348→              <p className="text-sm text-slate-400">GitHub</p>
+   349→              <p className="text-cyan-300">@alexdev</p>
+   350→            </a>
+   351→          </div>
+   352→        )}
+   353→      </main>
+   354→    </div>
+   355→  )
+   356→}`
+   357→
+   358→// ============ 4. WeatherCast ============
+   359→const weatherApp = `import { useState } from 'react'
+   360→
+   361→const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+   362→const FORECAST = [
+   363→  { day: 'Lun', temp: 22, cond: '☀️', wind: 12 },
+   364→  { day: 'Mar', temp: 19, cond: '⛅', wind: 18 },
+   365→  { day: 'Mer', temp: 16, cond: '🌧', wind: 25 },
+   366→  { day: 'Jeu', temp: 18, cond: '⛅', wind: 15 },
+   367→  { day: 'Ven', temp: 24, cond: '☀️', wind: 8 },
+   368→  { day: 'Sam', temp: 26, cond: '☀️', wind: 6 },
+   369→  { day: 'Dim', temp: 23, cond: '⛅', wind: 14 },
+   370→]
+   371→
+   372→export default function App() {
+   373→  const [selected, setSelected] = useState(0)
+   374→  const today = FORECAST[selected]
+   375→
+   376→  return (
+   377→    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950 text-slate-100 p-4 max-w-md mx-auto">
+   378→      <h1 className="text-2xl font-bold text-cyan-400 mb-1">WeatherCast</h1>
+   379→      <p className="text-slate-400 text-sm mb-6">Paris, France</p>
+   380→
+   381→      <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-3xl p-6 mb-6 text-center">
+   382→        <div className="text-7xl mb-2">{today.cond}</div>
+   383→        <p className="text-5xl font-bold">{today.temp}°</p>
+   384→        <p className="text-slate-400 mt-2">Vent {today.wind} km/h</p>
+   385→        <p className="text-cyan-400 text-sm mt-1">{today.day}</p>
+   386→      </div>
+   387→
+   388→      <div className="grid grid-cols-4 gap-2 mb-4">
+   389→        {FORECAST.slice(0, 4).map((d, i) => (
+   390→          <button
+   391→            key={d.day}
+   392→            onClick={() => setSelected(i)}
+   393→            className={\`p-3 rounded-xl border text-center \${
+   394→              selected === i ? 'bg-cyan-500/20 border-cyan-500' : 'bg-slate-900 border-slate-800'
+   395→            }\`}
+   396→          >
+   397→            <p className="text-xs text-slate-400">{d.day}</p>
+   398→            <p className="text-2xl my-1">{d.cond}</p>
+   399→            <p className="text-sm font-semibold">{d.temp}°</p>
+   400→          </button>
+   401→        ))}
+   402→      </div>
+   403→
+   404→      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+   405→        <h3 className="text-sm text-slate-400 mb-3">7 jours</h3>
+   406→        <div className="space-y-2">
+   407→          {FORECAST.map((d, i) => (
+   408→            <div key={d.day} className="flex items-center justify-between text-sm">
+   409→              <span className="w-10 text-slate-300">{d.day}</span>
+   410→              <span className="text-xl">{d.cond}</span>
+   411→              <div className="flex-1 mx-3 h-1 bg-slate-800 rounded-full overflow-hidden">
+   412→                <div
+   413→                  className="h-full bg-gradient-to-r from-cyan-500 to-cyan-300"
+   414→                  style={{ width: \`\${(d.temp / 30) * 100}%\` }}
+   415→                />
+   416→              </div>
+   417→              <span className="w-8 text-right">{d.temp}°</span>
+   418→            </div>
+   419→          ))}
+   420→        </div>
+   421→      </div>
+   422→    </div>
+   423→  )
+   424→}`
+   425→
+   426→// ============ 5. ExpenseTracker ============
+   427→const expenseApp = `import { useState } from 'react'
+   428→
+   429→interface Expense {
+   430→  id: number
+   431→  label: string
+   432→  amount: number
+   433→  category: string
+   434→}
+   435→
+   436→const CATS = ['Food', 'Transport', 'Loisir', 'Facture']
+   437→const COLORS = ['#06b6d4', '#22d3ee', '#0e7490', '#67e8f9']
+   438→
+   439→export default function App() {
+   440→  const [expenses, setExpenses] = useState<Expense[]>([
+   441→    { id: 1, label: 'Courses', amount: 45, category: 'Food' },
+   442→    { id: 2, label: 'Metro', amount: 12, category: 'Transport' },
+   443→    { id: 3, label: 'Cinéma', amount: 18, category: 'Loisir' },
+   444→  ])
+   445→  const [label, setLabel] = useState('')
+   446→  const [amount, setAmount] = useState('')
+   447→  const [cat, setCat] = useState(CATS[0])
+   448→
+   449→  const add = () => {
+   450→    const n = parseFloat(amount)
+   451→    if (!label.trim() || isNaN(n)) return
+   452→    setExpenses([...expenses, { id: Date.now(), label, amount: n, category: cat }])
+   453→    setLabel(''); setAmount('')
+   454→  }
+   455→
+   456→  const total = expenses.reduce((s, e) => s + e.amount, 0)
+   457→  const byCat = CATS.map((c, i) => ({
+   458→    name: c,
+   459→    color: COLORS[i],
+   460→    sum: expenses.filter(e => e.category === c).reduce((s, e) => s + e.amount, 0),
+   461→  }))
+   462→
+   463→  return (
+   464→    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 max-w-md mx-auto">
+   465→      <h1 className="text-2xl font-bold text-cyan-400">Dépenses</h1>
+   466→      <p className="text-3xl font-bold mt-2 mb-4">{total.toFixed(2)} €</p>
+   467→
+   468→      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+   469→        <div className="flex h-3 rounded-full overflow-hidden mb-2">
+   470→          {byCat.map(c => (
+   471→            <div key={c.name} style={{ width: \`\${total ? (c.sum / total) * 100 : 0}%\`, background: c.color }} />
+   472→          ))}
+   473→        </div>
+   474→        <div className="flex flex-wrap gap-3 mt-2">
+   475→          {byCat.map(c => (
+   476→            <div key={c.name} className="flex items-center gap-1 text-xs">
+   477→              <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
+   478→              <span className="text-slate-400">{c.name}</span>
+   479→              <span className="text-slate-200">{c.sum.toFixed(0)}€</span>
+   480→            </div>
+   481→          ))}
+   482→        </div>
+   483→      </div>
+   484→
+   485→      <div className="flex gap-2 mb-2">
+   486→        <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Libellé" className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+   487→        <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="€" type="number" className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+   488→      </div>
+   489→      <div className="flex gap-2 mb-4">
+   490→        {CATS.map(c => (
+   491→          <button key={c} onClick={() => setCat(c)} className={\`flex-1 py-2 rounded-lg text-xs \${
+   492→            cat === c ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+   493→          }\`}>{c}</button>
+   494→        ))}
+   495→      </div>
+   496→      <button onClick={add} className="w-full bg-cyan-500 text-slate-950 py-2 rounded-lg font-semibold mb-4">
+   497→        Ajouter
+   498→      </button>
+   499→
+   500→      <ul className="space-y-2">
+   501→        {expenses.map(e => (
+   502→          <li key={e.id} className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg p-3">
+   503→            <div>
+   504→              <p className="text-sm">{e.label}</p>
+   505→              <p className="text-xs text-cyan-400">#{e.category}</p>
+   506→            </div>
+   507→            <span className="font-semibold">-{e.amount.toFixed(2)} €</span>
+   508→          </li>
+   509→        ))}
+   510→      </ul>
+   511→    </div>
+   512→  )
+   513→}`
+   514→
+   515→// ============ 6. PomodoroPro ============
+   516→const pomodoroApp = `import { useEffect, useRef, useState } from 'react'
+   517→
+   518→const MODES = {
+   519→  focus: { label: 'Focus', duration: 25 * 60, color: '#06b6d4' },
+   520→  short: { label: 'Pause', duration: 5 * 60, color: '#22d3ee' },
+   521→  long: { label: 'Longue pause', duration: 15 * 60, color: '#0e7490' },
+   522→}
+   523→
+   524→export default function App() {
+   525→  const [mode, setMode] = useState<keyof typeof MODES>('focus')
+   526→  const [seconds, setSeconds] = useState(MODES.focus.duration)
+   527→  const [running, setRunning] = useState(false)
+   528→  const [cycles, setCycles] = useState(0)
+   529→  const ref = useRef<number | null>(null)
+   530→
+   531→  useEffect(() => {
+   532→    if (running) {
+   533→      ref.current = window.setInterval(() => {
+   534→        setSeconds(s => {
+   535→          if (s <= 1) {
+   536→            setRunning(false)
+   537→            if (mode === 'focus') setCycles(c => c + 1)
+   538→            return 0
+   539→          }
+   540→          return s - 1
+   541→        })
+   542→      }, 1000)
+   543→    }
+   544→    return () => { if (ref.current) clearInterval(ref.current) }
+   545→  }, [running, mode])
+   546→
+   547→  const switchMode = (m: keyof typeof MODES) => {
+   548→    setMode(m); setSeconds(MODES[m].duration); setRunning(false)
+   549→  }
+   550→  const reset = () => { setSeconds(MODES[mode].duration); setRunning(false) }
+   551→
+   552→  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
+   553→  const ss = String(seconds % 60).padStart(2, '0')
+   554→  const pct = ((MODES[mode].duration - seconds) / MODES[mode].duration) * 100
+   555→
+   556→  return (
+   557→    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 max-w-md mx-auto flex flex-col items-center justify-center">
+   558→      <h1 className="text-2xl font-bold text-cyan-400 mb-2">PomodoroPro</h1>
+   559→      <p className="text-slate-400 text-sm mb-8">Cycles terminés : {cycles} 🍅</p>
+   560→
+   561→      <div className="flex gap-2 mb-8">
+   562→        {(Object.keys(MODES) as (keyof typeof MODES)[]).map(m => (
+   563→          <button
+   564→            key={m}
+   565→            onClick={() => switchMode(m)}
+   566→            className={\`px-4 py-2 rounded-lg text-sm \${
+   567→              mode === m ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+   568→            }\`}
+   569→          >
+   570→            {MODES[m].label}
+   571→          </button>
+   572→        ))}
+   573→      </div>
+   574→
+   575→      <div className="relative w-64 h-64 mb-8">
+   576→        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+   577→          <circle cx="50" cy="50" r="45" fill="none" stroke="#1e293b" strokeWidth="4" />
+   578→          <circle
+   579→            cx="50" cy="50" r="45" fill="none"
+   580→            stroke={MODES[mode].color} strokeWidth="4" strokeLinecap="round"
+   581→            strokeDasharray={2 * Math.PI * 45}
+   582→            strokeDashoffset={2 * Math.PI * 45 * (1 - pct / 100)}
+   583→            className="transition-all duration-1000"
+   584→          />
+   585→        </svg>
+   586→        <div className="absolute inset-0 flex items-center justify-center text-5xl font-bold">
+   587→          {mm}:{ss}
+   588→        </div>
+   589→      </div>
+   590→
+   591→      <div className="flex gap-3">
+   592→        <button
+   593→          onClick={() => setRunning(!running)}
+   594→          className="bg-cyan-500 text-slate-950 px-8 py-3 rounded-xl font-semibold"
+   595→        >
+   596→          {running ? 'Pause' : 'Démarrer'}
+   597→        </button>
+   598→        <button onClick={reset} className="bg-slate-800 text-slate-300 px-6 py-3 rounded-xl">
+   599→          Reset
+   600→        </button>
+   601→      </div>
+   602→    </div>
+   603→  )
+   604→}`
+   605→
+   606→// ============ 7. MarkdownNotes ============
+   607→const markdownApp = `import { useState } from 'react'
+   608→
+   609→const renderMd = (md: string): string => {
+   610→  let html = md
+   611→    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+   612→    .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-cyan-300 mt-3 mb-1">$1</h3>')
+   613→    .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-cyan-400 mt-3 mb-1">$1</h2>')
+   614→    .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-cyan-400 mt-3 mb-1">$1</h1>')
+   615→    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+   616→    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
+   617→    .replace(/\`(.+?)\`/g, '<code class="bg-slate-800 px-1 rounded text-cyan-300">$1</code>')
+   618→    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+   619→    .replace(/\\n/g, '<br/>')
+   620→  return html
+   621→}
+   622→
+   623→interface Note {
+   624→  id: number
+   625→  title: string
+   626→  body: string
+   627→}
+   628→
+   629→export default function App() {
+   630→  const [notes, setNotes] = useState<Note[]>([
+   631→    { id: 1, title: 'Bienvenue', body: '# Bonjour\\n\\nCeci est une **note** en *markdown*.' },
+   632→  ])
+   633→  const [active, setActive] = useState<Note | null>(notes[0])
+   634→
+   635→  const update = (body: string) => {
+   636→    if (!active) return
+   637→    const title = body.split('\\n')[0].replace(/^#+\\s*/, '') || 'Sans titre'
+   638→    const next = { ...active, body, title }
+   639→    setActive(next)
+   640→    setNotes(notes.map(n => (n.id === next.id ? next : n)))
+   641→  }
+   642→
+   643→  const create = () => {
+   644→    const n = { id: Date.now(), title: 'Nouvelle note', body: '# Nouvelle note' }
+   645→    setNotes([...notes, n]); setActive(n)
+   646→  }
+   647→
+   648→  return (
+   649→    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 max-w-md mx-auto">
+   650→      <div className="flex items-center justify-between mb-4">
+   651→        <h1 className="text-2xl font-bold text-cyan-400">MarkdownNotes</h1>
+   652→        <button onClick={create} className="bg-cyan-500 text-slate-950 px-3 py-1.5 rounded-lg text-sm">
+   653→          + Nouvelle
+   654→        </button>
+   655→      </div>
+   656→
+   657→      <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+   658→        {notes.map(n => (
+   659→          <button
+   660→            key={n.id}
+   661→            onClick={() => setActive(n)}
+   662→            className={\`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap \${
+   663→              active?.id === n.id ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+   664→            }\`}
+   665→          >
+   666→            {n.title}
+   667→          </button>
+   668→        ))}
+   669→      </div>
+   670→
+   671→      {active && (
+   672→        <div className="grid grid-cols-1 gap-3">
+   673→          <textarea
+   674→            value={active.body}
+   675→            onChange={e => update(e.target.value)}
+   676→            className="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm h-48 focus:border-cyan-500 outline-none font-mono"
+   677→            placeholder="Écris en markdown..."
+   678→          />
+   679→          <div
+   680→            className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm prose-invert min-h-48"
+   681→            dangerouslySetInnerHTML={{ __html: renderMd(active.body) }}
+   682→          />
+   683→        </div>
+   684→      )}
+   685→    </div>
+   686→  )
+   687→}`
+   688→
+   689→// ============ 8. QuizMaster ============
+   690→const quizApp = `import { useEffect, useState } from 'react'
+   691→
+   692→interface Q {
+   693→  q: string
+   694→  opts: string[]
+   695→  ans: number
+   696→}
+   697→
+   698→const QUESTIONS: Q[] = [
+   699→  { q: 'Capitale du Japon ?', opts: ['Séoul', 'Tokyo', 'Pékin', 'Bangkok'], ans: 1 },
+   700→  { q: '2 + 2 × 3 = ?', opts: ['12', '8', '10', '6'], ans: 1 },
+   701→  { q: 'Langage de React ?', opts: ['Python', 'Go', 'JavaScript', 'Rust'], ans: 2 },
+   702→  { q: 'Couleur du ciel le jour ?', opts: ['Rouge', 'Bleu', 'Vert', 'Noir'], ans: 1 },
+   703→  { q: 'Plus grand océan ?', opts: ['Atlantique', 'Indien', 'Pacifique', 'Arctique'], ans: 2 },
+   704→]
+   705→
+   706→export default function App() {
+   707→  const [idx, setIdx] = useState(0)
+   708→  const [score, setScore] = useState(0)
+   709→  const [picked, setPicked] = useState<number | null>(null)
+   710→  const [time, setTime] = useState(15)
+   711→  const [done, setDone] = useState(false)
+   712→
+   713→  useEffect(() => {
+   714→    if (done || picked !== null) return
+   715→    if (time <= 0) { setPicked(-1); return }
+   716→    const t = setTimeout(() => setTime(time - 1), 1000)
+   717→    return () => clearTimeout(t)
+   718→  }, [time, picked, done])
+   719→
+   720→  const choose = (i: number) => {
+   721→    if (picked !== null) return
+   722→    setPicked(i)
+   723→    if (i === QUESTIONS[idx].ans) setScore(s => s + 1)
+   724→  }
+   725→
+   726→  const next = () => {
+   727→    if (idx + 1 >= QUESTIONS.length) { setDone(true); return }
+   728→    setIdx(idx + 1); setPicked(null); setTime(15)
+   729→  }
+   730→
+   731→  const restart = () => { setIdx(0); setScore(0); setPicked(null); setTime(15); setDone(false) }
+   732→
+   733→  if (done) {
+   734→    return (
+   735→      <div className="min-h-screen bg-slate-950 text-slate-100 p-4 flex flex-col items-center justify-center">
+   736→        <h1 className="text-3xl font-bold text-cyan-400 mb-2">Terminé !</h1>
+   737→        <p className="text-6xl font-bold my-4">{score} / {QUESTIONS.length}</p>
+   738→        <p className="text-slate-400 mb-6">
+   739→          {score === QUESTIONS.length ? '🏆 Parfait !' : score >= 3 ? '👍 Bien joué' : '💪 Continue'}
+   740→        </p>
+   741→        <button onClick={restart} className="bg-cyan-500 text-slate-950 px-6 py-3 rounded-xl font-semibold">
+   742→          Rejouer
+   743→        </button>
+   744→      </div>
+   745→    )
+   746→  }
+   747→
+   748→  const cur = QUESTIONS[idx]
+   749→  return (
+   750→    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 max-w-md mx-auto flex flex-col">
+   751→      <div className="flex justify-between items-center mb-4">
+   752→        <span className="text-sm text-slate-400">Question {idx + 1}/{QUESTIONS.length}</span>
+   753→        <span className={\`text-sm font-mono px-2 py-1 rounded \${
+   754→          time <= 5 ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-cyan-400'
+   755→        }\`}>{time}s</span>
+   756→      </div>
+   757→
+   758→      <div className="h-1 bg-slate-800 rounded-full mb-6">
+   759→        <div className="h-full bg-cyan-500 rounded-full transition-all"
+   760→          style={{ width: \`\${((idx) / QUESTIONS.length) * 100}%\` }} />
+   761→      </div>
+   762→
+   763→      <h2 className="text-xl font-semibold mb-6">{cur.q}</h2>
+   764→
+   765→      <div className="space-y-3">
+   766→        {cur.opts.map((o, i) => {
+   767→          let cls = 'bg-slate-900 border-slate-800'
+   768→          if (picked !== null) {
+   769→            if (i === cur.ans) cls = 'bg-cyan-500/20 border-cyan-500'
+   770→            else if (i === picked) cls = 'bg-red-500/20 border-red-500'
+   771→          }
+   772→          return (
+   773→            <button
+   774→              key={i}
+   775→              onClick={() => choose(i)}
+   776→              disabled={picked !== null}
+   777→              className={\`w-full text-left p-4 rounded-xl border \${cls} transition-colors\${
+   778→                picked === null ? ' active:scale-98' : ''
+   779→              }\`}
+   780→            >
+   781→              <span className="text-cyan-400 mr-2">{String.fromCharCode(65 + i)}.</span>
+   782→              {o}
+   783→            </button>
+   784→          )
+   785→        })}
+   786→      </div>
+   787→
+   788→      {picked !== null && (
+   789→        <button onClick={next} className="mt-6 bg-cyan-500 text-slate-950 py-3 rounded-xl font-semibold">
+   790→          {idx + 1 >= QUESTIONS.length ? 'Voir le résultat' : 'Question suivante'}
+   791→        </button>
+   792→      )}
+   793→    </div>
+   794→  )
+   795→}`
+   796→
+   797→const makeFiles = (appTsx: string): TemplateFile[] => [
+   798→  { path: 'package.json', content: sharedPackageJson('App'), language: 'json' },
+   799→  { path: 'index.html', content: sharedIndexHtml, language: 'html' },
+   800→  { path: 'src/main.tsx', content: sharedMainTsx, language: 'tsx' },
+   801→  { path: 'src/index.css', content: sharedIndexCss, language: 'css' },
+   802→  { path: 'src/App.tsx', content: appTsx, language: 'tsx' },
+   803→]
+   804→
+   805→export const TEMPLATES: Template[] = [
+   806→  {
+   807→    id: 'taskflow',
+   808→    name: 'TaskFlow',
+   809→    tagline: 'Gestionnaire de tâches',
+   810→    description: 'Liste de tâches avec catégories, statistiques et barre de progression.',
+   811→    icon: CheckSquare,
+   812→    accent: 'from-cyan-500 to-cyan-700',
+   813→    files: makeFiles(taskflowApp),
+   814→  },
+   815→  {
+   816→    id: 'recipebox',
+   817→    name: 'RecipeBox',
+   818→    tagline: 'Carnet de recettes',
+   819→    description: 'Recettes avec recherche, favoris et liste d\'ingrédients dépliable.',
+   820→    icon: UtensilsCrossed,
+   821→    accent: 'from-amber-500 to-cyan-600',
+   822→    files: makeFiles(recipeApp),
+   823→  },
+   824→  {
+   825→    id: 'devportfolio',
+   826→    name: 'DevPortfolio',
+   827→    tagline: 'Portfolio développeur',
+   828→    description: 'Portfolio personnel avec sections projets, compétences et contact.',
+   829→    icon: Code2,
+   830→    accent: 'from-cyan-400 to-teal-600',
+   831→    files: makeFiles(portfolioApp),
+   832→  },
+   833→  {
+   834→    id: 'weathercast',
+   835→    name: 'WeatherCast',
+   836→    tagline: 'Prévisions météo',
+   837→    description: 'Carte météo avec prévisions 7 jours et sélection par jour.',
+   838→    icon: CloudSun,
+   839→    accent: 'from-sky-400 to-cyan-600',
+   840→    files: makeFiles(weatherApp),
+   841→  },
+   842→  {
+   843→    id: 'expensetracker',
+   844→    name: 'ExpenseTracker',
+   845→    tagline: 'Suivi des dépenses',
+   846→    description: 'Dépenses par catégorie avec graphiques et totaux.',
+   847→    icon: Wallet,
+   848→    accent: 'from-emerald-400 to-cyan-600',
+   849→    files: makeFiles(expenseApp),
+   850→  },
+   851→  {
+   852→    id: 'pomodoropro',
+   853→    name: 'PomodoroPro',
+   854→    tagline: 'Timer pomodoro',
+   855→    description: 'Minuteur focus/pause avec cercle de progression et stats de cycles.',
+   856→    icon: Timer,
+   857→    accent: 'from-rose-400 to-cyan-600',
+   858→    files: makeFiles(pomodoroApp),
+   859→  },
+   860→  {
+   861→    id: 'markdownnotes',
+   862→    name: 'MarkdownNotes',
+   863→    tagline: 'Notes markdown',
+   864→    description: 'Éditeur markdown avec aperçu live et gestion multi-notes.',
+   865→    icon: StickyNote,
+   866→    accent: 'from-yellow-400 to-cyan-600',
+   867→    files: makeFiles(markdownApp),
+   868→  },
+   869→  {
+   870→    id: 'quizmaster',
+   871→    name: 'QuizMaster',
+   872→    tagline: 'Quiz interactif',
+   873→    description: 'Quiz chronométré avec score, feedback et rejouabilité.',
+   874→    icon: GraduationCap,
+   875→    accent: 'from-violet-400 to-cyan-600',
+   876→    files: makeFiles(quizApp),
+   877→  },
+   878→]
+   879→
+   880→export const getTemplate = (id: string): Template | undefined =>
+   881→  TEMPLATES.find(t => t.id === id)
+   882→
