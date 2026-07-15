@@ -167,6 +167,71 @@ async function callPublicAPI(
   return { content: "", error: lastError };
 }
 
+/** Strategy 3: GenSpark OpenAI Proxy — uses OPENAI_API_KEY + OPENAI_BASE_URL */
+const GENSPARK_ENDPOINT =
+  (process.env.OPENAI_BASE_URL || "https://www.genspark.ai/api/llm_proxy/v1") +
+  "/chat/completions";
+
+async function callOpenAI(messages: ChatMessage[]): Promise<ChatCompletionResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return { content: "", error: "OPENAI_API_KEY not set" };
+  }
+
+  let lastError = "";
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(
+        GENSPARK_ENDPOINT,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-5",
+            messages,
+          }),
+        },
+        INITIAL_TIMEOUT_MS * 2 // 60s for LLM response
+      );
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "error");
+        lastError = `HTTP ${res.status}: ${errText.slice(0, 200)}`;
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+          return { content: "", error: lastError };
+        }
+        if (attempt < MAX_RETRIES) {
+          await sleep(1000 * attempt);
+          continue;
+        }
+        return { content: "", error: lastError };
+      }
+
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content || "";
+      if (!content) {
+        lastError = "Empty response from OpenAI proxy";
+        if (attempt < MAX_RETRIES) {
+          await sleep(1000 * attempt);
+          continue;
+        }
+        return { content: "", error: lastError };
+      }
+      return { content };
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "Network error";
+      if (attempt < MAX_RETRIES) {
+        await sleep(1000 * attempt * 2);
+        continue;
+      }
+    }
+  }
+  return { content: "", error: lastError };
+}
+
 /** Fallback: use z-ai-web-dev-sdk (creates .z-ai-config from embedded token) */
 async function callSDKFallback(messages: ChatMessage[]): Promise<ChatCompletionResult> {
   try {
@@ -214,15 +279,23 @@ export async function glmChat(messages: ChatMessage[]): Promise<ChatCompletionRe
   if (apiKey) {
     const result = await callPublicAPI(apiKey, messages);
     if (result.content) return result;
-    if (result.error) errors.push(`public: ${result.error}`);
+    if (result.error) errors.push(`GLM public: ${result.error}`);
   }
 
   // Strategy 2: Internal API (works on preview server / local)
   const internalResult = await callInternalAPI(messages);
   if (internalResult.content) return internalResult;
-  if (internalResult.error) errors.push(`internal: ${internalResult.error}`);
+  if (internalResult.error) errors.push(`GLM internal: ${internalResult.error}`);
 
-  // Strategy 3: SDK fallback (z-ai-web-dev-sdk)
+  // Strategy 3: GenSpark OpenAI Proxy (uses OPENAI_API_KEY)
+  const openaiResult = await callOpenAI(messages);
+  if (openaiResult.content) {
+    console.log('[glmChat] ✓ Fallback OpenAI/GenSpark OK');
+    return openaiResult;
+  }
+  if (openaiResult.error) errors.push(`openai: ${openaiResult.error}`);
+
+  // Strategy 4: SDK fallback (z-ai-web-dev-sdk)
   const sdkResult = await callSDKFallback(messages);
   if (sdkResult.content) return sdkResult;
   if (sdkResult.error) errors.push(`sdk: ${sdkResult.error}`);
@@ -230,6 +303,6 @@ export async function glmChat(messages: ChatMessage[]): Promise<ChatCompletionRe
   // All strategies failed
   return {
     content: "",
-    error: `All GLM endpoints failed — ${errors.join(" | ")}`,
+    error: `All LLM endpoints failed — ${errors.join(" | ")}`,
   };
 }
