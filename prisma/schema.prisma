@@ -97,3 +97,24 @@ model BridgeState {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+/// RAG Memory Engine — stores indexed project knowledge chunks
+/// in spiral-based categories for context retrieval.
+/// Spirales: modeles | standards | exemples | outils | logs
+model RagMemory {
+  id         String   @id
+  project    String
+  file       String
+  spirale    String   // modeles | standards | exemples | outils | logs
+  preview    String   @default("")
+  fullContent String  @default("")
+  size       Int      @default(0)
+  tags       String[] // Store as text array in PostgreSQL
+  score      Float    @default(0.5)
+  indexedAt  DateTime @default(now())
+  
+  @@index([project])
+  @@index([spirale])
+  @@index([score])
+  @@index([project, spirale])
+}

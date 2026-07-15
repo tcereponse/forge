@@ -72,8 +72,8 @@
     const platform = {
         name: 'deepseek',
         config: {
-            textarea: ['textarea#chat-input', '.ds-textarea', 'textarea.ds-input__textarea', 'textarea', '[contenteditable="true"]'],
-            sendBtn: ['.ds-input-send-button', 'div[class*="send-button"]', 'button[aria-label*="send" i]', 'button[aria-label*="envo" i]', 'button[aria-label*="envoyer" i]', '[data-testid="send-button"]'],
+            textarea: ["textarea#chat-input", "textarea[placeholder*=\"Message\" i]", "textarea[placeholder*=\"message\" i]", "textarea[placeholder*=\"Ask\" i]", ".ds-textarea", "textarea.ds-input__textarea", "textarea.input-area-textarea", "textarea[rows]", "textarea", "div[contenteditable=\"true\"][role=\"textbox\"]", "div[contenteditable=\"true\"]", "[contenteditable=\"true\"]"],
+            sendBtn: ["button[data-testid=\"send-button\"]", "button[aria-label*=\"send\" i]", "button[aria-label*=\"envoyer\" i]", "div[role=\"button\"][aria-label*=\"Send\" i]", "div[role=\"button\"][aria-label*=\"Envoyer\" i]", "div[role=\"button\"][aria-disabled=\"false\"]", "div[role=\"button\"]:not([aria-disabled=\"true\"])", "button[class*=\"send\" i]", "div[class*=\"send-button\" i]", "div[class*=\"send\" i][role=\"button\"]", "button"],
             messageBlock: ['.ds-markdown', '.markdown', '.message-content', '[class*="markdown"]', '[class*="message-body"]'],
             stopBtn: ['button[aria-label*="stop" i]', 'button[aria-label*="arrêt" i]', '.ds-stop-button', 'div[class*="stop-button"]'],
         },

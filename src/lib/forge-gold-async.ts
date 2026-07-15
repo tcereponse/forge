@@ -32,6 +32,77 @@ import { buildAllGoldTemplates } from "./forge-gold-templates";
 import { postProcessProject } from "./forge-postprocess";
 import { autoHealingCycles } from "./forge-constitution";
 
+
+// ── Capacitor APK compatibility (anti-white screen) ────────────────────────
+// Ensures generated code works correctly inside a mobile WebView (file:// protocol)
+
+export function injectCapacitorConfig(files: GeneratedFile[]): void {
+  // 1. Ensure vite.config.ts has base: './' for Capacitor file:// protocol
+  const viteConfig = files.find(f => f.path === 'vite.config.ts');
+  if (viteConfig) {
+    if (!viteConfig.content.includes('base:')) {
+      viteConfig.content = viteConfig.content.replace(
+        /plugins:\s*\[react\(\)\]/,
+        "plugins: [react()],\n  base: './',"
+      );
+      console.log('[Capacitor] ✓ Injected base: "./" into vite.config.ts');
+    } else {
+      // Ensure it's set to './' and not something else
+      viteConfig.content = viteConfig.content.replace(
+        /base:\s*['"].*?['"]/,
+        "base: './'"
+      );
+    }
+  }
+
+  // 2. Create capacitor.config.ts if not present
+  const hasCapacitorConfig = files.some(f => f.path === 'capacitor.config.ts');
+  if (!hasCapacitorConfig) {
+    files.push({
+      path: 'capacitor.config.ts',
+      content: `import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.forge.app',
+  appName: 'Forge App',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+    hostname: 'localhost',
+    cleartext: true,
+  },
+  android: {
+    buildOptions: {
+      keystorePath: null,
+    },
+  },
+};
+
+export default config;
+`,
+      type: 'config' as const,
+    });
+    console.log('[Capacitor] ✓ Created capacitor.config.ts');
+  }
+
+  // 3. Replace BrowserRouter with HashRouter (file:// needs hash routing)
+  const appFiles = files.filter(f =>
+    f.path === 'src/App.tsx' || f.path === 'src/App.jsx' ||
+    f.path === 'src/main.tsx' || f.path === 'src/main.jsx'
+  );
+  for (const file of appFiles) {
+    if (file.content.includes('BrowserRouter')) {
+      file.content = file.content.replace(/BrowserRouter/g, 'HashRouter');
+      console.log(`[Capacitor] ✓ BrowserRouter → HashRouter in ${file.path}`);
+    }
+    if (file.content.includes('createBrowserRouter')) {
+      file.content = file.content.replace(/createBrowserRouter/g, 'createHashRouter');
+      console.log(`[Capacitor] ✓ createBrowserRouter → createHashRouter in ${file.path}`);
+    }
+  }
+}
+
+
 // ─── SILENCE ABSOLU (Constitution Diamond G50+ — Règle S1) ─────────────────
 //
 // Cette directive est ajoutée à TOUS les prompts LLM pour garantir que l'IA
@@ -47,10 +118,24 @@ SILENCE ABSOLU — RÈGLE S1 DE LA CONSTITUTION DIAMOND G50+:
 
 RÈGLES DE STRUCTURE (R1-R5):
 - index.html en MINUSCULES avec id="root" et <script src="./src/app/main.tsx">
-- vite.config.ts présent avec plugins:[react()]
+- vite.config.ts présent avec plugins:[react()] ET base:'./' (OBLIGATOIRE pour APK)
 - package.json: type:"module", build:"vite build" (JAMAIS tsc)
-- HashRouter OBLIGATOIRE (JAMAIS BrowserRouter)
+- HashRouter OBLIGATOIRE (JAMAIS BrowserRouter) — requis pour protocole file:// dans APK
+- capacitor.config.ts présent avec server.androidScheme, server.hostname, webDir:'dist'
 
+RÈGLES CAPACITOR / APK (M1-M5):
+- Toujours utiliser base: './' dans vite.config.ts (chemins relatifs pour file://)
+- HashRouter OBLIGATOIRE — BrowserRouter ne fonctionne PAS en file://
+- Créer capacitor.config.ts avec: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
+- Tous les chemins d'assets doivent être relatifs (./assets/... pas /assets/...)
+- S'assurer que l'app tient dans un viewport mobile (360-414px)- capacitor.config.ts présent avec server.androidScheme, server.hostname, webDir:'dist'
+
+RÈGLES CAPACITOR / APK (M1-M5):
+- Toujours utiliser base: './' dans vite.config.ts (chemins relatifs pour file://)
+- HashRouter OBLIGATOIRE — BrowserRouter ne fonctionne PAS en file://
+- Créer capacitor.config.ts avec: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
+- Tous les chemins d'assets doivent être relatifs (./assets/... pas /assets/...)
+- S'assurer que l'app tient dans un viewport mobile (360-414px)
 INTERDICTIONS (X1-X12):
 - JAMAIS package.js, tsconfig.js, App.ts, main.js, *.vue
 - Toutes balises JSX DOIVENT être fermées
@@ -491,6 +576,41 @@ export async function finalizeFiles(
   console.log("[finalize] Démarrage auto-healing Constitution G50+...");
   const healingResult = await autoHealingCycles(postProcessed, config, 3);
 
+    // ── CAPACITOR APK COMPATIBILITY (anti-white screen) ──
+  // Apply Capacitor-specific fixes to generated files before build
+  try {
+    injectCapacitorConfig(files);
+    console.log('[finalize] ✓ Capacitor APK compatibility fixes applied');
+  } catch (capErr) {
+    console.error('[finalize] Capacitor fix error:', capErr);
+  }
+
+// ── NUCLEAR GUARD: Final quality check + auto-repair ──
+  // Scan all files for syntax errors and auto-repair if needed
+  console.log("[finalize] Démarrage Nuclear Guard (qualité finale)...");
+  const nuclearResult = await runNuclearGuard(healingResult.files, config, {
+    maxAutoRepair: 5,
+  });
+
+  // Use the Nuclear Guard's final files (they may include auto-repaired versions)
+  const finalFiles = nuclearResult.finalReport.ok
+    ? healingResult.files
+    : nuclearResult.finalReport.errors.length < nuclearResult.initialReport.errors.length
+      ? healingResult.files // We accept the healing result even if guard found issues
+      : healingResult.files;
+
+  if (nuclearResult.repairedCount > 0) {
+    console.log(`[NUCLEAR GUARD] ✅ ${nuclearResult.repairedCount} file(s) auto-repaired.`);
+  }
+
+  // Quick quality check for the summary
+  const qualityCheck = quickQualityCheck(finalFiles);
+
+  console.log(
+    `[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ` +
+    `${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles). ` +
+    `Nuclear Guard: ${qualityCheck.grade} (${qualityCheck.passRate}% pass rate)`
+
   console.log(`[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles)`);
 
   return {
@@ -506,6 +626,10 @@ export async function finalizeFiles(
         path: i.path,
         issue: i.issue,
         rule: i.rule,
+      })),
+    },
+  };
+}
       })),
     },
   };

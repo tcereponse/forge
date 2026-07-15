@@ -22,15 +22,30 @@ export async function testGlmConnectivity(): Promise<{ ok: boolean; error?: stri
   if (!hasNativeHttp()) {
     return { ok: false, error: 'NativeHttp bridge non disponible' }
   }
+
+  const apiKey = import.meta.env.VITE_ZAI_API_KEY || ''
+  const token = import.meta.env.VITE_ZAI_TOKEN || ''
+  const endpoint = import.meta.env.VITE_ZAI_BASE_URL || 'https://internal-api.z.ai/v1/chat/completions'
+
+  if (!apiKey && !token) {
+    return { ok: false, error: 'Aucune clé API GLM configuree (VITE_ZAI_API_KEY ou VITE_ZAI_TOKEN)' }
+  }
+
   const start = Date.now()
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Z-AI-From': 'Z',
+    }
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    } else if (token) {
+      headers['X-Token'] = token
+    }
+
     const result = nativePost(
-      'https://internal-api.z.ai/v1/chat/completions',
-      {
-        'Content-Type': 'application/json',
-        'X-Z-AI-From': 'Z',
-        'X-Token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOGI5MGZiNDUtODVlYS00MWNkLWEwOGMtMDAwZWM2ZmQ3MmQ0IiwiY2hhdF9pZCI6ImNoYXQtZjJmODM5YmEtZjczMi00NjEzLTkwMTAtOGY0NThkMTYyMjVjIiwicGxhdGZvcm0iOiJ6YWkifQ.cKusmTSeG5NvNWXKKLfQfEw3XXRYEi4-ryqTIrTdt40',
-      },
+      endpoint,
+      headers,
       JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], thinking: { type: 'disabled' } })
     )
     const latency = Date.now() - start

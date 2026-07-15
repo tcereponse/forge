@@ -11,3 +11,6 @@ export const db =
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+
+/** RAG Memory delegate — exposes prisma.ragMemory for forge-rag.ts */
+export const ragMemory = (db as any).ragMemory

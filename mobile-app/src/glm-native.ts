@@ -3,6 +3,10 @@
 // NO PC server required — the APK is fully autonomous.
 //
 // In a browser (web mobile same-origin), falls back to fetch() with the /api/projects/[id]/generate endpoint.
+//
+// IMPORTANT: The GLM token/API key is NOT hardcoded. It must be injected at build time
+// via environment variables (VITE_ZAI_API_KEY or VITE_ZAI_TOKEN) or configured at runtime
+// through the app settings.
 
 declare global {
   interface Window {
@@ -13,12 +17,11 @@ declare global {
   }
 }
 
-// GLM API credentials — embedded in the APK for sovereign operation.
-// The JWT has no expiry field, so it won't expire (until revoked server-side).
-// NOTE: These are extracted from the z-ai-web-dev-sdk config. The token is shared
-// across all APK installs. Rate limit: 300/day per IP, 2 QPS.
-const GLM_ENDPOINT = "https://internal-api.z.ai/v1/chat/completions"
-const GLM_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOGI5MGZiNDUtODVlYS00MWNkLWEwOGMtMDAwZWM2ZmQ3MmQ0IiwiY2hhdF9pZCI6ImNoYXQtZjJmODM5YmEtZjczMi00NjEzLTkwMTAtOGY0NThkMTYyMjVjIiwicGxhdGZvcm0iOiJ6YWkifQ.cKusmTSeG5NvNWXKKLfQfEw3XXRYEi4-ryqTIrTdt40"
+// Build-time or runtime configuration. For the sovereign APK, these are injected
+// by the build script (build-mobile-apk.sh) from the host environment.
+const GLM_ENDPOINT = import.meta.env.VITE_ZAI_BASE_URL || "https://internal-api.z.ai/v1/chat/completions"
+const GLM_API_KEY = import.meta.env.VITE_ZAI_API_KEY || ""
+const GLM_TOKEN = import.meta.env.VITE_ZAI_TOKEN || ""
 
 /** Returns true if the NativeHttp bridge is available (i.e., running inside the APK). */
 export function hasNativeHttp(): boolean {
@@ -60,6 +63,14 @@ export function glmChat(messages: ChatMessage[], options?: { thinking?: 'enabled
     return { content: '', raw: null, error: 'NativeHttp bridge requis (APK uniquement). En navigateur web, utilise le serveur.' }
   }
 
+  if (!GLM_API_KEY && !GLM_TOKEN) {
+    return {
+      content: '',
+      raw: null,
+      error: 'Aucune clé API GLM configuree. Veuillez configurer VITE_ZAI_API_KEY ou VITE_ZAI_TOKEN avant de compiler l APK.',
+    }
+  }
+
   const body = JSON.stringify({
     messages,
     thinking: { type: options?.thinking || 'disabled' },
@@ -68,7 +79,12 @@ export function glmChat(messages: ChatMessage[], options?: { thinking?: 'enabled
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Z-AI-From': 'Z',
-    'X-Token': GLM_TOKEN,
+  }
+
+  if (GLM_API_KEY) {
+    headers['Authorization'] = `Bearer ${GLM_API_KEY}`
+  } else if (GLM_TOKEN) {
+    headers['X-Token'] = GLM_TOKEN
   }
 
   const result = nativePost(GLM_ENDPOINT, headers, body)
