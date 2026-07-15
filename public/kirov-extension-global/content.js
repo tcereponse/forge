@@ -93,10 +93,12 @@ INTERDICTIONS (X1-X12):
 const PlatformDetector = {
     detect() {
         const host = window.location.hostname;
-        if (host.includes('deepseek')) return { name: 'deepseek', textareaSelector: 'textarea#chat-input, textarea[placeholder*="Message"]', sendButtonSelector: 'div[role="button"][aria-disabled="false"]' };
-        if (host.includes('chatgpt')) return { name: 'chatgpt', textareaSelector: 'div[contenteditable="true"]', sendButtonSelector: 'button[data-testid="send-button"]' };
-        if (host.includes('gemini')) return { name: 'gemini', textareaSelector: 'rich-textarea textarea', sendButtonSelector: 'button[aria-label*="Send"]' };
-        return { name: 'unknown', textareaSelector: 'textarea', sendButtonSelector: 'button' };
+        const deepSeekTextarea = 'textarea#chat-input, textarea[placeholder*="Message" i], textarea[placeholder*="message" i], textarea[placeholder*="Ask" i], textarea.ds-textarea, textarea.ds-input__textarea, textarea.input-area-textarea, textarea[rows], textarea, div[contenteditable="true"][role="textbox"], div[contenteditable="true"], [contenteditable="true"]';
+        const deepSeekSend = 'button[data-testid="send-button"], button[aria-label*="Send" i], button[aria-label*="Envoyer" i], div[role="button"][aria-label*="Send" i], div[role="button"][aria-label*="Envoyer" i], div[role="button"][aria-disabled="false"], div[role="button"]:not([aria-disabled="true"]), button[class*="send" i], div[class*="send-button" i], div[class*="send" i][role="button"], button';
+        if (host.includes('deepseek')) return { name: 'deepseek', textareaSelector: deepSeekTextarea, sendButtonSelector: deepSeekSend };
+        if (host.includes('chatgpt')) return { name: 'chatgpt', textareaSelector: 'div[contenteditable="true"]', sendButtonSelector: 'button[data-testid="send-button"], button[aria-label*="Send" i]' };
+        if (host.includes('gemini')) return { name: 'gemini', textareaSelector: 'rich-textarea textarea, div[contenteditable="true"]', sendButtonSelector: 'button[aria-label*="Send" i], button[aria-label*="Envoyer" i]' };
+        return { name: 'unknown', textareaSelector: deepSeekTextarea, sendButtonSelector: deepSeekSend };
     }
 };
 
@@ -543,19 +545,52 @@ async function pollForPrompt() {
 }
 
 async function injectPrompt(prompt) {
-    const textarea = findTextarea();
-    if (!textarea) { KirovLogger.error("Textarea introuvable"); return false; }
-    textarea.focus();
+    const input = findTextarea();
+    if (!input) { KirovLogger.error("Input introuvable"); return false; }
+    input.focus();
+    input.click();
     await sleep(100);
-    if (textarea.tagName === "TEXTAREA") {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-        setter.call(textarea, prompt);
-    } else { textarea.textContent = prompt; }
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    await sleep(500);
+
+    if (input.tagName === "TEXTAREA" || input.tagName === "INPUT") {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
+            || Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+        if (nativeSetter) nativeSetter.call(input, prompt);
+        else input.value = prompt;
+    } else if (input.contentEditable === "true" || input.isContentEditable) {
+        input.innerHTML = "";
+        input.textContent = prompt;
+        input.innerText = prompt;
+    } else {
+        input.textContent = prompt;
+    }
+
+    const events = [
+        new Event("focus", { bubbles: true }),
+        new Event("input", { bubbles: true }),
+        new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }),
+        new Event("change", { bubbles: true }),
+        new Event("keyup", { bubbles: true }),
+    ];
+    for (const ev of events) {
+        input.dispatchEvent(ev);
+        await sleep(50);
+    }
+
+    await sleep(400);
     const sendBtn = findSendButton();
-    if (sendBtn) { sendBtn.click(); KirovLogger.info("Bouton Send cliqué"); return true; }
-    textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true }));
+    if (sendBtn) {
+        sendBtn.focus();
+        sendBtn.click();
+        KirovLogger.info("Bouton Send clique");
+        return true;
+    }
+
+    const enterEvents = [
+        new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+        new KeyboardEvent("keypress", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+        new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+    ];
+    for (const ev of enterEvents) input.dispatchEvent(ev);
     return true;
 }
 

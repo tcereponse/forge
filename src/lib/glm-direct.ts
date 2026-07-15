@@ -1,19 +1,22 @@
-// Direct GLM-4.6 API client — bypasses z-ai-web-dev-sdk config file issues.
+// Direct GLM-4.6 / Z.ai API client — no hardcoded credentials.
 // Uses fetch() directly with multi-endpoint fallback + retry logic.
 //
 // Strategy (in order):
-// 1. If ZAI_API_KEY env var is set → public API (api.z.ai) with Bearer auth
-// 2. Internal API (internal-api.z.ai) with X-Token — works on preview server
-// 3. Fallback: z-ai-web-dev-sdk (creates .z-ai-config from embedded token)
+// 1. If ZAI_API_KEY env var is set → public API (api.z.ai) or custom ZAI_BASE_URL with Bearer auth
+// 2. Internal API (internal-api.z.ai) with X-Token — only if ZAI_TOKEN is provided
+// 3. GenSpark OpenAI Proxy — if OPENAI_API_KEY is set
+// 4. Fallback: z-ai-web-dev-sdk (requires .z-ai-config created from env vars)
 //
 // All endpoints have retry with exponential backoff (3 attempts).
 // On Vercel serverless, the internal API may be blocked — fallback handles it.
 
 import { ensureZaiConfig } from "./zai-config";
 
-const INTERNAL_ENDPOINT = "https://internal-api.z.ai/v1/chat/completions";
-const PUBLIC_ENDPOINT = "https://api.z.ai/api/paas/v4/chat/completions";
-const INTERNAL_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOGI5MGZiNDUtODVlYS00MWNkLWEwOGMtMDAwZWM2ZmQ3MmQ0IiwiY2hhdF9pZCI6ImNoYXQtZjJmODM5YmEtZjczMi00NjEzLTkwMTAtOGY0NThkMTYyMjVjIiwicGxhdGZvcm0iOiJ6YWkifQ.cKusmTSeG5NvNWXKKLfQfEw3XXRYEi4-ryqTIrTdt40";
+const DEFAULT_PUBLIC_ENDPOINT = "https://api.z.ai/api/paas/v4/chat/completions";
+const DEFAULT_INTERNAL_ENDPOINT = "https://internal-api.z.ai/v1/chat/completions";
+const DEFAULT_OPENAI_BASE_URL = "https://www.genspark.ai/api/llm_proxy/v1";
+const DEFAULT_MODEL = "glm-4.6";
+const DEFAULT_OPENAI_MODEL = "gpt-5";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -32,6 +35,14 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function getEnv(name: string): string | undefined {
+  try {
+    return process.env[name];
+  } catch {
+    return undefined;
+  }
+}
+
 /** Fetch with timeout using AbortController */
 async function fetchWithTimeout(
   url: string,
@@ -48,18 +59,22 @@ async function fetchWithTimeout(
 }
 
 /** Call internal API (preview server) with X-Token JWT */
-async function callInternalAPI(messages: ChatMessage[]): Promise<ChatCompletionResult> {
+async function callInternalAPI(
+  token: string,
+  endpoint: string,
+  messages: ChatMessage[]
+): Promise<ChatCompletionResult> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetchWithTimeout(
-        INTERNAL_ENDPOINT,
+        endpoint,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Z-AI-From": "Z",
-            "X-Token": INTERNAL_TOKEN,
+            "X-Token": token,
           },
           body: JSON.stringify({
             messages,
@@ -110,13 +125,15 @@ async function callInternalAPI(messages: ChatMessage[]): Promise<ChatCompletionR
 /** Call public API (Vercel/production) with Bearer API key */
 async function callPublicAPI(
   apiKey: string,
+  endpoint: string,
+  model: string,
   messages: ChatMessage[]
 ): Promise<ChatCompletionResult> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetchWithTimeout(
-        PUBLIC_ENDPOINT,
+        endpoint,
         {
           method: "POST",
           headers: {
@@ -124,7 +141,7 @@ async function callPublicAPI(
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "glm-4.6",
+            model,
             messages,
             thinking: { type: "disabled" },
           }),
@@ -168,21 +185,19 @@ async function callPublicAPI(
 }
 
 /** Strategy 3: GenSpark OpenAI Proxy — uses OPENAI_API_KEY + OPENAI_BASE_URL */
-const GENSPARK_ENDPOINT =
-  (process.env.OPENAI_BASE_URL || "https://www.genspark.ai/api/llm_proxy/v1") +
-  "/chat/completions";
-
 async function callOpenAI(messages: ChatMessage[]): Promise<ChatCompletionResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getEnv("OPENAI_API_KEY");
   if (!apiKey) {
     return { content: "", error: "OPENAI_API_KEY not set" };
   }
+  const endpoint = (getEnv("OPENAI_BASE_URL") || DEFAULT_OPENAI_BASE_URL) + "/chat/completions";
+  const model = getEnv("OPENAI_MODEL") || DEFAULT_OPENAI_MODEL;
 
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetchWithTimeout(
-        GENSPARK_ENDPOINT,
+        endpoint,
         {
           method: "POST",
           headers: {
@@ -190,7 +205,7 @@ async function callOpenAI(messages: ChatMessage[]): Promise<ChatCompletionResult
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-5",
+            model,
             messages,
           }),
         },
@@ -232,7 +247,7 @@ async function callOpenAI(messages: ChatMessage[]): Promise<ChatCompletionResult
   return { content: "", error: lastError };
 }
 
-/** Fallback: use z-ai-web-dev-sdk (creates .z-ai-config from embedded token) */
+/** Fallback: use z-ai-web-dev-sdk (creates .z-ai-config from environment) */
 async function callSDKFallback(messages: ChatMessage[]): Promise<ChatCompletionResult> {
   try {
     await ensureZaiConfig();
@@ -264,33 +279,43 @@ async function callSDKFallback(messages: ChatMessage[]): Promise<ChatCompletionR
 }
 
 /**
- * Calls GLM-4.6 with automatic endpoint fallback:
- * 1. Public API (if ZAI_API_KEY set) — works on Vercel
- * 2. Internal API (preview server) — works locally
- * 3. SDK fallback (z-ai-web-dev-sdk) — creates config from embedded token
+ * Calls the configured LLM with automatic endpoint fallback.
  *
- * Returns the first successful response, or the last error if all fail.
+ * Required environment variables (choose one):
+ * - ZAI_API_KEY → uses Bearer auth on ZAI_BASE_URL or api.z.ai
+ * - ZAI_TOKEN → uses X-Token auth on internal-api.z.ai
+ * - OPENAI_API_KEY → uses GenSpark OpenAI proxy
+ * - Or rely on z-ai-web-dev-sdk with .z-ai-config / env vars
+ *
+ * Optional: ZAI_BASE_URL, ZAI_MODEL, OPENAI_BASE_URL, OPENAI_MODEL
  */
 export async function glmChat(messages: ChatMessage[]): Promise<ChatCompletionResult> {
-  const apiKey = process.env.ZAI_API_KEY;
+  const apiKey = getEnv("ZAI_API_KEY");
+  const token = getEnv("ZAI_TOKEN");
+  const baseUrl = getEnv("ZAI_BASE_URL");
+  const model = getEnv("ZAI_MODEL") || DEFAULT_MODEL;
   const errors: string[] = [];
 
-  // Strategy 1: Public API (if key available)
+  // Strategy 1: Public/custom API (if key available)
   if (apiKey) {
-    const result = await callPublicAPI(apiKey, messages);
+    const endpoint = baseUrl || DEFAULT_PUBLIC_ENDPOINT;
+    const result = await callPublicAPI(apiKey, endpoint, model, messages);
     if (result.content) return result;
     if (result.error) errors.push(`GLM public: ${result.error}`);
   }
 
-  // Strategy 2: Internal API (works on preview server / local)
-  const internalResult = await callInternalAPI(messages);
-  if (internalResult.content) return internalResult;
-  if (internalResult.error) errors.push(`GLM internal: ${internalResult.error}`);
+  // Strategy 2: Internal API (only if token provided)
+  if (token) {
+    const endpoint = baseUrl || DEFAULT_INTERNAL_ENDPOINT;
+    const internalResult = await callInternalAPI(token, endpoint, messages);
+    if (internalResult.content) return internalResult;
+    if (internalResult.error) errors.push(`GLM internal: ${internalResult.error}`);
+  }
 
   // Strategy 3: GenSpark OpenAI Proxy (uses OPENAI_API_KEY)
   const openaiResult = await callOpenAI(messages);
   if (openaiResult.content) {
-    console.log('[glmChat] ✓ Fallback OpenAI/GenSpark OK');
+    console.log("[glmChat] ✓ Fallback OpenAI/GenSpark OK");
     return openaiResult;
   }
   if (openaiResult.error) errors.push(`openai: ${openaiResult.error}`);
@@ -301,6 +326,14 @@ export async function glmChat(messages: ChatMessage[]): Promise<ChatCompletionRe
   if (sdkResult.error) errors.push(`sdk: ${sdkResult.error}`);
 
   // All strategies failed
+  if (errors.length === 0) {
+    return {
+      content: "",
+      error:
+        "Aucune configuration LLM trouvee. Definissez ZAI_API_KEY, ZAI_TOKEN, OPENAI_API_KEY ou installez z-ai-web-dev-sdk avec .z-ai-config.",
+    };
+  }
+
   return {
     content: "",
     error: `All LLM endpoints failed — ${errors.join(" | ")}`,
