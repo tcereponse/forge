@@ -31,6 +31,8 @@ import { bridgeState } from "./bridge-state";
 import { buildAllGoldTemplates } from "./forge-gold-templates";
 import { postProcessProject } from "./forge-postprocess";
 import { autoHealingCycles } from "./forge-constitution";
+import { extractTags, selectPatchesFromDescription, buildContextForDeepSeek, indexProject } from "./forge-rag";
+import { runNuclearGuard } from "./forge-nuclear-guard";
 
 // ─── SILENCE ABSOLU (Constitution Diamond G50+ — Règle S1) ─────────────────
 //
@@ -175,9 +177,24 @@ Réponds UNIQUEMENT avec le JSON.`;
 }
 
 async function passArchitecture(config: ProjectConfig): Promise<ArchitecturePlan | null> {
+  // ── RAG: Build enriched context from previous projects ──
+  const ragContext = await buildContextForDeepSeek(config.name, config.description, config.stack);
+  const tags = extractTags(config.description);
+  const patches = selectPatchesFromDescription(config.description);
+
+  if (tags.length > 0) {
+    console.log(`[RAG] Tags détectés: ${tags.join(", ")}`);
+    console.log(`[RAG] Patchs auto-sélectionnés: ${patches.join(", ") || "aucun"}`);
+  }
+
+  const enrichedPrompt = SILENCE_ABSOLU
+    + (ragContext ? "\n\n" + ragContext : "")
+    + (patches.length > 0 ? `\n\n## PATCHS AUTOMATIQUES (${patches.length})\nLes patchs suivants ont été sélectionnés automatiquement: ${patches.join(", ")}` : "")
+    + "\n\n" + buildArchitecturePrompt(config);
+
   const response = await callLLM(
     "Tu es un architecte logiciel senior React/TypeScript. Tu réponds UNIQUEMENT par du JSON valide.",
-    SILENCE_ABSOLU + "\n\n" + buildArchitecturePrompt(config)
+    enrichedPrompt
   );
   const parsed = extractJson(response) as ArchitecturePlan | null;
   if (!parsed || !Array.isArray(parsed.folders)) return null;
@@ -486,12 +503,28 @@ export async function finalizeFiles(
   // Post-process (validators + auto-repair existant)
   const { files: postProcessed } = postProcessProject(deduped, config);
 
+  // ── NUCLEAR GUARD (Pépite #2) ──
+  // Scan syntaxique + auto-réparation via DeepSeek
+  console.log("[finalize] Démarrage Nuclear Guard...");
+  const guardResult = await runNuclearGuard(postProcessed, true, 2);
+  console.log(`[finalize] Nuclear Guard: ${guardResult.report.grade} — ${guardResult.report.errors.length} erreurs`);
+
   // ── CONSTITUTION DIAMOND G50+ AUTO-HEALING ──
   // applyKnownFixes + validateConstitution + autoSuture (retry LLM) jusqu'à OK
   console.log("[finalize] Démarrage auto-healing Constitution G50+...");
-  const healingResult = await autoHealingCycles(postProcessed, config, 3);
+  const healingResult = await autoHealingCycles(guardResult.files, config, 3);
 
   console.log(`[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles)`);
+
+  // ── RAG MEMORY (Pépite #1) ──
+  // Indexe le projet finalisé dans la mémoire pour réutilisation future
+  console.log("[finalize] Indexation RAG Memory...");
+  try {
+    const indexed = await indexProject(config.name, healingResult.files);
+    console.log(`[finalize] RAG: ${indexed} fichiers indexés dans la mémoire`);
+  } catch (e) {
+    console.log("[finalize] RAG indexation skip:", e instanceof Error ? e.message : "erreur");
+  }
 
   return {
     files: healingResult.files,
@@ -507,6 +540,11 @@ export async function finalizeFiles(
         issue: i.issue,
         rule: i.rule,
       })),
+    },
+    nuclearGuard: {
+      grade: guardResult.report.grade,
+      total: guardResult.report.total,
+      errors: guardResult.report.errors.length,
     },
   };
 }
