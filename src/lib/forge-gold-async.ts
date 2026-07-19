@@ -58,7 +58,7 @@ INTERDICTIONS (X1-X12):
 - Pas de préfixe de langage (html, javascript, etc.) dans les fichiers
 `;
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────[...]
 
 export interface GoldPassState {
   currentPass: number;        // next pass to run (1-6), 0 = not started, 7 = done
@@ -95,7 +95,7 @@ interface RawFile {
   language?: string;
 }
 
-// ── JSON extraction ─────────────────────────────────────────────────────────
+// ── JSON extraction ──────────────────────────────────────────────────────────[...]
 
 function extractJson(text: string): unknown | null {
   let cleaned = text.trim();
