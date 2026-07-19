@@ -95,7 +95,7 @@ interface RawFile {
   language?: string;
 }
 
-// ── JSON extraction ──────────────────────────────────────────────────────────[...]
+// ── JSON extraction ────────────────────────────────────────────────────────[...]
 
 function extractJson(text: string): unknown | null {
   let cleaned = text.trim();
@@ -140,11 +140,8 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
   if (result.content && result.content.length > 20) return result.content;
 
   // Strategy 2: KIROV Bridge (DeepSeek via extension)
-  console.log(`[gold-async] GLM failed, falling back to bridge...`);
-  const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 240000); // 240s per pass (DeepSeek peut générer 20k+ chars)
+  const bridgeResult = await bridgeState.runOneShot(userPrompt, 240000); // 240s per pass
   if (bridgeResult.content && bridgeResult.content.length > 20) {
-    console.log(`[gold-async] Bridge OK (${bridgeResult.content.length} chars)`);
     return bridgeResult.content;
   }
   return "";
@@ -488,10 +485,7 @@ export async function finalizeFiles(
 
   // ── CONSTITUTION DIAMOND G50+ AUTO-HEALING ──
   // applyKnownFixes + validateConstitution + autoSuture (retry LLM) jusqu'à OK
-  console.log("[finalize] Démarrage auto-healing Constitution G50+...");
   const healingResult = await autoHealingCycles(postProcessed, config, 3);
-
-  console.log(`[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles)`);
 
   return {
     files: healingResult.files,
