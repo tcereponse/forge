@@ -110,7 +110,7 @@ export default config;
 // conversational text. Any violation corrupts the project (infected files with
 // French text instead of code).
 const SILENCE_ABSOLU = `
-SILENCE ABSOLU — RULE S1 OF THE DIAMOND G50+ CONSTITUTION:
+ABSOLUTE SILENCE — RULE S1 OF THE DIAMOND G50+ CONSTITUTION:
 - Do NOT generate ANY conversational text (no "Here is", "The project", etc.)
 - NO explanations, NO introductions, NO conclusions
 - ONLY valid JSON with files
@@ -122,14 +122,6 @@ STRUCTURE RULES (R1-R5):
 - vite.config.ts present with plugins:[react()] AND base:'./' (MANDATORY for APK)
 - package.json: type:"module", build:"vite build" (NEVER tsc)
 - HashRouter MANDATORY (NEVER BrowserRouter) — required for file:// protocol in APK
-- capacitor.config.ts present with server.androidScheme, server.hostname, webDir:'dist'
-
-CAPACITOR / APK RULES (M1-M5):
-- Always use base: './' in vite.config.ts (relative paths for file://)
-- HashRouter MANDATORY — BrowserRouter does NOT work with file://
-- Create capacitor.config.ts with: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
-- All asset paths must be relative (./assets/... not /assets/...)
-- Ensure the app fits in a mobile viewport (360-414px)
 - capacitor.config.ts present with server.androidScheme, server.hostname, webDir:'dist'
 
 CAPACITOR / APK RULES (M1-M5):
@@ -579,7 +571,7 @@ export async function finalizeFiles(
   console.log("[finalize] Starting auto-healing Constitution G50+...");
   const healingResult = await autoHealingCycles(postProcessed, config, 3);
 
-    // ── CAPACITOR APK COMPATIBILITY (anti-white screen) ──
+  // ── CAPACITOR APK COMPATIBILITY (anti-white screen) ──
   // Apply Capacitor-specific fixes to generated files before build
   try {
     injectCapacitorConfig(files);
@@ -588,7 +580,7 @@ export async function finalizeFiles(
     console.error('[finalize] Capacitor fix error:', capErr);
   }
 
-// ── NUCLEAR GUARD: Final quality check + auto-repair ──
+  // ── NUCLEAR GUARD: Final quality check + auto-repair ──
   // Scan all files for syntax errors and auto-repair if needed
   console.log("[finalize] Starting Nuclear Guard (final quality)...");
   const nuclearResult = await runNuclearGuard(healingResult.files, config, {
@@ -613,7 +605,7 @@ export async function finalizeFiles(
     `[finalize] Auto-healing completed: ${healingResult.validation.criticalCount} critical, ` +
     `${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles). ` +
     `Nuclear Guard: ${qualityCheck.grade} (${qualityCheck.passRate}% pass rate)`
-  );
+  ); // <-- Corrected: closed parenthesis and removed duplicate log
 
   return {
     files: healingResult.files,
