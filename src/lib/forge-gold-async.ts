@@ -104,44 +104,46 @@ export default config;
 }
 
 
-// ─── SILENCE ABSOLU (Constitution Diamond G50+ — Règle S1) ─────────────────
+// ─── SILENCE ABSOLU (Constitution Diamond G50+ — Rule S1) ─────────────────
 //
-// Cette directive est ajoutée à TOUS les prompts LLM pour garantir que l'IA
-// ne génère AUCUN texte conversationnel. Toute violation corrompt le projet
-// (fichiers vérolés avec du texte français au lieu de code).
+// This directive is added to ALL LLM prompts to ensure the AI generates NO
+// conversational text. Any violation corrupts the project (infected files with
+// French text instead of code).
 const SILENCE_ABSOLU = `
-SILENCE ABSOLU — RÈGLE S1 DE LA CONSTITUTION DIAMOND G50+:
-- Ne génère AUCUN texte conversationnel (pas de "Voici", "Le projet", etc.)
-- AUCUNE explication, AUCUNE introduction, AUCUNE conclusion
-- UNIQUEMENT du JSON valide avec les fichiers
-- Toute violation corrompt le projet et déclenche un cycle de correction
-- Format strict: {"files":[{"path":"...","content":"...","language":"..."}]}
+SILENCE ABSOLU — RULE S1 OF THE DIAMOND G50+ CONSTITUTION:
+- Do NOT generate ANY conversational text (no "Here is", "The project", etc.)
+- NO explanations, NO introductions, NO conclusions
+- ONLY valid JSON with files
+- Any violation corrupts the project and triggers a correction cycle
+- Strict format: {"files":[{"path":"...","content":"...","language":"..."}]}
 
-RÈGLES DE STRUCTURE (R1-R5):
-- index.html en MINUSCULES avec id="root" et <script src="./src/app/main.tsx">
-- vite.config.ts présent avec plugins:[react()] ET base:'./' (OBLIGATOIRE pour APK)
-- package.json: type:"module", build:"vite build" (JAMAIS tsc)
-- HashRouter OBLIGATOIRE (JAMAIS BrowserRouter) — requis pour protocole file:// dans APK
-- capacitor.config.ts présent avec server.androidScheme, server.hostname, webDir:'dist'
+STRUCTURE RULES (R1-R5):
+- index.html in LOWERCASE with id="root" and <script src="./src/app/main.tsx">
+- vite.config.ts present with plugins:[react()] AND base:'./' (MANDATORY for APK)
+- package.json: type:"module", build:"vite build" (NEVER tsc)
+- HashRouter MANDATORY (NEVER BrowserRouter) — required for file:// protocol in APK
+- capacitor.config.ts present with server.androidScheme, server.hostname, webDir:'dist'
 
-RÈGLES CAPACITOR / APK (M1-M5):
-- Toujours utiliser base: './' dans vite.config.ts (chemins relatifs pour file://)
-- HashRouter OBLIGATOIRE — BrowserRouter ne fonctionne PAS en file://
-- Créer capacitor.config.ts avec: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
-- Tous les chemins d'assets doivent être relatifs (./assets/... pas /assets/...)
-- S'assurer que l'app tient dans un viewport mobile (360-414px)- capacitor.config.ts présent avec server.androidScheme, server.hostname, webDir:'dist'
+CAPACITOR / APK RULES (M1-M5):
+- Always use base: './' in vite.config.ts (relative paths for file://)
+- HashRouter MANDATORY — BrowserRouter does NOT work with file://
+- Create capacitor.config.ts with: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
+- All asset paths must be relative (./assets/... not /assets/...)
+- Ensure the app fits in a mobile viewport (360-414px)
+- capacitor.config.ts present with server.androidScheme, server.hostname, webDir:'dist'
 
-RÈGLES CAPACITOR / APK (M1-M5):
-- Toujours utiliser base: './' dans vite.config.ts (chemins relatifs pour file://)
-- HashRouter OBLIGATOIRE — BrowserRouter ne fonctionne PAS en file://
-- Créer capacitor.config.ts avec: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
-- Tous les chemins d'assets doivent être relatifs (./assets/... pas /assets/...)
-- S'assurer que l'app tient dans un viewport mobile (360-414px)
-INTERDICTIONS (X1-X12):
-- JAMAIS package.js, tsconfig.js, App.ts, main.js, *.vue
-- Toutes balises JSX DOIVENT être fermées
-- Template strings AVEC backticks: \`...\${value}...\`
-- Pas de préfixe de langage (html, javascript, etc.) dans les fichiers
+CAPACITOR / APK RULES (M1-M5):
+- Always use base: './' in vite.config.ts (relative paths for file://)
+- HashRouter MANDATORY — BrowserRouter does NOT work with file://
+- Create capacitor.config.ts with: androidScheme: 'https', hostname: 'localhost', webDir: 'dist'
+- All asset paths must be relative (./assets/... not /assets/...)
+- Ensure the app fits in a mobile viewport (360-414px)
+
+PROHIBITIONS (X1-X12):
+- NEVER package.js, tsconfig.js, App.ts, main.js, *.vue
+- All JSX tags MUST be closed
+- Template strings WITH backticks: \`...\${value}...\`
+- No language prefix (html, javascript, etc.) in files
 `;
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -228,7 +230,7 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
   // Strategy 2: KIROV Bridge (DeepSeek via extension)
   console.log(`[gold-async] GLM failed, falling back to bridge...`);
   const fullPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 240000); // 240s per pass (DeepSeek peut générer 20k+ chars)
+  const bridgeResult = await bridgeState.runOneShot(fullPrompt, 240000); // 240s per pass (DeepSeek can generate 20k+ chars)
   if (bridgeResult.content && bridgeResult.content.length > 20) {
     console.log(`[gold-async] Bridge OK (${bridgeResult.content.length} chars)`);
     return bridgeResult.content;
@@ -241,28 +243,28 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
 function buildArchitecturePrompt(config: ProjectConfig): string {
   const features = config.features.length > 0
     ? `Features: ${config.features.join(", ")}`
-    : "Aucune feature spéciale";
-  return `Tu es un architecte logiciel senior. Génère un plan d'architecture pour l'application React suivante.
+    : "No special features";
+  return `You are a senior software architect. Generate an architecture plan for the following React application.
 
 Application: "${config.name}"
 Description: "${config.description}"
 ${features}
 Stack: ${config.stack}, TypeScript: ${config.typescript}, Styling: ${config.styling}
 
-Génère un plan d'architecture au format JSON avec:
-1. "folders": liste des dossiers à créer
-2. "features": liste des features identifiées
-3. "dependencies": liste des dépendances npm ({name, version, dev?})
-4. "routes": liste des routes ({path, component})
-5. "components": liste des composants à générer
+Generate an architecture plan in JSON format with:
+1. "folders": list of folders to create
+2. "features": list of identified features
+3. "dependencies": list of npm dependencies ({name, version, dev?})
+4. "routes": list of routes ({path, component})
+5. "components": list of components to generate
 
-Format JSON: {"folders":[...],"features":[...],"dependencies":[...],"routes":[...],"components":[...]}
-Réponds UNIQUEMENT avec le JSON.`;
+JSON format: {"folders":[...],"features":[...],"dependencies":[...],"routes":[...],"components":[...]}
+Respond ONLY with the JSON.`;
 }
 
 async function passArchitecture(config: ProjectConfig): Promise<ArchitecturePlan | null> {
   const response = await callLLM(
-    "Tu es un architecte logiciel senior React/TypeScript. Tu réponds UNIQUEMENT par du JSON valide.",
+    "You are a senior React/TypeScript software architect. You respond ONLY with valid JSON.",
     SILENCE_ABSOLU + "\n\n" + buildArchitecturePrompt(config)
   );
   const parsed = extractJson(response) as ArchitecturePlan | null;
@@ -273,31 +275,31 @@ async function passArchitecture(config: ProjectConfig): Promise<ArchitecturePlan
 async function passTypes(config: ProjectConfig, arch: ArchitecturePlan): Promise<GeneratedFile[]> {
   const featuresList = arch.features.map((f) => `- ${f}`).join("\n");
   const componentsList = arch.components.map((c) => `- ${c}`).join("\n");
-  const prompt = `Tu es un ingénieur TypeScript senior. Génère les types et interfaces pour l'application.
+  const prompt = `You are a senior TypeScript engineer. Generate the types and interfaces for the application.
 
 Application: "${config.name}"
 Description: "${config.description}"
 Features: ${featuresList}
-Composants: ${componentsList}
+Components: ${componentsList}
 
-Génère les fichiers de types TypeScript suivants au format JSON:
-- src/shared/types/index.ts (types globaux + réexports)
-- src/shared/types/api.ts (types API)
-- Un fichier de types par feature (src/features/[feature]/types.ts)
+Generate the following TypeScript type files in JSON format:
+- src/shared/types/index.ts (global types + reexports)
+- src/shared/types/api.ts (API types)
+- One type file per feature (src/features/[feature]/types.ts)
 
-RÈGLES CRITIQUES:
-1. TOUS les types référencés dans le code DOIVENT être définis — JAMAIS de type non défini
-2. Définis les types d'enum/union explicitement, ex:
+CRITICAL RULES:
+1. ALL types referenced in the code MUST be defined — NEVER an undefined type
+2. Define enum/union types explicitly, e.g.:
    export type TimerPhase = 'work' | 'shortBreak' | 'longBreak';
-3. Chaque feature doit avoir ses propres types dans src/features/[feature]/types.ts
-4. src/shared/types/index.ts doit réexporter tous les types partagés
-5. Utilise Zod pour la validation quand pertinent
-6. PAS de 'any' — utilise 'unknown' ou des types spécifiques
+3. Each feature must have its own types in src/features/[feature]/types.ts
+4. src/shared/types/index.ts must re-export all shared types
+5. Use Zod for validation when relevant
+6. NO 'any' — use 'unknown' or specific types
 
-Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
-Réponds UNIQUEMENT avec le JSON.`;
+JSON format: {"files":[{"path":"...","content":"...","language":"typescript"}]}
+Respond ONLY with the JSON.`;
 
-  const response = await callLLM("Tu es un ingénieur TypeScript senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
+  const response = await callLLM("You are a senior TypeScript engineer. You respond ONLY with valid JSON.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
@@ -305,70 +307,70 @@ Réponds UNIQUEMENT avec le JSON.`;
 async function passLogic(config: ProjectConfig, arch: ArchitecturePlan, typeFiles: GeneratedFile[]): Promise<GeneratedFile[]> {
   const componentsList = arch.components.map((c) => `- ${c}`).join("\n");
   const typePaths = typeFiles.map((f) => f.path).join(", ");
-  const prompt = `Tu es un développeur React senior. Génère la logique métier (composants + hooks).
+  const prompt = `You are a senior React developer. Generate the business logic (components + hooks).
 
 Application: "${config.name}"
 Description: "${config.description}"
-Composants à générer: ${componentsList}
-Types disponibles: ${typePaths}
+Components to generate: ${componentsList}
+Available types: ${typePaths}
 
-Génère les composants et hooks au format JSON.
-Chaque composant doit être fonctionnel avec useState/useEffect, pas juste statique.
+Generate components and hooks in JSON format.
+Each component must be functional with useState/useEffect, not just static.
 
-Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
-Réponds UNIQUEMENT avec le JSON.`;
+JSON format: {"files":[{"path":"...","content":"...","language":"typescript"}]}
+Respond ONLY with the JSON.`;
 
-  const response = await callLLM("Tu es un développeur React senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
+  const response = await callLLM("You are a senior React developer. You respond ONLY with valid JSON.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
 
 async function passUi(config: ProjectConfig, logicFiles: GeneratedFile[]): Promise<GeneratedFile[]> {
   const componentPaths = logicFiles.map((f) => f.path).join(", ");
-  const prompt = `Tu es un designer React senior. Génère les composants UI manquants.
+  const prompt = `You are a senior React designer. Generate the missing UI components.
 
 Application: "${config.name}"
-Composants existants: ${componentPaths}
+Existing components: ${componentPaths}
 Styling: ${config.styling}
 
-Génère les composants UI (layouts, pages, design system) au format JSON.
+Generate UI components (layouts, pages, design system) in JSON format.
 
-RÈGLES CRITIQUES DE COHÉRENCE:
-1. Chaque composant DOIT accepter des props TypeScript typées (interface XProps {...})
-2. Les composants UI (Button, Card, Skeleton, EmptyState, ErrorState, etc.) DOIVENT accepter:
+CRITICAL COHERENCE RULES:
+1. Each component MUST accept typed TypeScript props (interface XProps {...})
+2. UI components (Button, Card, Skeleton, EmptyState, ErrorState, etc.) MUST accept:
    - className?: string
    - children?: React.ReactNode
-   - Et toutes les props métier pertinentes (title, description, action, onRetry, etc.)
-3. TOUS les composants DOIVENT avoir un export default ET un export nommé:
+   - And all relevant business props (title, description, action, onRetry, etc.)
+3. ALL components MUST have a default export AND a named export:
    export function Button({...}: ButtonProps) { ... }
    export default Button;
-4. Exporte aussi les types: export type ButtonProps = {...}
-5. NE génère PAS de composants qui n'acceptent que children — ils doivent être riches en props
-6. Utilise ${config.styling === "tailwind" ? "des classes Tailwind" : "du CSS"} pour le style
-7. Palette: slate/gray/zinc/neutral uniquement (JAMAIS purple/indigo/violet)
+4. Also export the types: export type ButtonProps = {...}
+5. Do NOT generate components that only accept children — they must be rich in props
+6. Use ${config.styling === "tailwind" ? "Tailwind classes" : "CSS"} for styling
+7. Palette: slate/gray/zinc/neutral only (NEVER purple/indigo/violet)
 
-Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
-Réponds UNIQUEMENT avec le JSON.`;
+JSON format: {"files":[{"path":"...","content":"...","language":"typescript"}]}
+Respond ONLY with the JSON.`;
 
-  const response = await callLLM("Tu es un designer React senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
+  const response = await callLLM("You are a senior React designer. You respond ONLY with valid JSON.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
 
 async function passTests(config: ProjectConfig, allFiles: GeneratedFile[]): Promise<GeneratedFile[]> {
   const filePaths = allFiles.slice(0, 20).map((f) => f.path).join(", ");
-  const prompt = `Tu es un ingénieur test senior. Génère les tests unitaires Vitest.
+  const prompt = `You are a senior test engineer. Generate Vitest unit tests.
 
 Application: "${config.name}"
-Fichiers à tester: ${filePaths}
+Files to test: ${filePaths}
 
-Génère les fichiers de test (.test.ts/.test.tsx) au format JSON.
-Tests de comportement (pas d'implémentation interne).
+Generate test files (.test.ts/.test.tsx) in JSON format.
+Behavioral tests (not internal implementation).
 
-Format JSON: {"files":[{"path":"...","content":"...","language":"typescript"}]}
-Réponds UNIQUEMENT avec le JSON.`;
+JSON format: {"files":[{"path":"...","content":"...","language":"typescript"}]}
+Respond ONLY with the JSON.`;
 
-  const response = await callLLM("Tu es un ingénieur test senior. Tu réponds UNIQUEMENT par du JSON valide.", SILENCE_ABSOLU + "\n\n" + prompt);
+  const response = await callLLM("You are a senior test engineer. You respond ONLY with valid JSON.", SILENCE_ABSOLU + "\n\n" + prompt);
   const parsed = extractJson(response) as { files?: RawFile[] } | null;
   return parsed?.files ? parseFiles(parsed.files) : [];
 }
@@ -440,12 +442,12 @@ export async function runNextPass(
       const arch = await passArchitecture(config);
       if (!arch) {
         phase.status = "failed";
-        phase.message = "Échec architecture";
+        phase.message = "Architecture failed";
         return { success: false, state, passName: phase.name, filesGenerated: 0, done: false, error: "Architecture failed" };
       }
       state.arch = arch;
       phase.status = "done";
-      phase.message = `${arch.features.length} features, ${arch.components.length} composants`;
+      phase.message = `${arch.features.length} features, ${arch.components.length} components`;
       phase.filesGenerated = 0;
     } else if (pass === 2) {
       // Pass 2: Scaffold (deterministic, no LLM)
@@ -465,7 +467,7 @@ export async function runNextPass(
       state.typeFiles = await passTypes(config, state.arch);
       phase.status = "done";
       phase.filesGenerated = state.typeFiles.length;
-      phase.message = `${state.typeFiles.length} fichiers types`;
+      phase.message = `${state.typeFiles.length} type files`;
     } else if (pass === 4) {
       // Pass 4: Logic
       if (!state.arch) {
@@ -475,20 +477,20 @@ export async function runNextPass(
       state.logicFiles = await passLogic(config, state.arch, state.typeFiles);
       phase.status = "done";
       phase.filesGenerated = state.logicFiles.length;
-      phase.message = `${state.logicFiles.length} composants/hooks`;
+      phase.message = `${state.logicFiles.length} components/hooks`;
     } else if (pass === 5) {
       // Pass 5: UI
       state.uiFiles = await passUi(config, state.logicFiles);
       phase.status = "done";
       phase.filesGenerated = state.uiFiles.length;
-      phase.message = `${state.uiFiles.length} composants UI`;
+      phase.message = `${state.uiFiles.length} UI components`;
     } else if (pass === 6) {
       // Pass 6: Tests
       const allSoFar = [...state.designFiles, ...state.dataFiles, ...state.featureFiles, ...state.typeFiles, ...state.logicFiles, ...state.uiFiles];
       state.testFiles = await passTests(config, allSoFar);
       phase.status = "done";
       phase.filesGenerated = state.testFiles.length;
-      phase.message = `${state.testFiles.length} fichiers tests`;
+      phase.message = `${state.testFiles.length} test files`;
     }
 
     state.currentPass = pass + 1;
@@ -502,7 +504,7 @@ export async function runNextPass(
     };
   } catch (e) {
     phase.status = "failed";
-    phase.message = e instanceof Error ? e.message : "Erreur";
+    phase.message = e instanceof Error ? e.message : "Error";
     return {
       success: false,
       state,
@@ -529,12 +531,12 @@ export interface FinalizeResult {
 }
 
 /**
- * Finalise le projet avec auto-guérison Constitution Diamond G50+:
+ * Finalizes the project with Constitution Diamond G50+ auto-healing:
  *   1. Merge LLM files + Gold templates
- *   2. Post-process (validators existants)
- *   3. applyKnownFixes (corrections sûres automatiques)
- *   4. validateConstitution (checklist complète)
- *   5. autoHealingCycles (retry LLM si erreurs critiques, max 3 cycles)
+ *   2. Post-process (existing validators)
+ *   3. applyKnownFixes (automatic safe corrections)
+ *   4. validateConstitution (complete checklist)
+ *   5. autoHealingCycles (retry LLM if critical errors, max 3 cycles)
  */
 export async function finalizeFiles(
   state: GoldPassState,
@@ -569,12 +571,12 @@ export async function finalizeFiles(
     }
   }
 
-  // Post-process (validators + auto-repair existant)
+  // Post-process (validators + existing auto-repair)
   const { files: postProcessed } = postProcessProject(deduped, config);
 
   // ── CONSTITUTION DIAMOND G50+ AUTO-HEALING ──
-  // applyKnownFixes + validateConstitution + autoSuture (retry LLM) jusqu'à OK
-  console.log("[finalize] Démarrage auto-healing Constitution G50+...");
+  // applyKnownFixes + validateConstitution + autoSuture (retry LLM) until OK
+  console.log("[finalize] Starting auto-healing Constitution G50+...");
   const healingResult = await autoHealingCycles(postProcessed, config, 3);
 
     // ── CAPACITOR APK COMPATIBILITY (anti-white screen) ──
@@ -588,7 +590,7 @@ export async function finalizeFiles(
 
 // ── NUCLEAR GUARD: Final quality check + auto-repair ──
   // Scan all files for syntax errors and auto-repair if needed
-  console.log("[finalize] Démarrage Nuclear Guard (qualité finale)...");
+  console.log("[finalize] Starting Nuclear Guard (final quality)...");
   const nuclearResult = await runNuclearGuard(healingResult.files, config, {
     maxAutoRepair: 5,
   });
@@ -601,14 +603,14 @@ export async function finalizeFiles(
       : healingResult.files;
 
   if (nuclearResult.repairedCount > 0) {
-    console.log(`[NUCLEAR GUARD] ✅ ${nuclearResult.repairedCount} file(s) auto-repaired.`);
+    console.log(`[NUCLEAR GUARD]  ${nuclearResult.repairedCount} file(s) auto-repaired.`);
   }
 
   // Quick quality check for the summary
   const qualityCheck = quickQualityCheck(finalFiles);
 
   console.log(
-    `[finalize] Auto-healing terminé: ${healingResult.validation.criticalCount} critical, ` +
+    `[finalize] Auto-healing completed: ${healingResult.validation.criticalCount} critical, ` +
     `${healingResult.validation.errorCount} errors (${healingResult.cyclesUsed} cycles). ` +
     `Nuclear Guard: ${qualityCheck.grade} (${qualityCheck.passRate}% pass rate)`
   );
@@ -630,4 +632,4 @@ export async function finalizeFiles(
     },
   };
 }
-
+```
